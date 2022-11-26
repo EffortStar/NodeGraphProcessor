@@ -55,7 +55,6 @@ namespace GraphProcessor
 					if (nodePortSignature)
 					{
 						deleg = new CustomPortIODelegate((node, edges, port) => {
-							Debug.Log(port);
 							method.Invoke(node, new object[]{ edges, port});
 						});
 					}
