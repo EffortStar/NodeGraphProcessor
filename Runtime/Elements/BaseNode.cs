@@ -555,7 +555,10 @@ namespace GraphProcessor
 				//check if field is a collection type
 				isMultiple = (inputAttribute != null) ? inputAttribute.allowMultiple : (outputAttribute.allowMultiple);
 				input = inputAttribute != null;
-				tooltip = tooltipAttribute?.tooltip;
+				tooltip = $"<b>{TypeUtility.FormatTypeName(field.FieldType)}</b>";
+				if (tooltipAttribute != null) {
+					tooltip += $"\n{tooltipAttribute.tooltip}";
+				}
 
 				if (!String.IsNullOrEmpty(inputAttribute?.name))
 					name = inputAttribute.name;
