@@ -109,7 +109,7 @@ namespace GraphProcessor
 
 			if (name != null)
 				portName = name;
-			visualClass = "Port_" + portType.Name;
+			visualClass = UssUtility.PortVisualClass(portType);
 			tooltip = portData.tooltip;
 		}
 
@@ -152,7 +152,7 @@ namespace GraphProcessor
 			{
 				base.portType = data.displayType;
 				portType = data.displayType;
-				visualClass = "Port_" + portType.Name;
+  			visualClass = UssUtility.PortVisualClass(portType);
 			}
 			if (!String.IsNullOrEmpty(data.displayName))
 				base.portName = data.displayName;
