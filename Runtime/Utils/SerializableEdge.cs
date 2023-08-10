@@ -43,20 +43,18 @@ namespace GraphProcessor
 
 		public static SerializableEdge CreateNewEdge(BaseGraph graph, NodePort inputPort, NodePort outputPort)
 		{
-			SerializableEdge	edge = new SerializableEdge();
-
-			edge.owner = graph;
-			edge.GUID = System.Guid.NewGuid().ToString();
-			edge.inputNode = inputPort.owner;
-			edge.inputFieldName = inputPort.fieldName;
-			edge.outputNode = outputPort.owner;
-			edge.outputFieldName = outputPort.fieldName;
-			edge.inputPort = inputPort;
-			edge.outputPort = outputPort;
-			edge.inputPortIdentifier = inputPort.portData.identifier;
-			edge.outputPortIdentifier = outputPort.portData.identifier;
-
-			return edge;
+			return new() {
+				owner = graph,
+				GUID = System.Guid.NewGuid().ToString(),
+				inputNode = inputPort.owner,
+				inputFieldName = inputPort.fieldName,
+				outputNode = outputPort.owner,
+				outputFieldName = outputPort.fieldName,
+				inputPort = inputPort,
+				outputPort = outputPort,
+				inputPortIdentifier = inputPort.portData.identifier,
+				outputPortIdentifier = outputPort.portData.identifier
+			};
 		}
 
 		public void OnBeforeSerialize()
