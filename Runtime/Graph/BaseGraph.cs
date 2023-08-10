@@ -180,7 +180,6 @@ namespace GraphProcessor
 			foreach (var edge in edges.ToList())
 			{
 				edge.Deserialize();
-				edgesPerGUID[edge.GUID] = edge;
 
 				// Sanity check for the edge:
 				if (edge.inputPort == null || edge.outputPort == null)
@@ -189,6 +188,7 @@ namespace GraphProcessor
 					continue;
 				}
 
+				edgesPerGUID[edge.GUID] = edge;
 
 				// Add the edge to the non-serialized port data
 				edge.inputPort.owner.OnEdgeConnected(edge);
