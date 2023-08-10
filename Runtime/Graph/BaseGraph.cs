@@ -43,14 +43,6 @@ namespace GraphProcessor
 		public static readonly int invalidComputeOrder = -1;
 
 		/// <summary>
-		/// Json list of serialized nodes only used for copy pasting in the editor. Note that this field isn't serialized
-		/// </summary>
-		/// <typeparam name="JsonElement"></typeparam>
-		/// <returns></returns>
-		[SerializeField, Obsolete("Use BaseGraph.nodes instead")]
-		public List< JsonElement >						serializedNodes = new List< JsonElement >();
-
-		/// <summary>
 		/// List of all the nodes in the graph.
 		/// </summary>
 		/// <typeparam name="BaseNode"></typeparam>
@@ -115,9 +107,6 @@ namespace GraphProcessor
 		[SerializeField, SerializeReference]
 		public List< ExposedParameter >					exposedParameters = new List< ExposedParameter >();
 
-		[SerializeField, FormerlySerializedAs("exposedParameters")] // We keep this for upgrade
-		List< ExposedParameter >						serializedParameterList = new List<ExposedParameter>();
-
 		[SerializeField]
 		public List< StickyNote >						stickyNotes = new List<StickyNote>();
 
@@ -168,7 +157,6 @@ namespace GraphProcessor
 			if (isEnabled)
 				OnDisable();
 
-			MigrateGraphIfNeeded();
 			InitializeGraphElements();
 			DestroyBrokenGraphElements();
 			UpdateComputeOrder();
@@ -200,6 +188,7 @@ namespace GraphProcessor
 					Disconnect(edge.GUID);
 					continue;
 				}
+
 
 				// Add the edge to the non-serialized port data
 				edge.inputPort.owner.OnEdgeConnected(edge);
@@ -461,46 +450,7 @@ namespace GraphProcessor
 					node.DisableInternal();
 			}
 
-			MigrateGraphIfNeeded();
-
 			InitializeGraphElements();
-		}
-
-		public void MigrateGraphIfNeeded()
-		{
-#pragma warning disable CS0618
-			// Migration step from JSON serialized nodes to [SerializeReference]
-			if (serializedNodes.Count > 0)
-			{
-				nodes.Clear();
-				foreach (var serializedNode in serializedNodes.ToList())
-				{
-                    var node = JsonSerializer.DeserializeNode(serializedNode) as BaseNode;
-                    if (node != null)
-                        nodes.Add(node);
-				}
-				serializedNodes.Clear();
-
-				// we also migrate parameters here:
-				var paramsToMigrate = serializedParameterList.ToList();
-				exposedParameters.Clear();
-				foreach (var param in paramsToMigrate)
-				{
-					if (param == null)
-						continue;
-
-					var newParam = param.Migrate();
-
-					if (newParam == null)
-					{
-						Debug.LogError($"Can't migrate parameter of type {param.type}, please create an Exposed Parameter class that implements this type.");
-						continue;
-					}
-					else
-						exposedParameters.Add(newParam);
-				}
-			}
-#pragma warning restore CS0618
 		}
 
 		public void OnAfterDeserialize() {}

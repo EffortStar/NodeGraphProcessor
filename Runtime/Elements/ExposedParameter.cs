@@ -5,7 +5,7 @@ using UnityEngine;
 namespace GraphProcessor
 {
 	[Serializable]
-	public class ExposedParameter : ISerializationCallbackReceiver
+	public class ExposedParameter
 	{
         [Serializable]
         public class Settings
@@ -32,10 +32,6 @@ namespace GraphProcessor
 
 		public string				guid; // unique id to keep track of the parameter
 		public string				name;
-		[Obsolete("Use GetValueType()")]
-		public string				type;
-		[Obsolete("Use value instead")]
-		public SerializableObject	serializedValue;
 		public bool					input = true;
         [SerializeReference]
 		public Settings             settings;
@@ -50,57 +46,10 @@ namespace GraphProcessor
 			this.value = value;
         }
 
-		void ISerializationCallbackReceiver.OnAfterDeserialize()
-		{
-			// SerializeReference migration step:
-#pragma warning disable CS0618
-			if (serializedValue?.value != null) // old serialization system can't serialize null values
-			{
-				value = serializedValue.value;
-				Debug.Log("Migrated: " + serializedValue.value + " | " + serializedValue.serializedName);
-				serializedValue.value = null;
-			}
-#pragma warning restore CS0618
-		}
-
-		void ISerializationCallbackReceiver.OnBeforeSerialize() {}
-
         protected virtual Settings CreateSettings() => new Settings();
 
         public virtual object value { get; set; }
         public virtual Type GetValueType() => value == null ? typeof(object) : value.GetType();
-
-        static Dictionary<Type, Type> exposedParameterTypeCache = new Dictionary<Type, Type>();
-        internal ExposedParameter Migrate()
-        {
-            if (exposedParameterTypeCache.Count == 0)
-            {
-                foreach (var type in AppDomain.CurrentDomain.GetAllTypes())
-                {
-                    if (type.IsSubclassOf(typeof(ExposedParameter)) && !type.IsAbstract)
-                    {
-                        var paramType = Activator.CreateInstance(type) as ExposedParameter;
-                        exposedParameterTypeCache[paramType.GetValueType()] = type;
-                    }
-                }
-            }
-#pragma warning disable CS0618 // Use of obsolete fields
-            var oldType = Type.GetType(type);
-#pragma warning restore CS0618
-            if (oldType == null || !exposedParameterTypeCache.TryGetValue(oldType, out var newParamType))
-                return null;
-            
-            var newParam = Activator.CreateInstance(newParamType) as ExposedParameter;
-
-            newParam.guid = guid;
-            newParam.name = name;
-            newParam.input = input;
-            newParam.settings = newParam.CreateSettings();
-            newParam.settings.guid = guid;
-
-            return newParam;
-     
-        }
 
         public static bool operator ==(ExposedParameter param1, ExposedParameter param2)
         {
