@@ -336,8 +336,9 @@ namespace GraphProcessor
 					disconnectEvents.Add((r.inputNode, r));
 					disconnectEvents.Add((r.outputNode, r));
 					onGraphChanges?.Invoke(new GraphChanges{ removedEdge = r });
+					return true;
 				}
-				return r.GUID == edgeGUID;
+				return false;
 			});
 
 			// Delay the edge disconnect event to avoid recursion
