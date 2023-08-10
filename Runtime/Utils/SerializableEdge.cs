@@ -69,12 +69,22 @@ namespace GraphProcessor
 		public void Deserialize()
 		{
 			if (!owner.nodesPerGUID.ContainsKey(outputNodeGUID) || !owner.nodesPerGUID.ContainsKey(inputNodeGUID))
-				return ;
+			{
+				Debug.LogWarning($"Edge {GUID} failed to deserialize due to invalid node GUIDs ({inputNodeGUID} -> {outputNodeGUID})");
+				return;
+			}
 
 			outputNode = owner.nodesPerGUID[outputNodeGUID];
 			inputNode = owner.nodesPerGUID[inputNodeGUID];
 			inputPort = inputNode.GetPort(inputFieldName, inputPortIdentifier);
 			outputPort = outputNode.GetPort(outputFieldName, outputPortIdentifier);
+
+			if (inputPort == null) {
+				Debug.LogWarning($"Edge {GUID} failed to deserialize due to invalid input port (fieldName: {inputFieldName}, id: {inputPortIdentifier})");
+			}
+			if (outputPort == null) {
+				Debug.LogWarning($"Edge {GUID} failed to deserialize due to invalid output port (fieldName: {outputFieldName}, id: {outputPortIdentifier})");
+			}
 		}
 
 		public override string ToString() => $"{outputNode.name}:{outputPort.fieldName} -> {inputNode.name}:{inputPort.fieldName}";
