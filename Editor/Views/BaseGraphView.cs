@@ -244,7 +244,7 @@ namespace GraphProcessor
 				node.createdWithinGroup = unserializedGroups.Any(g => g.innerNodeGUIDs.Contains(sourceGUID));
 				node.OnNodeCreated();
 				//And move a bit the new node
-				node.position.position += new Vector2(20, 20);
+				node.position += new Vector2(20, 20);
 
 				var newNodeView = AddNode(node);
 

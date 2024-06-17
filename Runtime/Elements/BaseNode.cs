@@ -70,7 +70,7 @@ namespace GraphProcessor
 		public readonly NodeOutputPortContainer	outputPorts;
 
 		//Node view datas
-		public Rect					position;
+		public Vector2				position;
 		/// <summary>
 		/// Is the node expanded
 		/// </summary>
@@ -205,7 +205,7 @@ namespace GraphProcessor
 
 			var node = Activator.CreateInstance(nodeType) as BaseNode;
 
-			node.position = new Rect(position, new Vector2(100, 100));
+			node.position = position;
 
 			ExceptionToLog.Call(() => node.OnNodeCreated());
 

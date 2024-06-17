@@ -986,6 +986,11 @@ namespace GraphProcessor
 		public virtual void OnRemoved() {}
 		public virtual void OnCreated() {}
 
+		public void SetPosition(Vector2 newPos)
+		{
+			SetPosition(new Rect(newPos, Vector2.zero)); // The rect size isn't actually used.
+		}
+
 		public override void SetPosition(Rect newPos)
 		{
             if (initializing || !nodeTarget.isLocked)
@@ -995,7 +1000,7 @@ namespace GraphProcessor
 				if (!initializing)
 					owner.RegisterCompleteObjectUndo("Moved graph node");
 
-                nodeTarget.position = newPos;
+                nodeTarget.position = newPos.position;
                 initializing = false;
             }
 		}
