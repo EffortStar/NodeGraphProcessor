@@ -1,9 +1,8 @@
 namespace GraphProcessor
 {
 	// MessageType is only available in UnityEditor so we have our own for runtime
-	public enum NodeMessageType
+	public enum BadgeMessageType
 	{
-		None,
 		Info,
 		Warning,
 		Error

@@ -190,7 +190,7 @@ namespace GraphProcessor
 			foreach (BaseNodeView nodeView in elements.Where(e => e is BaseNodeView))
 			{
 				data.copiedNodes.Add(JsonSerializer.SerializeNode(nodeView.nodeTarget));
-				foreach (var port in nodeView.nodeTarget.GetAllPorts())
+				foreach (var port in nodeView.nodeTarget.AllPorts)
 				{
 					if (port.portData.vertical)
 					{

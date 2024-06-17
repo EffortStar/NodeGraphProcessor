@@ -2,3 +2,21 @@
 {
     background-color: #101010;
 }
+
+Label.icon-badge__text {
+    background-color: black;
+}
+
+Label.icon-badge__text.icon-badge__text--warning,
+.icon-badge.icon-badge--warning {
+    color: #F4BC02;
+}
+
+.icon-badge__tip.icon-badge__tip--warning {
+    --unity-image: unset;
+}
+
+.icon-badge__icon.icon-badge__icon--warning {
+    --unity-image: resource("graphview/badge/exclamationmark.png");
+    background-color: #F4BC02;
+}

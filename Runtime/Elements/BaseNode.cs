@@ -69,6 +69,8 @@ namespace GraphProcessor
 		[NonSerialized]
 		public readonly NodeOutputPortContainer	outputPorts;
 
+		public IEnumerable<NodePort> AllPorts => inputPorts.Concat(outputPorts);
+
 		//Node view datas
 		public Vector2				position;
 		/// <summary>
@@ -90,7 +92,7 @@ namespace GraphProcessor
 		/// Triggered when the node is processes
 		/// </summary>
 		public event ProcessDelegate	onProcessed;
-		public event Action< string, NodeMessageType >	onMessageAdded;
+		public event Action< string, BadgeMessageType >	onMessageAdded;
 		public event Action< string >					onMessageRemoved;
 		/// <summary>
 		/// Triggered after an edge was connected on the node
@@ -143,16 +145,26 @@ namespace GraphProcessor
 
 		internal class NodeFieldInformation
 		{
-			public string						name;
-			public string						fieldName;
-			public FieldInfo					info;
-			public bool							input;
-			public bool							isMultiple;
-			public string						tooltip;
+			public readonly string				name;
+			public readonly string				fieldName;
+			public readonly FieldInfo			info;
+			public readonly bool				input;
+			public readonly bool				isMultiple;
+			public readonly string				tooltip;
 			public CustomPortBehaviorDelegate	behavior;
-			public bool							vertical;
+			public readonly bool				isRequired;
+			public readonly bool				vertical;
 
-			public NodeFieldInformation(FieldInfo info, string name, bool input, bool isMultiple, string tooltip, bool vertical, CustomPortBehaviorDelegate behavior)
+			public NodeFieldInformation(
+				FieldInfo info,
+				string name,
+				bool input,
+				bool isMultiple,
+				string tooltip,
+				bool vertical,
+				CustomPortBehaviorDelegate behavior,
+				bool isRequired
+			)
 			{
 				this.input = input;
 				this.isMultiple = isMultiple;
@@ -160,6 +172,7 @@ namespace GraphProcessor
 				this.name = name;
 				this.fieldName = info.Name;
 				this.behavior = behavior;
+				this.isRequired = isRequired;
 				this.tooltip = tooltip;
 				this.vertical = vertical;
 			}
@@ -278,7 +291,18 @@ namespace GraphProcessor
 				else
 				{
 					// If we don't have a custom behavior on the node, we just have to create a simple port
-					AddPort(nodeField.input, nodeField.fieldName, new PortData { acceptMultipleEdges = nodeField.isMultiple, displayName = nodeField.name, tooltip = nodeField.tooltip, vertical = nodeField.vertical });
+					AddPort(
+						nodeField.input,
+						nodeField.fieldName, 
+						new PortData
+						{
+							acceptMultipleEdges = nodeField.isMultiple,
+							displayName = nodeField.name, 
+							tooltip = nodeField.tooltip,
+							vertical = nodeField.vertical,
+							required = nodeField.isRequired
+						}
+					);
 				}
 			}
 		}
@@ -538,9 +562,7 @@ namespace GraphProcessor
 			{
 				var inputAttribute = field.GetCustomAttribute< InputAttribute >();
 				var outputAttribute = field.GetCustomAttribute< OutputAttribute >();
-				var tooltipAttribute = field.GetCustomAttribute< TooltipAttribute >();
 				var showInInspector = field.GetCustomAttribute< ShowInInspector >();
-				var vertical = field.GetCustomAttribute< VerticalAttribute >();
 				bool isMultiple = false;
 				bool input = false;
 				string name = field.Name;
@@ -551,9 +573,13 @@ namespace GraphProcessor
 
 				if (inputAttribute == null && outputAttribute == null)
 					continue ;
+				
+				var vertical = field.GetCustomAttribute< VerticalAttribute >();
+				var required = field.GetCustomAttribute< RequiredPortAttribute >();
+				var tooltipAttribute = field.GetCustomAttribute< TooltipAttribute >();
 
-				//check if field is a collection type
-				isMultiple = (inputAttribute != null) ? inputAttribute.allowMultiple : (outputAttribute.allowMultiple);
+				// check if field is a collection type
+				isMultiple = inputAttribute?.allowMultiple ?? outputAttribute.allowMultiple;
 				input = inputAttribute != null;
 				tooltip = $"<b>{TypeUtility.FormatTypeName(field.FieldType)}</b>";
 				if (tooltipAttribute != null) {
@@ -566,7 +592,7 @@ namespace GraphProcessor
 					name = outputAttribute.name;
 
 				// By default we set the behavior to null, if the field have a custom behavior, it will be set in the loop just below
-				nodeFields[field.Name] = new NodeFieldInformation(field, name, input, isMultiple, tooltip, vertical != null, null);
+				nodeFields[field.Name] = new NodeFieldInformation(field, name, input, isMultiple, tooltip, vertical != null, null, required != null);
 			}
 
 			foreach (var method in methods)
@@ -776,24 +802,12 @@ namespace GraphProcessor
 		}
 
 		/// <summary>
-		/// Return all the ports of the node
-		/// </summary>
-		/// <returns></returns>
-		public IEnumerable<NodePort> GetAllPorts()
-		{
-			foreach (var port in inputPorts)
-				yield return port;
-			foreach (var port in outputPorts)
-				yield return port;
-		}
-
-		/// <summary>
 		/// Return all the connected edges of the node
 		/// </summary>
 		/// <returns></returns>
 		public IEnumerable<SerializableEdge> GetAllEdges()
 		{
-			foreach (var port in GetAllPorts())
+			foreach (var port in AllPorts)
 				foreach (var edge in port.GetEdges())
 					yield return edge;
 		}
@@ -810,7 +824,7 @@ namespace GraphProcessor
 		/// </summary>
 		/// <param name="message"></param>
 		/// <param name="messageType"></param>
-		public void AddMessage(string message, NodeMessageType messageType)
+		public void AddMessage(string message, BadgeMessageType messageType)
 		{
 			if (messages.Contains(message))
 				return;

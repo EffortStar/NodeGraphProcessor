@@ -20,12 +20,14 @@ namespace GraphProcessor
 	{
 		public BaseNode							nodeTarget;
 
-		public List< PortView >					inputPortViews = new List< PortView >();
-		public List< PortView >					outputPortViews = new List< PortView >();
+		public readonly List< PortView >		inputPortViews = new List< PortView >();
+		public readonly List< PortView >		outputPortViews = new List< PortView >();
+
+		public IEnumerable<PortView> 			AllPortViews => inputPortViews.Concat(outputPortViews);
 
 		public BaseGraphView					owner { private set; get; }
 
-		protected Dictionary< string, List< PortView > > portsPerFieldName = new Dictionary< string, List< PortView > >();
+		protected readonly Dictionary< string, List< PortView > > portsPerFieldName = new Dictionary< string, List< PortView > >();
 
         public VisualElement 					controlsContainer;
 		protected VisualElement					debugContainer;
@@ -34,12 +36,12 @@ namespace GraphProcessor
 		protected VisualElement					bottomPortContainer;
 		private VisualElement 					inputContainerElement;
 
-		VisualElement							settings;
-		NodeSettingsView						settingsContainer;
-		Button									settingButton;
-		TextField								titleTextField;
+		private VisualElement					settings;
+		private NodeSettingsView				settingsContainer;
+		private Button							settingButton;
+		private TextField						titleTextField;
 
-		Label									computeOrderLabel = new Label();
+		private readonly Label					computeOrderLabel = new Label();
 
 		public event Action< PortView >			onPortConnected;
 		public event Action< PortView >			onPortDisconnected;
@@ -48,12 +50,11 @@ namespace GraphProcessor
 
         public bool								initializing = false; //Used for applying SetPosition on locked node at init.
 
-        readonly string							baseNodeStyle = "GraphProcessorStyles/BaseNodeView";
+        private readonly string					baseNodeStyle = "GraphProcessorStyles/BaseNodeView";
 
-		bool									settingsExpanded = false;
+        private bool							settingsExpanded = false;
 
-		[System.NonSerialized]
-		List< IconBadge >						badges = new List< IconBadge >();
+		private IconBadges badges;
 
 		private List<Node> selectedNodes = new List<Node>();
 		private float      selectedNodesFarLeft;
@@ -81,8 +82,8 @@ namespace GraphProcessor
 				capabilities |= Capabilities.Renamable;
 
 			owner.computeOrderUpdated += ComputeOrderUpdatedCallback;
-			node.onMessageAdded += AddMessageView;
-			node.onMessageRemoved += RemoveMessageView;
+			node.onMessageAdded += AddBadge;
+			node.onMessageRemoved += RemoveBadge;
 			node.onPortsUpdated += a => schedule.Execute(_ => UpdatePortsForField(a)).ExecuteLater(0);
 
             styleSheets.Add(Resources.Load<StyleSheet>(baseNodeStyle));
@@ -175,6 +176,8 @@ namespace GraphProcessor
 			SetNodeColor(nodeTarget.color);
             
 			AddInputContainer();
+			
+			badges = new IconBadges(this, topContainer);
 
 			// Add renaming capability
 			if ((capabilities & Capabilities.Renamable) != 0)
@@ -579,56 +582,28 @@ namespace GraphProcessor
 				mainContainer.Remove(debugContainer);
 		}
 
-		public void AddMessageView(string message, Texture icon, Color color)
-			=> AddBadge(new NodeBadgeView(message, icon, color));
+		/// <summary>
+		/// Adds a badge (an attached icon and message).
+		/// </summary>
+		public void AddBadge(string message, BadgeMessageType messageType) => badges.AddBadge(message, messageType);
 
-		public void AddMessageView(string message, NodeMessageType messageType)
+		/// <summary>
+		/// Removes a badge matching the provided <paramref name="message" />.
+		/// </summary>
+		public void RemoveBadge(string message) => badges.RemoveBadge(message);
+
+		/// <summary>
+		/// Removes all badges from this node and its ports.
+		/// </summary>
+		public void RemoveAllBadgesFromNodeAndPorts()
 		{
-			IconBadge	badge = null;
-			switch (messageType)
+			badges.RemoveAllBadges();
+			foreach (PortView port in AllPortViews)
 			{
-				case NodeMessageType.Warning:
-					badge = new NodeBadgeView(message, EditorGUIUtility.IconContent("Collab.Warning").image, Color.yellow);
-					break ;
-				case NodeMessageType.Error:	
-					badge = IconBadge.CreateError(message);
-					break ;
-				case NodeMessageType.Info:
-					badge = IconBadge.CreateComment(message);
-					break ;
-				default:
-				case NodeMessageType.None:
-					badge = new NodeBadgeView(message, null, Color.grey);
-					break ;
+				port.RemoveAllBadges();
 			}
-			
-			AddBadge(badge);
 		}
-
-		void AddBadge(IconBadge badge)
-		{
-			Add(badge);
-			badges.Add(badge);
-			badge.AttachTo(topContainer, SpriteAlignment.TopRight);
-		}
-
-		void RemoveBadge(Func<IconBadge, bool> callback)
-		{
-			badges.RemoveAll(b => {
-				if (callback(b))
-				{
-					b.Detach();
-					b.RemoveFromHierarchy();
-					return true;
-				}
-				return false;
-			});
-		}
-
-		public void RemoveMessageViewContains(string message) => RemoveBadge(b => b.badgeText.Contains(message));
 		
-		public void RemoveMessageView(string message) => RemoveBadge(b => b.badgeText == message);
-
 		public void Highlight()
 		{
 			AddToClassList("Highlight");

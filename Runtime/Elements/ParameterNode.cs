@@ -100,7 +100,7 @@ namespace GraphProcessor
 			ClearMessages();
 			if (parameter == null)
 			{
-				AddMessage($"Parameter not found: {parameterGUID}", NodeMessageType.Error);
+				AddMessage($"Parameter not found: {parameterGUID}", BadgeMessageType.Error);
 				return;
 			}
 

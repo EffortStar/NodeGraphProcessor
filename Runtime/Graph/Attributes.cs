@@ -48,6 +48,14 @@ namespace GraphProcessor
 	}
 
 	/// <summary>
+	/// Mark this port-generating (<see cref="InputAttribute"/>/<see cref="OutputAttribute"/> field as required.
+	/// </summary>
+	[AttributeUsage(AttributeTargets.Field)]
+	public class RequiredPortAttribute : Attribute
+	{
+	}
+
+	/// <summary>
 	/// Creates a vertical port instead of the default horizontal one
 	/// </summary>
 	[AttributeUsage(AttributeTargets.Field, AllowMultiple = false)]

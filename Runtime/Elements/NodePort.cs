@@ -43,16 +43,22 @@ namespace GraphProcessor
 		/// Is the port vertical
 		/// </summary>
 		public bool		vertical;
+		/// <summary>
+		/// Does the port require an edge connection?
+		/// </summary>
+		public bool required;
 
-        public bool Equals(PortData other)
+		public bool Equals(PortData other)
         {
-			return identifier == other.identifier
-				&& displayName == other.displayName
-				&& displayType == other.displayType
-				&& acceptMultipleEdges == other.acceptMultipleEdges
-				&& sizeInPixel == other.sizeInPixel
-				&& tooltip == other.tooltip
-				&& vertical == other.vertical;
+			return other != null
+			       && identifier == other.identifier
+			       && displayName == other.displayName
+			       && displayType == other.displayType
+			       && acceptMultipleEdges == other.acceptMultipleEdges
+			       && sizeInPixel == other.sizeInPixel
+			       && tooltip == other.tooltip
+			       && vertical == other.vertical
+			       && required == other.required;
         }
 
 		public void CopyFrom(PortData other)
@@ -64,6 +70,7 @@ namespace GraphProcessor
 			sizeInPixel = other.sizeInPixel;
 			tooltip = other.tooltip;
 			vertical = other.vertical;
+			required = other.required;
 		}
     }
 
