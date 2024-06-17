@@ -36,19 +36,11 @@ namespace GraphProcessor
 	public class BaseGraph : ScriptableObject, ISerializationCallbackReceiver
 	{
 		static readonly int			maxComputeOrderDepth = 1000;
-		
+
 		/// <summary>Invalid compute order number of a node when it's inside a loop</summary>
 		public static readonly int loopComputeOrder = -2;
 		/// <summary>Invalid compute order number of a node can't process</summary>
 		public static readonly int invalidComputeOrder = -1;
-
-		/// <summary>
-		/// Json list of serialized nodes only used for copy pasting in the editor. Note that this field isn't serialized
-		/// </summary>
-		/// <typeparam name="JsonElement"></typeparam>
-		/// <returns></returns>
-		[SerializeField, Obsolete("Use BaseGraph.nodes instead")]
-		public List< JsonElement >						serializedNodes = new List< JsonElement >();
 
 		/// <summary>
 		/// List of all the nodes in the graph.
@@ -88,8 +80,8 @@ namespace GraphProcessor
 		/// </summary>
 		/// <typeparam name="Group"></typeparam>
 		/// <returns></returns>
-        [SerializeField, FormerlySerializedAs("commentBlocks")]
-        public List< Group >                     		groups = new List< Group >();
+		[SerializeField, FormerlySerializedAs("commentBlocks")]
+		public List<Group> groups = new List<Group>();
 
 		/// <summary>
 		/// All Stack Nodes in the graph
@@ -114,9 +106,6 @@ namespace GraphProcessor
 		/// <returns></returns>
 		[SerializeField, SerializeReference]
 		public List< ExposedParameter >					exposedParameters = new List< ExposedParameter >();
-
-		[SerializeField, FormerlySerializedAs("exposedParameters")] // We keep this for upgrade
-		List< ExposedParameter >						serializedParameterList = new List<ExposedParameter>();
 
 		[SerializeField]
 		public List< StickyNote >						stickyNotes = new List<StickyNote>();
@@ -160,21 +149,20 @@ namespace GraphProcessor
 		[System.NonSerialized]
 		bool _isEnabled = false;
 		public bool isEnabled { get => _isEnabled; private set => _isEnabled = value; }
-		
+
 		public HashSet< BaseNode >		graphOutputs { get; private set; } = new HashSet<BaseNode>();
 
-        protected virtual void OnEnable()
-        {
+		protected virtual void OnEnable()
+		{
 			if (isEnabled)
 				OnDisable();
 
-			MigrateGraphIfNeeded();
 			InitializeGraphElements();
 			DestroyBrokenGraphElements();
 			UpdateComputeOrder();
 			isEnabled = true;
 			onEnabled?.Invoke();
-        }
+		}
 
 		void InitializeGraphElements()
 		{
@@ -192,7 +180,6 @@ namespace GraphProcessor
 			foreach (var edge in edges.ToList())
 			{
 				edge.Deserialize();
-				edgesPerGUID[edge.GUID] = edge;
 
 				// Sanity check for the edge:
 				if (edge.inputPort == null || edge.outputPort == null)
@@ -200,6 +187,8 @@ namespace GraphProcessor
 					Disconnect(edge.GUID);
 					continue;
 				}
+
+				edgesPerGUID[edge.GUID] = edge;
 
 				// Add the edge to the non-serialized port data
 				edge.inputPort.owner.OnEdgeConnected(edge);
@@ -259,7 +248,7 @@ namespace GraphProcessor
 		public SerializableEdge Connect(NodePort inputPort, NodePort outputPort, bool autoDisconnectInputs = true)
 		{
 			var edge = SerializableEdge.CreateNewEdge(this, inputPort, outputPort);
-			
+
 			//If the input port does not support multi-connection, we remove them
 			if (autoDisconnectInputs && !inputPort.portData.acceptMultipleEdges)
 			{
@@ -280,7 +269,7 @@ namespace GraphProcessor
 			}
 
 			edges.Add(edge);
-			
+
 			// Add the edge to the list of connected edges in the nodes
 			inputPort.owner.OnEdgeConnected(edge);
 			outputPort.owner.OnEdgeConnected(edge);
@@ -336,8 +325,9 @@ namespace GraphProcessor
 					disconnectEvents.Add((r.inputNode, r));
 					disconnectEvents.Add((r.outputNode, r));
 					onGraphChanges?.Invoke(new GraphChanges{ removedEdge = r });
+					return true;
 				}
-				return r.GUID == edgeGUID;
+				return false;
 			});
 
 			// Delay the edge disconnect event to avoid recursion
@@ -349,21 +339,21 @@ namespace GraphProcessor
 		/// Add a group
 		/// </summary>
 		/// <param name="block"></param>
-        public void AddGroup(Group block)
-        {
-            groups.Add(block);
-			onGraphChanges?.Invoke(new GraphChanges{ addedGroups = block });
-        }
+		public void AddGroup(Group block)
+		{
+			groups.Add(block);
+			onGraphChanges?.Invoke(new GraphChanges { addedGroups = block });
+		}
 
 		/// <summary>
 		/// Removes a group
 		/// </summary>
 		/// <param name="block"></param>
-        public void RemoveGroup(Group block)
-        {
-            groups.Remove(block);
-			onGraphChanges?.Invoke(new GraphChanges{ removedGroups = block });
-        }
+		public void RemoveGroup(Group block)
+		{
+			groups.Remove(block);
+			onGraphChanges?.Invoke(new GraphChanges { removedGroups = block });
+		}
 
 		/// <summary>
 		/// Add a StackNode
@@ -374,7 +364,7 @@ namespace GraphProcessor
 			stackNodes.Add(stackNode);
 			onGraphChanges?.Invoke(new GraphChanges{ addedStackNode = stackNode });
 		}
-		
+
 		/// <summary>
 		/// Remove a StackNode
 		/// </summary>
@@ -386,27 +376,27 @@ namespace GraphProcessor
 		}
 
 		/// <summary>
-		/// Add a sticky note 
+		/// Add a sticky note
 		/// </summary>
 		/// <param name="note"></param>
-        public void AddStickyNote(StickyNote note)
-        {
-            stickyNotes.Add(note);
-			onGraphChanges?.Invoke(new GraphChanges{ addedStickyNotes = note });
-        }
+		public void AddStickyNote(StickyNote note)
+		{
+			stickyNotes.Add(note);
+			onGraphChanges?.Invoke(new GraphChanges { addedStickyNotes = note });
+		}
 
 		/// <summary>
-		/// Removes a sticky note 
+		/// Removes a sticky note
 		/// </summary>
 		/// <param name="note"></param>
-        public void RemoveStickyNote(StickyNote note)
-        {
-            stickyNotes.Remove(note);
-			onGraphChanges?.Invoke(new GraphChanges{ removedStickyNotes = note });
-        }
+		public void RemoveStickyNote(StickyNote note)
+		{
+			stickyNotes.Remove(note);
+			onGraphChanges?.Invoke(new GraphChanges { removedStickyNotes = note });
+		}
 
 		/// <summary>
-		/// Invoke the onGraphChanges event, can be used as trigger to execute the graph when the content of a node is changed 
+		/// Invoke the onGraphChanges event, can be used as trigger to execute the graph when the content of a node is changed
 		/// </summary>
 		/// <param name="node"></param>
 		public void NotifyNodeChanged(BaseNode node) => onGraphChanges?.Invoke(new GraphChanges { nodeChanged = node });
@@ -460,46 +450,7 @@ namespace GraphProcessor
 					node.DisableInternal();
 			}
 
-			MigrateGraphIfNeeded();
-
 			InitializeGraphElements();
-		}
-
-		public void MigrateGraphIfNeeded()
-		{
-#pragma warning disable CS0618
-			// Migration step from JSON serialized nodes to [SerializeReference]
-			if (serializedNodes.Count > 0)
-			{
-				nodes.Clear();
-				foreach (var serializedNode in serializedNodes.ToList())
-				{
-                    var node = JsonSerializer.DeserializeNode(serializedNode) as BaseNode;
-                    if (node != null)
-                        nodes.Add(node);
-				}
-				serializedNodes.Clear();
-
-				// we also migrate parameters here:
-				var paramsToMigrate = serializedParameterList.ToList();
-				exposedParameters.Clear();
-				foreach (var param in paramsToMigrate)
-				{
-					if (param == null)
-						continue;
-
-					var newParam = param.Migrate();
-
-					if (newParam == null)
-					{
-						Debug.LogError($"Can't migrate parameter of type {param.type}, please create an Exposed Parameter class that implements this type.");
-						continue;
-					}
-					else
-						exposedParameters.Add(newParam);
-				}
-			}
-#pragma warning restore CS0618
 		}
 
 		public void OnAfterDeserialize() {}
@@ -558,7 +509,7 @@ namespace GraphProcessor
 			// patch value with correct type:
 			if (param.GetValueType().IsValueType)
 				value = Activator.CreateInstance(param.GetValueType());
-			
+
 			param.Initialize(name, value);
 			exposedParameters.Add(param);
 
@@ -801,7 +752,7 @@ namespace GraphProcessor
 			{
 				var n = deps.Pop();
 				n.computeOrder = computeOrder;
-			
+
 				if (!loop.Add(n))
 					continue;
 
@@ -819,7 +770,7 @@ namespace GraphProcessor
 			);
 			nodes.RemoveAll(n => n == null);
 		}
-		
+
 		/// <summary>
 		/// Tell if two types can be connected in the context of a graph
 		/// </summary>

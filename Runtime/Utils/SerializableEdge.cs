@@ -43,29 +43,24 @@ namespace GraphProcessor
 
 		public static SerializableEdge CreateNewEdge(BaseGraph graph, NodePort inputPort, NodePort outputPort)
 		{
-			SerializableEdge	edge = new SerializableEdge();
-
-			edge.owner = graph;
-			edge.GUID = System.Guid.NewGuid().ToString();
-			edge.inputNode = inputPort.owner;
-			edge.inputFieldName = inputPort.fieldName;
-			edge.outputNode = outputPort.owner;
-			edge.outputFieldName = outputPort.fieldName;
-			edge.inputPort = inputPort;
-			edge.outputPort = outputPort;
-			edge.inputPortIdentifier = inputPort.portData.identifier;
-			edge.outputPortIdentifier = outputPort.portData.identifier;
-
-			return edge;
+			return new() {
+				owner = graph,
+				GUID = System.Guid.NewGuid().ToString(),
+				inputNode = inputPort.owner,
+				inputFieldName = inputPort.fieldName,
+				outputNode = outputPort.owner,
+				outputFieldName = outputPort.fieldName,
+				inputPort = inputPort,
+				outputPort = outputPort,
+				inputPortIdentifier = inputPort.portData.identifier,
+				outputPortIdentifier = outputPort.portData.identifier
+			};
 		}
 
 		public void OnBeforeSerialize()
 		{
-			if (outputNode == null || inputNode == null)
-				return;
-
-			outputNodeGUID = outputNode.GUID;
-			inputNodeGUID = inputNode.GUID;
+			outputNodeGUID = outputNode?.GUID;
+			inputNodeGUID = inputNode?.GUID;
 		}
 
 		public void OnAfterDeserialize() {}
@@ -74,12 +69,22 @@ namespace GraphProcessor
 		public void Deserialize()
 		{
 			if (!owner.nodesPerGUID.ContainsKey(outputNodeGUID) || !owner.nodesPerGUID.ContainsKey(inputNodeGUID))
-				return ;
+			{
+				Debug.LogWarning($"Edge {GUID} failed to deserialize due to invalid node GUIDs ({inputNodeGUID} -> {outputNodeGUID})");
+				return;
+			}
 
 			outputNode = owner.nodesPerGUID[outputNodeGUID];
 			inputNode = owner.nodesPerGUID[inputNodeGUID];
 			inputPort = inputNode.GetPort(inputFieldName, inputPortIdentifier);
 			outputPort = outputNode.GetPort(outputFieldName, outputPortIdentifier);
+
+			if (inputPort == null) {
+				Debug.LogWarning($"Edge {GUID} failed to deserialize due to invalid input port (fieldName: {inputFieldName}, id: {inputPortIdentifier})");
+			}
+			if (outputPort == null) {
+				Debug.LogWarning($"Edge {GUID} failed to deserialize due to invalid output port (fieldName: {outputFieldName}, id: {outputPortIdentifier})");
+			}
 		}
 
 		public override string ToString() => $"{outputNode.name}:{outputPort.fieldName} -> {inputNode.name}:{inputPort.fieldName}";
