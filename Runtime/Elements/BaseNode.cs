@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace GraphProcessor
 {
@@ -806,6 +807,30 @@ namespace GraphProcessor
 				bool bothNull = string.IsNullOrEmpty(identifier) && string.IsNullOrEmpty(p.portData.identifier);
 				return p.fieldName == fieldName && (bothNull || identifier == p.portData.identifier);
 			});
+		}
+		
+		/// <summary>
+		/// Get the port from field name and identifier ONLY using FormerlySerializedAsAttribute.<br/>
+		/// To be called sparingly when <see cref="GetPort"/> fails, in cases where deserializing and unexpectedly ports are missing.
+		/// </summary>
+		public virtual bool TryGetFallbackPort(ref string fieldName, ref string identifier, out NodePort value)
+		{
+			bool identifierIsNull = string.IsNullOrEmpty(identifier);
+			foreach (NodePort port in AllPorts)
+			{
+				bool bothNull = identifierIsNull && string.IsNullOrEmpty(port.portData.identifier);
+				if (!bothNull && identifier != port.portData.identifier) continue;
+				foreach (FormerlySerializedAsAttribute attribute in port.fieldInfo.GetCustomAttributes<FormerlySerializedAsAttribute>())
+				{
+					if (attribute.oldName != fieldName) continue;
+					value = port;
+					fieldName = port.fieldName;
+					return true;
+				}
+			}
+			
+			value = null;
+			return false;
 		}
 
 		/// <summary>

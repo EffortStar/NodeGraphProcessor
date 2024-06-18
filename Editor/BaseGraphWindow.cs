@@ -60,8 +60,10 @@ namespace GraphProcessor
             if (graph.isEnabled)
                 InitializeGraph(graph);
             else
-                graph.onEnabled += () => InitializeGraph(graph);
+                graph.onEnabled += OnGraphEnabled;
 		}
+
+		private void OnGraphEnabled() => InitializeGraph(graph);
 
 		/// <summary>
 		/// Called by Unity when the window is disabled (happens on domain reload)
@@ -71,11 +73,15 @@ namespace GraphProcessor
 			if (graph != null && graphView != null)
 				graphView.SaveGraphToDisk();
 		}
-		
+
 		/// <summary>
 		/// Called by Unity when the window is closed
 		/// </summary>
-		protected virtual void OnDestroy() { }
+		protected virtual void OnDestroy()
+		{
+			if (graph != null)
+				graph.onEnabled -= OnGraphEnabled;
+		}
 
 		void InitializeRootView()
 		{

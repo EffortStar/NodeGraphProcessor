@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Reflection;
 using UnityEngine;
-using UnityEngine.Serialization;
 
 namespace GraphProcessor
 {
@@ -82,9 +80,8 @@ namespace GraphProcessor
 			var result = DeserializationResult.NoChanges;
 			if (inputPort == null)
 			{
-				if (TryGetFallbackPort(inputNode, inputFieldName, out inputPort))
+				if (inputNode.TryGetFallbackPort(ref inputFieldName, ref inputPortIdentifier, out inputPort))
 				{
-					inputFieldName = inputPort.fieldName;
 					result = DeserializationResult.Changed;
 				}
 				else
@@ -95,35 +92,17 @@ namespace GraphProcessor
 
 			if (outputPort == null)
 			{
-				if (TryGetFallbackPort(outputNode, outputFieldName, out outputPort))
+				if (outputNode.TryGetFallbackPort(ref outputFieldName, ref outputPortIdentifier, out outputPort))
 				{
-					outputFieldName = outputPort.fieldName;
 					result = DeserializationResult.Changed;
 				}
 				else
 				{
-
 					Debug.LogWarning($"Edge {GUID} failed to deserialize due to invalid output port (fieldName: {outputFieldName}, id: {outputPortIdentifier})");
 				}
 			}
 
 			return result;
-
-			bool TryGetFallbackPort(BaseNode node, string fieldName, out NodePort value)
-			{
-				foreach (NodePort port in node.AllPorts)
-				{
-					foreach (FormerlySerializedAsAttribute attribute in port.fieldInfo.GetCustomAttributes<FormerlySerializedAsAttribute>())
-					{
-						if (attribute.oldName != fieldName) continue;
-						value = port;
-						return true;
-					}
-				}
-
-				value = null;
-				return false;
-			}
 		}
 
 		public override string ToString() => $"{outputNode.name}:{outputPort.fieldName} -> {inputNode.name}:{inputPort.fieldName}";

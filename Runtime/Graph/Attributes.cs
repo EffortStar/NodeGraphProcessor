@@ -142,7 +142,7 @@ namespace GraphProcessor
 		/// See CustomPortsNode example in Samples.
 		/// </summary>
 		/// <param name="fieldName">local field of the node</param>
-		/// <param name="inputType">type of input of the port</param>
+		/// <param name="outputType">type of output of the port</param>
 		/// <param name="allowCast">if cast is allowed when connecting an edge</param>
 		public CustomPortOutputAttribute(string fieldName, Type outputType, bool allowCast = true)
 		{
