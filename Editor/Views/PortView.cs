@@ -63,7 +63,7 @@ namespace GraphProcessor
 			pv.AddManipulator(pv.m_EdgeConnector);
 
 			// Force picking in the port label to enlarge the edge creation zone
-			var portLabel = pv.Q("type");
+			VisualElement portLabel = pv.Q("type");
 			if (portLabel != null)
 			{
 				portLabel.pickingMode = PickingMode.Position;
@@ -87,8 +87,8 @@ namespace GraphProcessor
 		public void UpdatePortSize()
 		{
 			int size = portData.sizeInPixel == 0 ? 8 : portData.sizeInPixel;
-			var connector = this.Q("connector");
-			var cap = connector.Q("cap");
+			VisualElement connector = this.Q("connector");
+			VisualElement cap = connector.Q("cap");
 			connector.style.width = size;
 			connector.style.height = size;
 			cap.style.width = size - 4;
@@ -138,8 +138,8 @@ namespace GraphProcessor
 
 			base.Connect(edge);
 
-			var inputNode = (edge.input as PortView).owner;
-			var outputNode = (edge.output as PortView).owner;
+			BaseNodeView inputNode = (edge.input as PortView).owner;
+			BaseNodeView outputNode = (edge.output as PortView).owner;
 
 			edges.Add(edge as EdgeView);
 
@@ -162,8 +162,8 @@ namespace GraphProcessor
 			if (!(edge as EdgeView).isConnected)
 				return ;
 
-			var inputNode = (edge.input as PortView)?.owner;
-			var outputNode = (edge.output as PortView)?.owner;
+			BaseNodeView inputNode = (edge.input as PortView)?.owner;
+			BaseNodeView outputNode = (edge.output as PortView)?.owner;
 
 			inputNode?.OnPortDisconnected(edge.input as PortView);
 			outputNode?.OnPortDisconnected(edge.output as PortView);
@@ -194,7 +194,7 @@ namespace GraphProcessor
 
 			// Update the edge in case the port color have changed
 			schedule.Execute(() => {
-				foreach (var edge in edges)
+				foreach (EdgeView edge in edges)
 				{
 					edge.UpdateEdgeControl();
 					edge.MarkDirtyRepaint();

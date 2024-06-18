@@ -31,7 +31,7 @@ namespace GraphProcessor
         {
             var parameterType = new GenericMenu();
 
-            foreach (var paramType in GetExposedParameterTypes())
+            foreach (Type paramType in GetExposedParameterTypes())
                 parameterType.AddItem(new GUIContent(GetNiceNameFromType(paramType)), false, () =>
                 {
                     string uniqueName = "New " + GetNiceNameFromType(paramType);
@@ -65,7 +65,7 @@ namespace GraphProcessor
 
         protected virtual IEnumerable< Type > GetExposedParameterTypes()
         {
-            foreach (var type in TypeCache.GetTypesDerivedFrom<ExposedParameter>())
+            foreach (Type type in TypeCache.GetTypesDerivedFrom<ExposedParameter>())
             {
                 if (type.IsGenericType)
                     continue ;
@@ -78,7 +78,7 @@ namespace GraphProcessor
         {
             content.Clear();
 
-            foreach (var param in graphView.graph.exposedParameters)
+            foreach (ExposedParameter param in graphView.graph.exposedParameters)
             {
                 var row = new BlackboardRow(new ExposedParameterFieldView(graphView, param), new ExposedParameterPropertyView(graphView, param));
                 row.expanded = param.settings.expanded;
@@ -131,7 +131,7 @@ namespace GraphProcessor
                 return 0;
 
             int index = 0;
-            foreach (var layout in blackboardLayouts)
+            foreach (Rect layout in blackboardLayouts)
             {
                 if (mousePos > layout.yMin && mousePos < layout.yMax)
                     return index + 1;
@@ -145,16 +145,16 @@ namespace GraphProcessor
         {
             DragAndDrop.visualMode = DragAndDropVisualMode.Move;
             int newIndex = GetInsertIndexFromMousePosition(evt.mousePosition);
-            var graphSelectionDragData = DragAndDrop.GetGenericData("DragSelection");
+            object graphSelectionDragData = DragAndDrop.GetGenericData("DragSelection");
 
             if (graphSelectionDragData == null)
                 return;
 
-            foreach (var obj in graphSelectionDragData as List<ISelectable>)
+            foreach (ISelectable obj in graphSelectionDragData as List<ISelectable>)
             {
                 if (obj is ExposedParameterFieldView view)
                 {
-                    var blackBoardRow = view.parent.parent.parent.parent.parent.parent;
+                    VisualElement blackBoardRow = view.parent.parent.parent.parent.parent.parent;
                     int oldIndex = content.Children().ToList().FindIndex(c => c == blackBoardRow);
                     // Try to find the blackboard row
                     content.Remove(blackBoardRow);
@@ -172,7 +172,7 @@ namespace GraphProcessor
             bool updateList = false;
 
             int newIndex = GetInsertIndexFromMousePosition(evt.mousePosition);
-            foreach (var obj in DragAndDrop.GetGenericData("DragSelection") as List<ISelectable>)
+            foreach (ISelectable obj in DragAndDrop.GetGenericData("DragSelection") as List<ISelectable>)
             {
                 if (obj is ExposedParameterFieldView view)
                 {
@@ -180,7 +180,7 @@ namespace GraphProcessor
                         graphView.RegisterCompleteObjectUndo("Moved parameters");
 
                     int oldIndex = graphView.graph.exposedParameters.FindIndex(e => e == view.parameter);
-                    var parameter = graphView.graph.exposedParameters[oldIndex];
+                    ExposedParameter parameter = graphView.graph.exposedParameters[oldIndex];
                     graphView.graph.exposedParameters.RemoveAt(oldIndex);
 
                     // Patch new index after the remove operation:

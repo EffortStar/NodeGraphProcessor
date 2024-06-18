@@ -9,17 +9,32 @@ namespace GraphProcessor
 			Type type,
 			char leftBracket = '<',
 			char rightBracket = '>',
-			char dot = '.')
+			char dot = '.',
+			bool nicify = false)
 		{
-			StringBuilder result = new StringBuilder();
+			if (type == typeof(int))
+				return "Int";
+			if (type == typeof(float))
+				return "Float";
+			if (type == typeof(bool))
+				return "Bool";
+			if (type == typeof(string))
+				return "String";
 
-			if (type.IsGenericType)
+			string resultString;
+			if (!type.IsGenericType)
 			{
+				resultString = type.Name;
+			}
+			else
+			{
+
+				var result = new StringBuilder();
 				string[] parentType = type.Name.Split('`');
 				// We will build the type here.
 				Type[] arguments = type.GetGenericArguments();
 
-				StringBuilder argList = new StringBuilder();
+				var argList = new StringBuilder();
 				foreach (Type t in arguments)
 				{
 					// Let's make sure we get the argument list.
@@ -41,13 +56,15 @@ namespace GraphProcessor
 						parentType[0], leftBracket, argList, rightBracket
 					);
 				}
-			}
-			else
-			{
-				return type.Name;
+
+				resultString = result.ToString();
 			}
 
-			return result.ToString();
+#if UNITY_EDITOR
+			return nicify ? UnityEditor.ObjectNames.NicifyVariableName(resultString) : resultString;
+#else
+			return resultString;
+#endif
 		}
 	}
 }

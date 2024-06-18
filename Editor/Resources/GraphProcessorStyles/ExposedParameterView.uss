@@ -32,15 +32,18 @@ ExposedParameterFieldView Image {
 	background-color: #ffffff;
 }
 
-.parameter-Boolean {
+.parameter-Boolean,
+.parameter-Bool {
 	background-color: #30FFFF;
 }
 
-.parameter-Single {
+.parameter-Single,
+.parameter-Float {
 	background-color: #2080FF;
 }
 
-.parameter-Int32 {
+.parameter-Int32,
+.parameter-Int {
 	background-color: #325dff;
 }
 

@@ -1,6 +1,5 @@
 using UnityEditor.Experimental.GraphView;
 using UnityEngine.UIElements;
-using UnityEditor;
 using UnityEngine;
 using System;
 
@@ -25,16 +24,13 @@ namespace GraphProcessor
 
         public override string title
         {
-            get { return titleLabel.text; }
-            set { titleLabel.text = value; }
+            get => titleLabel.text;
+            set => titleLabel.text = value;
         }
 
         protected bool scrollable
         {
-            get
-            {
-                return _scrollable;
-            }
+            get => _scrollable;
             set
             {
                 if (_scrollable == value)

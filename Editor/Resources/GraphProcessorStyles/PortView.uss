@@ -47,15 +47,18 @@ PortView > #connector > #cap:hover
     background-color: #f0f0f0;
 }
 
-.Port_Boolean {
+.Port_Boolean,
+.Port_Bool {
     --port-color: #ff6d29;
 }
 
-.Port_Single {
+.Port_Single,
+.Port_Float {
     --port-color: #2080FF;
 }
 
-.Port_Int32 {
+.Port_Int32,
+.Port_Int {
     --port-color: #325dff;
 }
 

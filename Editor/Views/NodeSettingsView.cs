@@ -1,5 +1,4 @@
 using UnityEngine.UIElements;
-using UnityEditor.UIElements;
 using UnityEngine;
 
 namespace GraphProcessor
@@ -31,9 +30,6 @@ namespace GraphProcessor
             evt.StopPropagation();
         }
 
-        public override VisualElement contentContainer
-        {
-            get { return m_ContentContainer; }
-        }
+        public override VisualElement contentContainer => m_ContentContainer;
     }
 }

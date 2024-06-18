@@ -58,8 +58,8 @@ namespace GraphProcessor
             {
                 if (owner.graph.nodesPerGUID.ContainsKey(nodeGUID))
                 {
-                    var node = owner.graph.nodesPerGUID[nodeGUID];
-                    var view = owner.nodeViewsPerNode[node];
+                    BaseNode node = owner.graph.nodesPerGUID[nodeGUID];
+                    BaseNodeView view = owner.nodeViewsPerNode[node];
                     view.AddToClassList("stack-child__" + i);
                     i++;
                     AddElement(view);
@@ -87,7 +87,7 @@ namespace GraphProcessor
 
             if (accept && element is BaseNodeView nodeView)
             {
-                var index = Mathf.Clamp(proposedIndex, 0, stackNode.nodeGUIDs.Count - 1);
+                int index = Mathf.Clamp(proposedIndex, 0, stackNode.nodeGUIDs.Count - 1);
 
                 int oldIndex = stackNode.nodeGUIDs.FindIndex(g => g == nodeView.nodeTarget.GUID);
                 if (oldIndex != -1)
@@ -105,7 +105,7 @@ namespace GraphProcessor
 
         public override bool DragLeave(DragLeaveEvent evt, IEnumerable<ISelectable> selection, IDropTarget leftTarget, ISelection dragSource)
         {
-            foreach (var elem in selection)
+            foreach (ISelectable elem in selection)
             {
                 if (elem is BaseNodeView nodeView)
                     stackNode.nodeGUIDs.Remove(nodeView.nodeTarget.GUID);

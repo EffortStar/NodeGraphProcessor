@@ -114,14 +114,14 @@ namespace GraphProcessor
 
 		void InitializePorts()
 		{
-			var listener = owner.connectorListener;
+			BaseEdgeConnectorListener listener = owner.connectorListener;
 
-			foreach (var inputPort in nodeTarget.inputPorts)
+			foreach (NodePort inputPort in nodeTarget.inputPorts)
 			{
 				AddPort(inputPort.fieldInfo, Direction.Input, listener, inputPort.portData);
 			}
 
-			foreach (var outputPort in nodeTarget.outputPorts)
+			foreach (NodePort outputPort in nodeTarget.outputPorts)
 			{
 				AddPort(outputPort.fieldInfo, Direction.Output, listener, outputPort.portData);
 			}
@@ -151,8 +151,8 @@ namespace GraphProcessor
 					mouseOverControls = true;
 				});
 				RegisterCallback<MouseOutEvent>(e => {
-					var rect = GetPosition();
-					var graphMousePosition = owner.contentViewContainer.WorldToLocal(e.mousePosition);
+					Rect rect = GetPosition();
+					Vector2 graphMousePosition = owner.contentViewContainer.WorldToLocal(e.mousePosition);
 					if (rect.Contains(graphMousePosition) || !nodeTarget.showControlsOnHover)
 						return;
 					mouseOverControls = false;
@@ -251,9 +251,9 @@ namespace GraphProcessor
 				settingsContainer.Add(settings);
 				Add(settingsContainer);
 				
-				var fields = nodeTarget.GetType().GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+				FieldInfo[] fields = nodeTarget.GetType().GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
 
-				foreach(var field in fields)
+				foreach(FieldInfo field in fields)
 					if(field.GetCustomAttribute(typeof(SettingAttribute)) != null) 
 						AddSettingField(field);
 			}
@@ -263,7 +263,7 @@ namespace GraphProcessor
 		{
 			if (settingButton != null)
 			{
-				var settingsButtonLayout = settingButton.ChangeCoordinatesTo(settingsContainer.parent, settingButton.layout);
+				Rect settingsButtonLayout = settingButton.ChangeCoordinatesTo(settingsContainer.parent, settingButton.layout);
 				settingsContainer.style.top = settingsButtonLayout.yMax - 18f;
 				settingsContainer.style.left = settingsButtonLayout.xMin - layout.width + 20f;
 			}
@@ -417,8 +417,8 @@ namespace GraphProcessor
 		public void RemovePort(PortView p)
 		{
 			// Remove all connected edges:
-			var edgesCopy = p.GetEdges().ToList();
-			foreach (var e in edgesCopy)
+			List<EdgeView> edgesCopy = p.GetEdges().ToList();
+			foreach (EdgeView e in edgesCopy)
 				owner.Disconnect(e, refreshPorts: false);
 
 			if (p.direction == Direction.Input)
@@ -457,11 +457,11 @@ namespace GraphProcessor
 			selectedNodesNearTop    = int.MaxValue;
 			selectedNodesNearBottom = int.MaxValue;
 
-			foreach(var selectedNode in selectedNodes)
+			foreach(Node selectedNode in selectedNodes)
 			{
-				var nodeStyle  = selectedNode.style;
-				var nodeWidth  = selectedNode.localBound.size.x;
-				var nodeHeight = selectedNode.localBound.size.y;
+				IStyle nodeStyle  = selectedNode.style;
+				float nodeWidth  = selectedNode.localBound.size.x;
+				float nodeHeight = selectedNode.localBound.size.y;
 
 				if(nodeStyle.left.value.value > selectedNodesFarLeft) selectedNodesFarLeft                 = nodeStyle.left.value.value;
 				if(nodeStyle.left.value.value + nodeWidth > selectedNodesFarRight) selectedNodesFarRight   = nodeStyle.left.value.value + nodeWidth;
@@ -491,7 +491,7 @@ namespace GraphProcessor
 			SetValuesForSelectedNodes();
 			if(selectedNodes.Count < 2) return;
 
-			foreach(var selectedNode in selectedNodes)
+			foreach(Node selectedNode in selectedNodes)
 			{
 				selectedNode.SetPosition(GetNodeRect(selectedNode, selectedNodesNearLeft));
 			}
@@ -502,7 +502,7 @@ namespace GraphProcessor
 			SetValuesForSelectedNodes();
 			if(selectedNodes.Count < 2) return;
 
-			foreach(var selectedNode in selectedNodes)
+			foreach(Node selectedNode in selectedNodes)
 			{
 				selectedNode.SetPosition(GetNodeRect(selectedNode, selectedNodesAvgHorizontal - selectedNode.localBound.size.x / 2f));
 			}
@@ -513,7 +513,7 @@ namespace GraphProcessor
 			SetValuesForSelectedNodes();
 			if(selectedNodes.Count < 2) return;
 
-			foreach(var selectedNode in selectedNodes)
+			foreach(Node selectedNode in selectedNodes)
 			{
 				selectedNode.SetPosition(GetNodeRect(selectedNode, selectedNodesFarRight - selectedNode.localBound.size.x));
 			}
@@ -524,7 +524,7 @@ namespace GraphProcessor
 			SetValuesForSelectedNodes();
 			if(selectedNodes.Count < 2) return;
 
-			foreach(var selectedNode in selectedNodes)
+			foreach(Node selectedNode in selectedNodes)
 			{
 				selectedNode.SetPosition(GetNodeRect(selectedNode, top: selectedNodesNearTop));
 			}
@@ -535,7 +535,7 @@ namespace GraphProcessor
 			SetValuesForSelectedNodes();
 			if(selectedNodes.Count < 2) return;
 
-			foreach(var selectedNode in selectedNodes)
+			foreach(Node selectedNode in selectedNodes)
 			{
 				selectedNode.SetPosition(GetNodeRect(selectedNode, top: selectedNodesAvgVertical - selectedNode.localBound.size.y / 2f));
 			}
@@ -546,7 +546,7 @@ namespace GraphProcessor
 			SetValuesForSelectedNodes();
 			if(selectedNodes.Count < 2) return;
 
-			foreach(var selectedNode in selectedNodes)
+			foreach(Node selectedNode in selectedNodes)
 			{
 				selectedNode.SetPosition(GetNodeRect(selectedNode, top: selectedNodesFarBottom - selectedNode.localBound.size.y));
 			}
@@ -554,7 +554,7 @@ namespace GraphProcessor
 
 		public void OpenNodeViewScript()
 		{
-			var script = NodeProvider.GetNodeViewScript(GetType());
+			MonoScript script = NodeProvider.GetNodeViewScript(GetType());
 
 			if (script != null)
 				AssetDatabase.OpenAsset(script.GetInstanceID(), 0, 0);
@@ -562,7 +562,7 @@ namespace GraphProcessor
 
 		public void OpenNodeScript()
 		{
-			var script = NodeProvider.GetNodeScript(nodeTarget.GetType());
+			MonoScript script = NodeProvider.GetNodeScript(nodeTarget.GetType());
 
 			if (script != null)
 				AssetDatabase.OpenAsset(script.GetInstanceID(), 0, 0);
@@ -643,14 +643,14 @@ namespace GraphProcessor
 
 		protected virtual void DrawDefaultInspector(bool fromInspector = false)
 		{
-			var fields = nodeTarget.GetType().GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
+			IEnumerable<FieldInfo> fields = nodeTarget.GetType().GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
 				// Filter fields from the BaseNode type since we are only interested in user-defined fields
 				// (better than BindingFlags.DeclaredOnly because we keep any inherited user-defined fields) 
 				.Where(f => f.DeclaringType != typeof(BaseNode));
 
 			fields = nodeTarget.OverrideFieldOrder(fields).Reverse();
 
-			foreach (var field in fields)
+			foreach (FieldInfo field in fields)
 			{
 				//skip if the field is a node setting
 				if(field.GetCustomAttribute(typeof(SettingAttribute)) != null)
@@ -692,7 +692,7 @@ namespace GraphProcessor
 					continue;
 				}
 
-				var showInputDrawer = field.GetCustomAttribute(typeof(InputAttribute)) != null && field.GetCustomAttribute(typeof(SerializeField)) != null;
+				bool showInputDrawer = field.GetCustomAttribute(typeof(InputAttribute)) != null && field.GetCustomAttribute(typeof(SerializeField)) != null;
 				showInputDrawer |= field.GetCustomAttribute(typeof(InputAttribute)) != null && field.GetCustomAttribute(typeof(ShowAsDrawer)) != null;
 				showInputDrawer &= !fromInspector; // We can't show a drawer in the inspector
 				showInputDrawer &= !typeof(IList).IsAssignableFrom(field.FieldType);
@@ -703,13 +703,13 @@ namespace GraphProcessor
 				if (inspectorNameAttribute != null)
 					displayName = inspectorNameAttribute.displayName;
 
-				var elem = AddControlField(field, displayName, showInputDrawer);
+				VisualElement elem = AddControlField(field, displayName, showInputDrawer);
 				if (hasInputAttribute)
 				{
 					hideElementIfConnected[field.Name] = elem;
 
 					// Hide the field right away if there is already a connection:
-					if (portsPerFieldName.TryGetValue(field.Name, out var pvs))
+					if (portsPerFieldName.TryGetValue(field.Name, out List<PortView> pvs))
 						if (pvs.Any(pv => pv.GetEdges().Count > 0))
 							elem.style.display = DisplayStyle.None;
 				}
@@ -740,9 +740,9 @@ namespace GraphProcessor
 		{
 			if (newValue == null)
 				return;
-			if (visibleConditions.TryGetValue(fieldName, out var list))
+			if (visibleConditions.TryGetValue(fieldName, out List<(object value, VisualElement target)> list))
 			{
-				foreach (var elem in list)
+				foreach ((object value, VisualElement target) elem in list)
 				{
 					if (newValue.Equals(elem.value))
 						elem.target.style.display = DisplayStyle.Flex;
@@ -754,7 +754,7 @@ namespace GraphProcessor
 
 		void UpdateOtherFieldValueSpecific<T>(FieldInfo field, object newValue)
 		{
-			foreach (var inputField in fieldControlsMap[field])
+			foreach (VisualElement inputField in fieldControlsMap[field])
 			{
 				var notify = inputField as INotifyValueChanged<T>;
 				if (notify != null)
@@ -766,17 +766,17 @@ namespace GraphProcessor
 		void UpdateOtherFieldValue(FieldInfo info, object newValue)
 		{
 			// Warning: Keep in sync with FieldFactory CreateField
-			var fieldType = info.FieldType.IsSubclassOf(typeof(UnityEngine.Object)) ? typeof(UnityEngine.Object) : info.FieldType;
-			var genericUpdate = specificUpdateOtherFieldValue.MakeGenericMethod(fieldType);
+			Type fieldType = info.FieldType.IsSubclassOf(typeof(UnityEngine.Object)) ? typeof(UnityEngine.Object) : info.FieldType;
+			MethodInfo genericUpdate = specificUpdateOtherFieldValue.MakeGenericMethod(fieldType);
 
 			genericUpdate.Invoke(this, new object[]{info, newValue});
 		}
 
 		object GetInputFieldValueSpecific<T>(FieldInfo field)
 		{
-			if (fieldControlsMap.TryGetValue(field, out var list))
+			if (fieldControlsMap.TryGetValue(field, out List<VisualElement> list))
 			{
-				foreach (var inputField in list)
+				foreach (VisualElement inputField in list)
 				{
 					if (inputField is INotifyValueChanged<T> notify)
 						return notify.value;
@@ -789,8 +789,8 @@ namespace GraphProcessor
 		object GetInputFieldValue(FieldInfo info)
 		{
 			// Warning: Keep in sync with FieldFactory CreateField
-			var fieldType = info.FieldType.IsSubclassOf(typeof(UnityEngine.Object)) ? typeof(UnityEngine.Object) : info.FieldType;
-			var genericUpdate = specificGetValue.MakeGenericMethod(fieldType);
+			Type fieldType = info.FieldType.IsSubclassOf(typeof(UnityEngine.Object)) ? typeof(UnityEngine.Object) : info.FieldType;
+			MethodInfo genericUpdate = specificGetValue.MakeGenericMethod(fieldType);
 
 			return genericUpdate.Invoke(this, new object[]{info});
 		}
@@ -808,7 +808,7 @@ namespace GraphProcessor
 				return;
 
 			var nodeIndexString = nodeIndex.ToString();
-			foreach (var propertyField in this.Query<PropertyField>().ToList())
+			foreach (PropertyField propertyField in this.Query<PropertyField>().ToList())
 			{
 				propertyField.Unbind();
 				// The property path look like this: nodes.Array.data[x].fieldName
@@ -854,7 +854,7 @@ namespace GraphProcessor
 					objectField.allowSceneObjects = false;
 			}
 
-			if (!fieldControlsMap.TryGetValue(field, out var inputFieldList))
+			if (!fieldControlsMap.TryGetValue(field, out List<VisualElement> inputFieldList))
 				inputFieldList = fieldControlsMap[field] = new List<VisualElement>();
 			inputFieldList.Add(element);
 
@@ -883,12 +883,12 @@ namespace GraphProcessor
 			if (visibleCondition != null)
 			{
 				// Check if target field exists:
-				var conditionField = nodeTarget.GetType().GetField(visibleCondition.fieldName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+				FieldInfo conditionField = nodeTarget.GetType().GetField(visibleCondition.fieldName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
 				if (conditionField == null)
 					Debug.LogError($"[VisibleIf] Field {visibleCondition.fieldName} does not exists in node {nodeTarget.GetType()}");
 				else
 				{
-					visibleConditions.TryGetValue(visibleCondition.fieldName, out var list);
+					visibleConditions.TryGetValue(visibleCondition.fieldName, out List<(object value, VisualElement target)> list);
 					if (list == null)
 						list = visibleConditions[visibleCondition.fieldName] = new List<(object value, VisualElement target)>();
 					list.Add((visibleCondition.value, element));
@@ -901,7 +901,7 @@ namespace GraphProcessor
 
 		void UpdateFieldValues()
 		{
-			foreach (var kp in fieldControlsMap)
+			foreach (KeyValuePair<FieldInfo, List<VisualElement>> kp in fieldControlsMap)
 				UpdateOtherFieldValue(kp.Key, kp.Key.GetValue(nodeTarget));
 		}
 		
@@ -910,7 +910,7 @@ namespace GraphProcessor
 			if (field == null)
 				return;
 
-			var label = field.GetCustomAttribute<SettingAttribute>().name;
+			string label = field.GetCustomAttribute<SettingAttribute>().name;
 
 			var element = new PropertyField(FindSerializedProperty(field.Name));
 			element.Bind(owner.serializedGraph);
@@ -927,7 +927,7 @@ namespace GraphProcessor
 			if(port.direction == Direction.Input && inputContainerElement?.Q(port.fieldName) != null)
 				inputContainerElement.Q(port.fieldName).AddToClassList("empty");
 			
-			if (hideElementIfConnected.TryGetValue(port.fieldName, out var elem))
+			if (hideElementIfConnected.TryGetValue(port.fieldName, out VisualElement elem))
 				elem.style.display = DisplayStyle.None;
 
 			onPortConnected?.Invoke(port);
@@ -939,9 +939,9 @@ namespace GraphProcessor
 			{
 				inputContainerElement.Q(port.fieldName).RemoveFromClassList("empty");
 
-				if (nodeTarget.nodeFields.TryGetValue(port.fieldName, out var fieldInfo))
+				if (nodeTarget.nodeFields.TryGetValue(port.fieldName, out BaseNode.NodeFieldInformation fieldInfo))
 				{
-					var valueBeforeConnection = GetInputFieldValue(fieldInfo.info);
+					object valueBeforeConnection = GetInputFieldValue(fieldInfo.info);
 
 					if (valueBeforeConnection != null)
 					{
@@ -950,7 +950,7 @@ namespace GraphProcessor
 				}
 			}
 			
-			if (hideElementIfConnected.TryGetValue(port.fieldName, out var elem))
+			if (hideElementIfConnected.TryGetValue(port.fieldName, out VisualElement elem))
 				elem.style.display = DisplayStyle.Flex;
 
 			onPortDisconnected?.Invoke(port);
@@ -982,7 +982,7 @@ namespace GraphProcessor
 
 		public override bool	expanded
 		{
-			get { return base.expanded; }
+			get => base.expanded;
 			set
 			{
 				base.expanded = value;
@@ -1045,11 +1045,11 @@ namespace GraphProcessor
 
 		IEnumerable< PortView > SyncPortCounts(IEnumerable< NodePort > ports, IEnumerable< PortView > portViews)
 		{
-			var listener = owner.connectorListener;
-			var portViewList = portViews.ToList();
+			BaseEdgeConnectorListener listener = owner.connectorListener;
+			List<PortView> portViewList = portViews.ToList();
 
 			// Maybe not good to remove ports as edges are still connected :/
-			foreach (var pv in portViews.ToList())
+			foreach (PortView pv in portViews.ToList())
 			{
 				// If the port have disappeared from the node data, we remove the view:
 				// We can use the identifier here because this function will only be called when there is a custom port behavior
@@ -1060,13 +1060,13 @@ namespace GraphProcessor
 				}
 			}
 
-			foreach (var p in ports)
+			foreach (NodePort p in ports)
 			{
 				// Add missing port views
 				if (!portViews.Any(pv => p.portData.identifier == pv.portData.identifier))
 				{
 					Direction portDirection = nodeTarget.IsFieldInput(p.fieldName) ? Direction.Input : Direction.Output;
-					var pv = AddPort(p.fieldInfo, portDirection, listener, p.portData);
+					PortView pv = AddPort(p.fieldInfo, portDirection, listener, p.portData);
 					portViewList.Add(pv);
 				}
 			}
@@ -1076,15 +1076,15 @@ namespace GraphProcessor
 
 		void SyncPortOrder(IEnumerable< NodePort > ports, IEnumerable< PortView > portViews)
 		{
-			var portViewList = portViews.ToList();
-			var portsList = ports.ToList();
+			List<PortView> portViewList = portViews.ToList();
+			List<NodePort> portsList = ports.ToList();
 
 			// Re-order the port views to match the ports order in case a custom behavior re-ordered the ports
 			for (int i = 0; i < portsList.Count; i++)
 			{
-				var id = portsList[i].portData.identifier;
+				string id = portsList[i].portData.identifier;
 
-				var pv = portViewList.FirstOrDefault(p => p.portData.identifier == id);
+				PortView pv = portViewList.FirstOrDefault(p => p.portData.identifier == id);
 				if (pv != null)
 					InsertPort(pv, i);
 			}
@@ -1112,8 +1112,8 @@ namespace GraphProcessor
 					SyncPortCounts(ports, portViews);
 				else
 				{
-					var p = ports.GroupBy(n => n.fieldName);
-					var pv = portViews.GroupBy(v => v.fieldName);
+					IEnumerable<IGrouping<string, NodePort>> p = ports.GroupBy(n => n.fieldName);
+					IEnumerable<IGrouping<string, PortView>> pv = portViews.GroupBy(v => v.fieldName);
 					p.Zip(pv, (portPerFieldName, portViewPerFieldName) => {
 						IEnumerable< PortView > portViewsList = portViewPerFieldName;
 						if (portPerFieldName.Count() != portViewPerFieldName.Count())

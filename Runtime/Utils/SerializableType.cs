@@ -23,7 +23,7 @@ namespace GraphProcessor
 
         public void OnAfterDeserialize()
         {
-			if (!String.IsNullOrEmpty(serializedType))
+			if (!string.IsNullOrEmpty(serializedType))
 			{
 				if (!typeCache.TryGetValue(serializedType, out type))
 				{

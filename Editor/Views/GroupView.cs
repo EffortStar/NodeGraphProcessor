@@ -52,7 +52,7 @@ namespace GraphProcessor
 
         void InitializeInnerNodes()
         {
-            foreach (var nodeGUID in group.innerNodeGUIDs.ToList())
+            foreach (string nodeGUID in group.innerNodeGUIDs.ToList())
             {
                 if (!owner.graph.nodesPerGUID.ContainsKey(nodeGUID))
                 {
@@ -60,8 +60,8 @@ namespace GraphProcessor
                     group.innerNodeGUIDs.Remove(nodeGUID);
                     continue ;
                 }
-                var node = owner.graph.nodesPerGUID[nodeGUID];
-                var nodeView = owner.nodeViewsPerNode[node];
+                BaseNode node = owner.graph.nodesPerGUID[nodeGUID];
+                BaseNodeView nodeView = owner.nodeViewsPerNode[node];
 
                 AddElement(nodeView);
             }
@@ -69,7 +69,7 @@ namespace GraphProcessor
 
         protected override void OnElementsAdded(IEnumerable<GraphElement> elements)
         {
-            foreach (var element in elements)
+            foreach (GraphElement element in elements)
             {
                 var node = element as BaseNodeView;
 
@@ -88,7 +88,7 @@ namespace GraphProcessor
             // Only remove the nodes when the group exists in the hierarchy
             if (parent != null)
             {
-                foreach (var elem in elements)
+                foreach (GraphElement elem in elements)
                 {
                     if (elem is BaseNodeView nodeView)
                     {

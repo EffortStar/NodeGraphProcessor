@@ -59,7 +59,7 @@ namespace GraphProcessor
             oldParameterValues[parameter] = parameter.value;
             view.Add(new IMGUIContainer(() =>
             {
-                if (oldParameterValues.TryGetValue(parameter, out var value))
+                if (oldParameterValues.TryGetValue(parameter, out object value))
                 {
                     if (parameter.value != null && !parameter.value.Equals(value))
                         valueChangedCallback(parameter.value);
@@ -81,9 +81,9 @@ namespace GraphProcessor
         {
             serializedObject.Update();
             int propIndex = FindPropertyIndex(parameter);
-            var serializedParameter = serializedParameters.GetArrayElementAtIndex(propIndex);
+            SerializedProperty serializedParameter = serializedParameters.GetArrayElementAtIndex(propIndex);
             serializedParameter.managedReferenceValue = exposedParameterObject.parameters[propIndex];
-            var serializedSettings = serializedParameter.FindPropertyRelative(nameof(ExposedParameter.settings));
+            SerializedProperty serializedSettings = serializedParameter.FindPropertyRelative(nameof(ExposedParameter.settings));
             serializedSettings.managedReferenceValue = exposedParameterObject.parameters[propIndex].settings;
             var settingsField = new PropertyField(serializedSettings);
             settingsField.Bind(serializedObject);
@@ -95,7 +95,7 @@ namespace GraphProcessor
             oldParameterSettings[parameter] = parameter.settings;
             view.Add(new IMGUIContainer(() =>
             {
-                if (oldParameterSettings.TryGetValue(parameter, out var settings))
+                if (oldParameterSettings.TryGetValue(parameter, out ExposedParameter.Settings settings))
                 {
                     if (!settings.Equals(parameter.settings))
                         valueChangedCallback(parameter.settings);

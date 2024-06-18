@@ -1,8 +1,5 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEditor.Experimental.GraphView;
-using UnityEditor.UIElements;
 using UnityEngine.UIElements;
 using UnityEditor;
 using System.Linq;
@@ -184,7 +181,7 @@ namespace GraphProcessor
 
 		void DrawImGUIButtonList(List< ToolbarButtonData > buttons)
 		{
-			foreach (var button in buttons.ToList())
+			foreach (ToolbarButtonData button in buttons.ToList())
 			{
 				if (!button.visible)
 					continue;
