@@ -246,9 +246,9 @@ namespace GraphProcessor
 				methods = baseType.GetMethods(BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.FlattenHierarchy);
 				foreach (var method in methods)
 				{
-					var typeBehaviors = method.GetCustomAttributes<CustomPortTypeBehavior>().ToArray();
+					var typeBehaviors = method.GetCustomAttributes<CustomPortTypeBehavior>();
 
-					if (typeBehaviors.Length == 0)
+					if (!typeBehaviors.Any())
 						continue;
 
 					CustomPortTypeBehaviorDelegate deleg = null;
@@ -878,5 +878,7 @@ namespace GraphProcessor
 		public string GetCustomName() => String.IsNullOrEmpty(nodeCustomName) ? name : nodeCustomName; 
 
 		#endregion
+
+		public override string ToString() => $"{GetCustomName()} ({GetType().Name}) (in: {graph.name})";
 	}
 }
