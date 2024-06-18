@@ -171,15 +171,17 @@ namespace GraphProcessor
 			nodes.RemoveAll(n => n == null);
 			exposedParameters.RemoveAll(e => e == null);
 
-			foreach (var node in nodes.ToList())
+			foreach (BaseNode node in nodes.ToList())
 			{
 				nodesPerGUID[node.GUID] = node;
 				node.Initialize(this);
 			}
 
-			foreach (var edge in edges.ToList())
+			var requiresReserialization = false;
+
+			foreach (SerializableEdge edge in edges.ToList())
 			{
-				edge.Deserialize();
+				requiresReserialization |= edge.Deserialize() == SerializableEdge.DeserializationResult.Changed;
 
 				// Sanity check for the edge:
 				if (edge.inputPort == null || edge.outputPort == null)
@@ -194,12 +196,19 @@ namespace GraphProcessor
 				edge.inputPort.owner.OnEdgeConnected(edge);
 				edge.outputPort.owner.OnEdgeConnected(edge);
 			}
+
+			if (requiresReserialization)
+			{
+#if UNITY_EDITOR
+				UnityEditor.EditorUtility.SetDirty(this);
+#endif
+			}
 		}
 
 		protected virtual void OnDisable()
 		{
 			isEnabled = false;
-			foreach (var node in nodes)
+			foreach (BaseNode node in nodes)
 				node.DisableInternal();
 		}
 
@@ -252,7 +261,7 @@ namespace GraphProcessor
 			//If the input port does not support multi-connection, we remove them
 			if (autoDisconnectInputs && !inputPort.portData.acceptMultipleEdges)
 			{
-				foreach (var e in inputPort.GetEdges().ToList())
+				foreach (SerializableEdge e in inputPort.GetEdges().ToList())
 				{
 					// TODO: do not disconnect them if the connected port is the same than the old connected
 					Disconnect(e);
@@ -261,7 +270,7 @@ namespace GraphProcessor
 			// same for the output port:
 			if (autoDisconnectInputs && !outputPort.portData.acceptMultipleEdges)
 			{
-				foreach (var e in outputPort.GetEdges().ToList())
+				foreach (SerializableEdge e in outputPort.GetEdges().ToList())
 				{
 					// TODO: do not disconnect them if the connected port is the same than the old connected
 					Disconnect(e);
@@ -317,7 +326,7 @@ namespace GraphProcessor
 		/// <param name="edgeGUID"></param>
 		public void Disconnect(string edgeGUID)
 		{
-			List<(BaseNode, SerializableEdge)> disconnectEvents = new List<(BaseNode, SerializableEdge)>();
+			var disconnectEvents = new List<(BaseNode, SerializableEdge)>();
 
 			edges.RemoveAll(r => {
 				if (r.GUID == edgeGUID)
@@ -331,7 +340,7 @@ namespace GraphProcessor
 			});
 
 			// Delay the edge disconnect event to avoid recursion
-			foreach (var (node, edge) in disconnectEvents)
+			foreach ((BaseNode node, SerializableEdge edge) in disconnectEvents)
 				node?.OnEdgeDisconnected(edge);
 		}
 
@@ -408,7 +417,7 @@ namespace GraphProcessor
 		/// <returns>the pinned element</returns>
 		public PinnedElement OpenPinned(Type viewType)
 		{
-			var pinned = pinnedElements.Find(p => p.editorType.type == viewType);
+			PinnedElement pinned = pinnedElements.Find(p => p.editorType.type == viewType);
 
 			if (pinned == null)
 			{
@@ -427,7 +436,7 @@ namespace GraphProcessor
 		/// <param name="viewType">type of the pinned element</param>
 		public void ClosePinned(Type viewType)
 		{
-			var pinned = pinnedElements.Find(p => p.editorType.type == viewType);
+			PinnedElement pinned = pinnedElements.Find(p => p.editorType.type == viewType);
 
 			pinned.opened = false;
 		}
@@ -446,7 +455,7 @@ namespace GraphProcessor
 			// Disable nodes correctly before removing them:
 			if (nodes != null)
 			{
-				foreach (var node in nodes)
+				foreach (BaseNode node in nodes)
 					node.DisableInternal();
 			}
 
@@ -466,9 +475,9 @@ namespace GraphProcessor
 
 			// Find graph outputs (end nodes) and reset compute order
 			graphOutputs.Clear();
-			foreach (var node in nodes)
+			foreach (BaseNode node in nodes)
 			{
-				if (node.GetOutputNodes().Count() == 0)
+				if (!node.GetOutputNodes().Any())
 					graphOutputs.Add(node);
 				node.computeOrder = 0;
 			}
@@ -483,7 +492,7 @@ namespace GraphProcessor
 					UpdateComputeOrderDepthFirst();
 					break;
 				case ComputeOrderType.BreadthFirst:
-					foreach (var node in nodes)
+					foreach (BaseNode node in nodes)
 						UpdateComputeOrderBreadthFirst(0, node);
 					break;
 			}
@@ -525,7 +534,7 @@ namespace GraphProcessor
 		/// <returns>The unique id of the parameter</returns>
 		public string AddExposedParameter(ExposedParameter parameter)
 		{
-			string guid = Guid.NewGuid().ToString(); // Generated once and unique per parameter
+			var guid = Guid.NewGuid().ToString(); // Generated once and unique per parameter
 
 			parameter.guid = guid;
 			exposedParameters.Add(parameter);
@@ -566,7 +575,7 @@ namespace GraphProcessor
 		/// <param name="value">new value</param>
 		public void UpdateExposedParameter(string guid, object value)
 		{
-			var param = exposedParameters.Find(e => e.guid == guid);
+			ExposedParameter param = exposedParameters.Find(e => e.guid == guid);
 			if (param == null)
 				return;
 
@@ -631,7 +640,7 @@ namespace GraphProcessor
 		/// <returns>true if the value have been assigned</returns>
 		public bool SetParameterValue(string name, object value)
 		{
-			var e = exposedParameters.FirstOrDefault(p => p.name == name);
+			ExposedParameter e = exposedParameters.FirstOrDefault(p => p.name == name);
 
 			if (e == null)
 				return false;
@@ -679,7 +688,7 @@ namespace GraphProcessor
 		HashSet<BaseNode> infiniteLoopTracker = new HashSet<BaseNode>();
 		int UpdateComputeOrderBreadthFirst(int depth, BaseNode node)
 		{
-			int computeOrder = 0;
+			var computeOrder = 0;
 
 			if (depth > maxComputeOrderDepth)
 			{
@@ -700,7 +709,7 @@ namespace GraphProcessor
 				return -1;
 			}
 
-			foreach (var dep in node.GetInputNodes())
+			foreach (BaseNode dep in node.GetInputNodes())
 			{
 				int c = UpdateComputeOrderBreadthFirst(depth + 1, dep);
 
@@ -724,14 +733,14 @@ namespace GraphProcessor
 
 		void UpdateComputeOrderDepthFirst()
 		{
-			Stack<BaseNode> dfs = new Stack<BaseNode>();
+			var dfs = new Stack<BaseNode>();
 
 			GraphUtils.FindCyclesInGraph(this, (n) => {
 				PropagateComputeOrder(n, loopComputeOrder);
 			});
 
-			int computeOrder = 0;
-			foreach (var node in GraphUtils.DepthFirstSort(this))
+			var computeOrder = 0;
+			foreach (BaseNode node in GraphUtils.DepthFirstSort(this))
 			{
 				if (node.computeOrder == loopComputeOrder)
 					continue;
@@ -744,19 +753,19 @@ namespace GraphProcessor
 
 		void PropagateComputeOrder(BaseNode node, int computeOrder)
 		{
-			Stack<BaseNode> deps = new Stack<BaseNode>();
-			HashSet<BaseNode> loop = new HashSet<BaseNode>();
+			var deps = new Stack<BaseNode>();
+			var loop = new HashSet<BaseNode>();
 
 			deps.Push(node);
 			while (deps.Count > 0)
 			{
-				var n = deps.Pop();
+				BaseNode n = deps.Pop();
 				n.computeOrder = computeOrder;
 
 				if (!loop.Add(n))
 					continue;
 
-				foreach (var dep in n.GetOutputNodes())
+				foreach (BaseNode dep in n.GetOutputNodes())
 					deps.Push(dep);
 			}
 		}
