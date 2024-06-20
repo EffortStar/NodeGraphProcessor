@@ -49,13 +49,13 @@ namespace GraphProcessor
         public override VisualElement CreatePropertyGUI(SerializedProperty property)
         {
             var container = new VisualElement();
-            var val = GetValProperty(property);
-            var name = GetNameProperty(property);
+            SerializedProperty val = GetValProperty(property);
+            SerializedProperty name = GetNameProperty(property);
 
-            var settings = GetSettingsProperty(property);
-            var mode = settings.FindPropertyRelative(nameof(FloatParameter.FloatSettings.mode));
-            var min = settings.FindPropertyRelative(nameof(FloatParameter.FloatSettings.min));
-            var max = settings.FindPropertyRelative(nameof(FloatParameter.FloatSettings.max));
+            SerializedProperty settings = GetSettingsProperty(property);
+            SerializedProperty mode = settings.FindPropertyRelative(nameof(FloatParameter.FloatSettings.mode));
+            SerializedProperty min = settings.FindPropertyRelative(nameof(FloatParameter.FloatSettings.min));
+            SerializedProperty max = settings.FindPropertyRelative(nameof(FloatParameter.FloatSettings.max));
             container.Add(new IMGUIContainer(() => {
                 float newValue;
                 EditorGUIUtility.labelWidth = 150;
@@ -84,13 +84,13 @@ namespace GraphProcessor
         public override VisualElement CreatePropertyGUI(SerializedProperty property)
         {
             var container = new VisualElement();
-            var val = GetValProperty(property);
-            var name = GetNameProperty(property);
+            SerializedProperty val = GetValProperty(property);
+            SerializedProperty name = GetNameProperty(property);
 
-            var settings = GetSettingsProperty(property);
-            var mode = settings.FindPropertyRelative(nameof(IntParameter.IntSettings.mode));
-            var min = settings.FindPropertyRelative(nameof(IntParameter.IntSettings.min));
-            var max = settings.FindPropertyRelative(nameof(IntParameter.IntSettings.max));
+            SerializedProperty settings = GetSettingsProperty(property);
+            SerializedProperty mode = settings.FindPropertyRelative(nameof(IntParameter.IntSettings.mode));
+            SerializedProperty min = settings.FindPropertyRelative(nameof(IntParameter.IntSettings.min));
+            SerializedProperty max = settings.FindPropertyRelative(nameof(IntParameter.IntSettings.max));
             container.Add(new IMGUIContainer(() => {
                 int newValue;
                 EditorGUIUtility.labelWidth = 150;
@@ -119,13 +119,13 @@ namespace GraphProcessor
         public override VisualElement CreatePropertyGUI(SerializedProperty property)
         {
             var container = new VisualElement();
-            var val = GetValProperty(property);
-            var name = GetNameProperty(property);
+            SerializedProperty val = GetValProperty(property);
+            SerializedProperty name = GetNameProperty(property);
 
-            var settings = GetSettingsProperty(property);
-            var mode = settings.FindPropertyRelative(nameof(Vector2Parameter.Vector2Settings.mode));
-            var min = settings.FindPropertyRelative(nameof(Vector2Parameter.Vector2Settings.min));
-            var max = settings.FindPropertyRelative(nameof(Vector2Parameter.Vector2Settings.max));
+            SerializedProperty settings = GetSettingsProperty(property);
+            SerializedProperty mode = settings.FindPropertyRelative(nameof(Vector2Parameter.Vector2Settings.mode));
+            SerializedProperty min = settings.FindPropertyRelative(nameof(Vector2Parameter.Vector2Settings.min));
+            SerializedProperty max = settings.FindPropertyRelative(nameof(Vector2Parameter.Vector2Settings.max));
             container.Add(new IMGUIContainer(() => {
                 EditorGUIUtility.labelWidth = 150;
                 EditorGUI.BeginChangeCheck();
@@ -152,8 +152,8 @@ namespace GraphProcessor
     {
         public override VisualElement CreatePropertyGUI(SerializedProperty property)
         {
-            var name = GetNameProperty(property);
-            var settings = GetSettingsProperty(property);
+            SerializedProperty name = GetNameProperty(property);
+            SerializedProperty settings = GetSettingsProperty(property);
             var mode = (GradientParameter.GradientColorMode)settings.FindPropertyRelative(nameof(GradientParameter.GradientSettings.mode)).intValue;
             if (mode == GradientParameter.GradientColorMode.HDR)
                 return new PropertyField(property.FindPropertyRelative("hdrVal"), name.stringValue);
@@ -167,9 +167,9 @@ namespace GraphProcessor
     {
         public override VisualElement CreatePropertyGUI(SerializedProperty property)
         {
-            var name = GetNameProperty(property);
-            var settings = GetSettingsProperty(property);
-            var val = GetValProperty(property);
+            SerializedProperty name = GetNameProperty(property);
+            SerializedProperty settings = GetSettingsProperty(property);
+            SerializedProperty val = GetValProperty(property);
             var mode = (ColorParameter.ColorMode)settings.FindPropertyRelative(nameof(ColorParameter.ColorSettings.mode)).intValue;
 
             var colorField = new ColorField(name.stringValue) { value = val.colorValue, hdr = mode == ColorParameter.ColorMode.HDR };
@@ -191,9 +191,9 @@ namespace GraphProcessor
 
         protected VisualElement CreateHideInInspectorField(SerializedProperty settingsProperty)
         {
-            var isHidden = settingsProperty.FindPropertyRelative(nameof(ExposedParameter.Settings.isHidden));
-            var graph = GetGraph(settingsProperty);
-            var param = GetParameter(settingsProperty); 
+            SerializedProperty isHidden = settingsProperty.FindPropertyRelative(nameof(ExposedParameter.Settings.isHidden));
+            BaseGraph graph = GetGraph(settingsProperty);
+            ExposedParameter param = GetParameter(settingsProperty); 
 			var p =  new PropertyField(isHidden, "Hide in Inspector");
 
             p.RegisterValueChangeCallback(e => {
@@ -207,15 +207,15 @@ namespace GraphProcessor
         protected static BaseGraph GetGraph(SerializedProperty property) => property.serializedObject.FindProperty("graph").objectReferenceValue as BaseGraph;
         protected static ExposedParameter GetParameter(SerializedProperty settingsProperty)
         {
-            var guid = settingsProperty.FindPropertyRelative(nameof(ExposedParameter.Settings.guid)).stringValue;
+            string guid = settingsProperty.FindPropertyRelative(nameof(ExposedParameter.Settings.guid)).stringValue;
             return GetGraph(settingsProperty).GetExposedParameterFromGUID(guid);
         }
 
         protected static PropertyField CreateSettingsField(SerializedProperty settingsProperty, string fieldName, string displayName = null)
         {
-            var prop = settingsProperty.FindPropertyRelative(fieldName);
-            var param = GetParameter(settingsProperty); 
-            var graph = GetGraph(settingsProperty);
+            SerializedProperty prop = settingsProperty.FindPropertyRelative(fieldName);
+            ExposedParameter param = GetParameter(settingsProperty); 
+            BaseGraph graph = GetGraph(settingsProperty);
 
             if (displayName == null)
                 displayName = ObjectNames.NicifyVariableName(fieldName);
@@ -254,9 +254,9 @@ namespace GraphProcessor
             settings.Bind(settingsProperty.serializedObject);
 
             settings.Add(CreateHideInInspectorField(settingsProperty));
-            var mode = CreateSettingsField(settingsProperty, nameof(FloatParameter.FloatSettings.mode), "Mode");
-            var min = CreateSettingsField(settingsProperty, nameof(FloatParameter.FloatSettings.min), "Min");
-            var max = CreateSettingsField(settingsProperty, nameof(FloatParameter.FloatSettings.max), "Max");
+            PropertyField mode = CreateSettingsField(settingsProperty, nameof(FloatParameter.FloatSettings.mode), "Mode");
+            PropertyField min = CreateSettingsField(settingsProperty, nameof(FloatParameter.FloatSettings.min), "Min");
+            PropertyField max = CreateSettingsField(settingsProperty, nameof(FloatParameter.FloatSettings.max), "Max");
 
             mode.RegisterValueChangeCallback(e => UpdateVisibility(e.changedProperty));
             UpdateVisibility(settingsProperty.FindPropertyRelative(nameof(FloatParameter.FloatSettings.mode)));
@@ -290,9 +290,9 @@ namespace GraphProcessor
             settings.Bind(settingsProperty.serializedObject);
 
             settings.Add(CreateHideInInspectorField(settingsProperty));
-            var mode = CreateSettingsField(settingsProperty, nameof(IntParameter.IntSettings.mode), "Mode");
-            var min = CreateSettingsField(settingsProperty, nameof(IntParameter.IntSettings.min), "Min");
-            var max = CreateSettingsField(settingsProperty, nameof(IntParameter.IntSettings.max), "Max");
+            PropertyField mode = CreateSettingsField(settingsProperty, nameof(IntParameter.IntSettings.mode), "Mode");
+            PropertyField min = CreateSettingsField(settingsProperty, nameof(IntParameter.IntSettings.min), "Min");
+            PropertyField max = CreateSettingsField(settingsProperty, nameof(IntParameter.IntSettings.max), "Max");
 
             mode.RegisterValueChangeCallback(e => UpdateVisibility(e.changedProperty));
             UpdateVisibility(settingsProperty.FindPropertyRelative(nameof(IntParameter.IntSettings.mode)));

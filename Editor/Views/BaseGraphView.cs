@@ -739,7 +739,6 @@ namespace GraphProcessor
 				SaveGraphToDisk();
 				// Close pinned windows from old graph:
 				ClearGraphElements();
-				NodeProvider.UnloadGraph(graph);
 			}
 
 			this.graph = graph;
@@ -771,9 +770,7 @@ namespace GraphProcessor
 			UpdateComputeOrder();
 
 			InitializeView();
-
-			NodeProvider.LoadGraph(graph);
-
+			
 			// Register the nodes that can be created from assets
 			foreach ((string path, Type type) nodeInfo in NodeProvider.GetNodeMenuEntries(graph))
 			{
@@ -1405,7 +1402,6 @@ namespace GraphProcessor
 			RemoveFromHierarchy();
 			Undo.undoRedoPerformed -= ReloadView;
 			Object.DestroyImmediate(nodeInspector);
-			NodeProvider.UnloadGraph(graph);
 			exposedParameterFactory.Dispose();
 			exposedParameterFactory = null;
 

@@ -18,10 +18,10 @@ namespace GraphProcessor
         internal const float k_MaxPanSpeed = k_MaxSpeedFactor * k_PanSpeed;
         internal const float kPortDetectionWidth = 30;
 
-        protected Dictionary<BaseNodeView, List<PortView>> compatiblePorts = new Dictionary<BaseNodeView, List<PortView>>();
+        protected readonly Dictionary<BaseNodeView, List<PortView>> compatiblePorts = new();
         private Edge ghostEdge;
         protected GraphView graphView;
-        protected static NodeAdapter nodeAdapter = new NodeAdapter();
+        protected static readonly NodeAdapter nodeAdapter = new();
         protected readonly IEdgeConnectorListener listener;
 
         private IVisualElementScheduledItem panSchedule;
@@ -142,14 +142,14 @@ namespace GraphProcessor
 
             foreach (PortView port in graphView.GetCompatiblePorts(draggedPort, nodeAdapter))
             {
-                compatiblePorts.TryGetValue(port.owner, out var portList);
+                compatiblePorts.TryGetValue(port.owner, out List<PortView> portList);
                 if (portList == null)
                     portList = compatiblePorts[port.owner] = new List<PortView>();
                 portList.Add(port);
             }
 
             // Sort ports by position in the node
-            foreach (var kp in compatiblePorts)
+            foreach (KeyValuePair<BaseNodeView, List<PortView>> kp in compatiblePorts)
                 kp.Value.Sort((e1, e2) => e1.worldBound.y.CompareTo(e2.worldBound.y));
 
             // Only light compatible anchors when dragging an edge.
@@ -157,8 +157,8 @@ namespace GraphProcessor
                 p.OnStartEdgeDragging();
             });
 
-            foreach (var kp in compatiblePorts)
-                foreach (var port in kp.Value)
+            foreach (KeyValuePair<BaseNodeView, List<PortView>> kp in compatiblePorts)
+                foreach (PortView port in kp.Value)
                     port.highlight = true;
 
             edgeCandidate.UpdateEdgeControl();
@@ -194,7 +194,7 @@ namespace GraphProcessor
             return effectiveSpeed;
         }
 
-        Vector2 lastMousePos;
+        private Vector2 lastMousePos;
         public override void HandleMouseMove(MouseMoveEvent evt)
         {
             var ve = (VisualElement)evt.target;
@@ -359,10 +359,10 @@ namespace GraphProcessor
             Reset(didConnect);
         }
 
-        Rect GetPortBounds(BaseNodeView nodeView, int index, List<PortView> portList)
+        private Rect GetPortBounds(BaseNodeView nodeView, int index, List<PortView> portList)
         {
-            var port = portList[index];
-            var bounds = port.worldBound;
+            PortView port = portList[index];
+            Rect bounds = port.worldBound;
 
             if (port.orientation == Orientation.Horizontal)
             {
@@ -411,15 +411,15 @@ namespace GraphProcessor
             Port bestPort = null;
             float bestDistance = 1e20f;
 
-            foreach (var kp in compatiblePorts)
+            foreach (KeyValuePair<BaseNodeView, List<PortView>> kp in compatiblePorts)
             {
-                var nodeView = kp.Key;
-                var portList = kp.Value;
+                BaseNodeView nodeView = kp.Key;
+                List<PortView> portList = kp.Value;
 
                 // We know that the port in the list is top to bottom in term of layout
                 for (int i = 0; i < portList.Count; i++)
                 {
-                    var port = portList[i];
+                    PortView port = portList[i];
                     Rect bounds = GetPortBounds(nodeView, i, portList);
 
                     float distance = Vector2.Distance(port.worldBound.position, mousePosition);

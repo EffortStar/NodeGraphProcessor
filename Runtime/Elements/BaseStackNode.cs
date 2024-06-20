@@ -1,12 +1,13 @@
-using UnityEngine;
+using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace GraphProcessor
 {
     /// <summary>
     /// Data container for the StackNode views
     /// </summary>
-    [System.Serializable]
+    [Serializable]
     public class BaseStackNode
     {
         public Vector2 position;
@@ -27,7 +28,7 @@ namespace GraphProcessor
         /// </summary>
         /// <typeparam name="string"></typeparam>
         /// <returns></returns>
-        public List< string >   nodeGUIDs = new List< string >();
+        public List< string >   nodeGUIDs = new();
 
         public BaseStackNode(Vector2 position, string title = "Stack", bool acceptDrop = true, bool acceptNewNode = true)
         {

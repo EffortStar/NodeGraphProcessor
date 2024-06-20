@@ -648,7 +648,7 @@ namespace GraphProcessor
 				// (better than BindingFlags.DeclaredOnly because we keep any inherited user-defined fields) 
 				.Where(f => f.DeclaringType != typeof(BaseNode));
 
-			fields = nodeTarget.OverrideFieldOrder(fields).Reverse();
+			fields = BaseNode.OverrideFieldOrder(fields).Reverse();
 
 			foreach (FieldInfo field in fields)
 			{
@@ -670,7 +670,7 @@ namespace GraphProcessor
 				//skip if the field is an input/output and not marked as SerializedField
 				bool hasInputAttribute         = field.GetCustomAttribute(typeof(InputAttribute)) != null;
 				bool hasInputOrOutputAttribute = hasInputAttribute || field.GetCustomAttribute(typeof(OutputAttribute)) != null;
-				bool showAsDrawer			   = !fromInspector && field.GetCustomAttribute(typeof(ShowAsDrawer)) != null;
+				bool showAsDrawer			   = !fromInspector && field.GetCustomAttribute(typeof(ShowAsDrawerAttribute)) != null;
 				if (!serializeField && hasInputOrOutputAttribute && !showAsDrawer)
 				{
 					AddEmptyField(field, fromInspector);
@@ -685,7 +685,7 @@ namespace GraphProcessor
 				}
 
 				// Hide the field if we want to display in in the inspector
-				var showInInspector = field.GetCustomAttribute<ShowInInspector>();
+				var showInInspector = field.GetCustomAttribute<ShowInInspectorAttribute>();
 				if (!serializeField && showInInspector != null && !showInInspector.showInNode && !fromInspector)
 				{
 					AddEmptyField(field, fromInspector);
@@ -693,7 +693,7 @@ namespace GraphProcessor
 				}
 
 				bool showInputDrawer = field.GetCustomAttribute(typeof(InputAttribute)) != null && field.GetCustomAttribute(typeof(SerializeField)) != null;
-				showInputDrawer |= field.GetCustomAttribute(typeof(InputAttribute)) != null && field.GetCustomAttribute(typeof(ShowAsDrawer)) != null;
+				showInputDrawer |= field.GetCustomAttribute(typeof(InputAttribute)) != null && field.GetCustomAttribute(typeof(ShowAsDrawerAttribute)) != null;
 				showInputDrawer &= !fromInspector; // We can't show a drawer in the inspector
 				showInputDrawer &= !typeof(IList).IsAssignableFrom(field.FieldType);
 
@@ -879,7 +879,7 @@ namespace GraphProcessor
 				if (showInputDrawer) AddEmptyField(field, false);
 			}
 
-			var visibleCondition = field.GetCustomAttribute(typeof(VisibleIf)) as VisibleIf;
+			var visibleCondition = field.GetCustomAttribute(typeof(VisibleIfAttribute)) as VisibleIfAttribute;
 			if (visibleCondition != null)
 			{
 				// Check if target field exists:

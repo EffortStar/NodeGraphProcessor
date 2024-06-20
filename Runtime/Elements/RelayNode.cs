@@ -1,11 +1,10 @@
-﻿using System.Collections;
+﻿using System;
 using System.Collections.Generic;
-using UnityEngine;
-using GraphProcessor;
 using System.Linq;
-using System;
+using GraphProcessor;
+using UnityEngine;
 
-[System.Serializable, NodeMenuItem("Utils/Relay")]
+[Serializable, NodeMenuItem("Utils/Relay")]
 public class RelayNode : BaseNode
 {
 	const string packIdentifier = "_Pack";
@@ -24,13 +23,13 @@ public class RelayNode : BaseNode
 	[Output(name = "Out")]
 	public PackedRelayData	output;
 
-	public bool		unpackOutput = false;
-	public bool		packInput = false;
-	public int		inputEdgeCount = 0;
-	[System.NonSerialized]
-	int				outputIndex = 0;
+	public bool		unpackOutput;
+	public bool		packInput;
+	public int		inputEdgeCount;
+	[NonSerialized]
+	int				outputIndex;
 
-	SerializableType inputType = new SerializableType(typeof(object));
+	SerializableType inputType = new(typeof(object));
 
 	const int		k_MaxPortSize = 14;
 
@@ -42,7 +41,7 @@ public class RelayNode : BaseNode
 
 	public override string layoutStyle => "GraphProcessorStyles/RelayNode";
 
-	[CustomPortInput(nameof(input), typeof(object), true)]
+	[CustomPortInput(nameof(input), typeof(object))]
 	public void GetInputs(List< SerializableEdge > edges)
 	{
 		inputEdgeCount = edges.Count;
@@ -61,7 +60,7 @@ public class RelayNode : BaseNode
 		}
 	}
 
-	[CustomPortOutput(nameof(output), typeof(object), true)]
+	[CustomPortOutput(nameof(output), typeof(object))]
 	public void PushOutputs(List< SerializableEdge > edges, NodePort outputPort)
 	{
 		if (inputPorts.Count == 0)
@@ -170,7 +169,7 @@ public class RelayNode : BaseNode
 		}
 	}
 
-	static List<(Type, string)> s_empty = new List<(Type, string)>();
+	static List<(Type, string)> s_empty = new();
 	public List<(Type type, string name)> GetUnderlyingPortDataList()
 	{
 		// get input edges:

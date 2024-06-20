@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using UnityEngine;
 
 namespace GraphProcessor
@@ -10,18 +9,17 @@ namespace GraphProcessor
         [Serializable]
         public class Settings
         {
-            public bool isHidden = false;
-            public bool expanded = false;
+            public bool isHidden;
+            public bool expanded;
 
             [SerializeField]
-            internal string guid = null;
+            internal string guid;
 
             public override bool Equals(object obj)
             {
-                if (obj is Settings s && s != null)
+	            if (obj is Settings s && s != null)
                     return Equals(s);
-                else
-                    return false;
+	            return false;
             }
 
             public virtual bool Equals(Settings param)
@@ -46,7 +44,7 @@ namespace GraphProcessor
 			this.value = value;
         }
 
-        protected virtual Settings CreateSettings() => new Settings();
+        protected virtual Settings CreateSettings() => new();
 
         public virtual object value { get; set; }
         public virtual Type GetValueType() => value == null ? typeof(object) : value.GetType();
@@ -71,10 +69,9 @@ namespace GraphProcessor
 
         public override bool Equals(object obj)
         {
-            if ((obj == null) || !this.GetType().Equals(obj.GetType()))
+	        if ((obj == null) || !GetType().Equals(obj.GetType()))
                 return false;
-            else
-                return Equals((ExposedParameter)obj);
+	        return Equals((ExposedParameter)obj);
         }
 
         public override int GetHashCode() => guid.GetHashCode();
@@ -95,7 +92,7 @@ namespace GraphProcessor
 
     // Due to polymorphic constraints with [SerializeReference] we need to explicitly create a class for
     // every parameter type available in the graph (i.e. templating doesn't work)
-    [System.Serializable]
+    [Serializable]
     public class ColorParameter : ExposedParameter
     {
         public enum ColorMode
@@ -119,7 +116,7 @@ namespace GraphProcessor
         protected override Settings CreateSettings() => new ColorSettings();
     }
 
-    [System.Serializable]
+    [Serializable]
     public class FloatParameter : ExposedParameter
     {
         public enum FloatMode
@@ -132,7 +129,7 @@ namespace GraphProcessor
         public class FloatSettings : Settings
         {
             public FloatMode mode;
-            public float min = 0;
+            public float min;
             public float max = 1;
 
             public override bool Equals(Settings param)
@@ -145,7 +142,7 @@ namespace GraphProcessor
         protected override Settings CreateSettings() => new FloatSettings();
     }
 
-    [System.Serializable]
+    [Serializable]
     public class Vector2Parameter : ExposedParameter
     {
         public enum Vector2Mode
@@ -158,7 +155,7 @@ namespace GraphProcessor
         public class Vector2Settings : Settings
         {
             public Vector2Mode mode;
-            public float min = 0;
+            public float min;
             public float max = 1;
 
             public override bool Equals(Settings param)
@@ -171,7 +168,7 @@ namespace GraphProcessor
         protected override Settings CreateSettings() => new Vector2Settings();
     }
 
-    [System.Serializable]
+    [Serializable]
     public class Vector3Parameter : ExposedParameter
     {
         [SerializeField] Vector3 val;
@@ -179,7 +176,7 @@ namespace GraphProcessor
         public override object value { get => val; set => val = (Vector3)value; }
     }
 
-    [System.Serializable]
+    [Serializable]
     public class Vector4Parameter : ExposedParameter
     {
         [SerializeField] Vector4 val;
@@ -187,7 +184,7 @@ namespace GraphProcessor
         public override object value { get => val; set => val = (Vector4)value; }
     }
 
-    [System.Serializable]
+    [Serializable]
     public class IntParameter : ExposedParameter
     {
         public enum IntMode
@@ -200,7 +197,7 @@ namespace GraphProcessor
         public class IntSettings : Settings
         {
             public IntMode mode;
-            public int min = 0;
+            public int min;
             public int max = 10;
 
             public override bool Equals(Settings param)
@@ -213,7 +210,7 @@ namespace GraphProcessor
         protected override Settings CreateSettings() => new IntSettings();
     }
 
-    [System.Serializable]
+    [Serializable]
     public class Vector2IntParameter : ExposedParameter
     {
         [SerializeField] Vector2Int val;
@@ -221,7 +218,7 @@ namespace GraphProcessor
         public override object value { get => val; set => val = (Vector2Int)value; }
     }
 
-    [System.Serializable]
+    [Serializable]
     public class Vector3IntParameter : ExposedParameter
     {
         [SerializeField] Vector3Int val;
@@ -229,7 +226,7 @@ namespace GraphProcessor
         public override object value { get => val; set => val = (Vector3Int)value; }
     }
 
-    [System.Serializable]
+    [Serializable]
     public class DoubleParameter : ExposedParameter
     {
         [SerializeField] Double val;
@@ -237,7 +234,7 @@ namespace GraphProcessor
         public override object value { get => val; set => val = (Double)value; }
     }
 
-    [System.Serializable]
+    [Serializable]
     public class LongParameter : ExposedParameter
     {
         [SerializeField] long val;
@@ -245,7 +242,7 @@ namespace GraphProcessor
         public override object value { get => val; set => val = (long)value; }
     }
 
-    [System.Serializable]
+    [Serializable]
     public class StringParameter : ExposedParameter
     {
         [SerializeField] string val;
@@ -254,7 +251,7 @@ namespace GraphProcessor
         public override Type GetValueType() => typeof(String);
     }
 
-    [System.Serializable]
+    [Serializable]
     public class RectParameter : ExposedParameter
     {
         [SerializeField] Rect val;
@@ -262,7 +259,7 @@ namespace GraphProcessor
         public override object value { get => val; set => val = (Rect)value; }
     }
 
-    [System.Serializable]
+    [Serializable]
     public class RectIntParameter : ExposedParameter
     {
         [SerializeField] RectInt val;
@@ -270,7 +267,7 @@ namespace GraphProcessor
         public override object value { get => val; set => val = (RectInt)value; }
     }
 
-    [System.Serializable]
+    [Serializable]
     public class BoundsParameter : ExposedParameter
     {
         [SerializeField] Bounds val;
@@ -278,7 +275,7 @@ namespace GraphProcessor
         public override object value { get => val; set => val = (Bounds)value; }
     }
 
-    [System.Serializable]
+    [Serializable]
     public class BoundsIntParameter : ExposedParameter
     {
         [SerializeField] BoundsInt val;
@@ -286,7 +283,7 @@ namespace GraphProcessor
         public override object value { get => val; set => val = (BoundsInt)value; }
     }
 
-    [System.Serializable]
+    [Serializable]
     public class AnimationCurveParameter : ExposedParameter
     {
         [SerializeField] AnimationCurve val;
@@ -295,7 +292,7 @@ namespace GraphProcessor
         public override Type GetValueType() => typeof(AnimationCurve);
     }
 
-    [System.Serializable]
+    [Serializable]
     public class GradientParameter : ExposedParameter
     {
         public enum GradientColorMode
@@ -321,7 +318,7 @@ namespace GraphProcessor
         protected override Settings CreateSettings() => new GradientSettings();
     }
 
-    [System.Serializable]
+    [Serializable]
     public class GameObjectParameter : ExposedParameter
     {
         [SerializeField] GameObject val;
@@ -330,7 +327,7 @@ namespace GraphProcessor
         public override Type GetValueType() => typeof(GameObject);
     }
 
-    [System.Serializable]
+    [Serializable]
     public class BoolParameter : ExposedParameter
     {
         [SerializeField] bool val;
@@ -338,7 +335,7 @@ namespace GraphProcessor
         public override object value { get => val; set => val = (bool)value; }
     }
 
-    [System.Serializable]
+    [Serializable]
     public class Texture2DParameter : ExposedParameter
     {
         [SerializeField] Texture2D val;
@@ -347,7 +344,7 @@ namespace GraphProcessor
         public override Type GetValueType() => typeof(Texture2D);
     }
 
-    [System.Serializable]
+    [Serializable]
     public class RenderTextureParameter : ExposedParameter
     {
         [SerializeField] RenderTexture val;
@@ -356,7 +353,7 @@ namespace GraphProcessor
         public override Type GetValueType() => typeof(RenderTexture);
     }
 
-    [System.Serializable]
+    [Serializable]
     public class MeshParameter : ExposedParameter
     {
         [SerializeField] Mesh val;
@@ -365,7 +362,7 @@ namespace GraphProcessor
         public override Type GetValueType() => typeof(Mesh);
     }
 
-    [System.Serializable]
+    [Serializable]
     public class MaterialParameter : ExposedParameter
     {
         [SerializeField] Material val;

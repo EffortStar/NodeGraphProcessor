@@ -10,10 +10,10 @@ namespace GraphProcessor
 	public class BaseEdgeConnector : EdgeConnector
 	{
 		protected BaseEdgeDragHelper dragHelper;
-        Edge edgeCandidate;
+		private Edge edgeCandidate;
         protected bool active;
-        Vector2 mouseDownPosition;
-        protected BaseGraphView graphView;
+        private Vector2 mouseDownPosition;
+        protected readonly BaseGraphView graphView;
 
         internal const float k_ConnectionDistanceTreshold = 10f;
 
@@ -88,7 +88,7 @@ namespace GraphProcessor
             }
         }
 
-        void OnCaptureOut(MouseCaptureOutEvent e)
+        private void OnCaptureOut(MouseCaptureOutEvent e)
         {
             active = false;
             if (edgeCandidate != null)
@@ -133,7 +133,7 @@ namespace GraphProcessor
             e.StopPropagation();
         }
 
-        void Abort()
+        private void Abort()
         {
             var graphView = target?.GetFirstAncestorOfType<GraphView>();
             graphView?.RemoveElement(edgeCandidate);
@@ -145,7 +145,7 @@ namespace GraphProcessor
             edgeDragHelper.Reset();
         }
 
-        bool CanPerformConnection(Vector2 mousePosition)
+        private bool CanPerformConnection(Vector2 mousePosition)
         {
             return Vector2.Distance(mouseDownPosition, mousePosition) > k_ConnectionDistanceTreshold;
         }

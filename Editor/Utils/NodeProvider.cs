@@ -11,6 +11,164 @@ namespace GraphProcessor
 {
 	public static class NodeProvider
 	{
+		private class AllCachedNodeDetails
+		{
+			public readonly Dictionary<Type, CachedNodeDetails> NodesByType = new();
+		}
+
+		private class CachedNodeDetails
+		{
+			public IEnumerable<string> MenuPaths => _menusPaths ?? Enumerable.Empty<string>();
+
+			public List<PortDescription> PortDescriptions
+			{
+				get
+				{
+					if (_portDescriptions != null)
+						return _portDescriptions;
+					_portDescriptions = new List<PortDescription>();
+					ProvideNodePortCreationDescription(NodeType, _portDescriptions);
+					return _portDescriptions;
+				}
+			}
+
+			public MonoScript Script
+			{
+				get
+				{
+					if (_script != null)
+						return _script;
+					string nodeTypeName = NodeType.Name;
+					_script = FindScriptFromClassName(nodeTypeName);
+					// Try find the class name with Node name at the end
+					if (_script == null)
+						_script = FindScriptFromClassName($"{nodeTypeName}Node");
+					return _script;
+				}
+			}
+
+			public MonoScript ViewScript
+			{
+				get
+				{
+					if (_viewScript != null)
+						return _viewScript;
+					string nodeEditorTypeName = NodeEditorType.Name;
+					_viewScript = FindScriptFromClassName(nodeEditorTypeName);
+					if (_viewScript == null)
+						_viewScript = FindScriptFromClassName($"{nodeEditorTypeName}View");
+					if (_viewScript == null)
+						_viewScript = FindScriptFromClassName($"{nodeEditorTypeName}NodeView");
+					return _viewScript;
+				}
+			}
+
+			public readonly Type NodeType;
+			public Type NodeEditorType;
+
+			private List<string> _menusPaths;
+			private HashSet<Type> _compatibleGraphTypes;
+			private MonoScript _script;
+			private MonoScript _viewScript;
+			private List<PortDescription> _portDescriptions;
+
+			public CachedNodeDetails(Type nodeType)
+			{
+				NodeType = nodeType;
+			}
+
+			public void AddMenuPath(string path)
+			{
+				_menusPaths ??= new List<string>();
+				_menusPaths.Add(path);
+			}
+
+			public void AddCompatibleGraphType(Type type)
+			{
+				_compatibleGraphTypes ??= new HashSet<Type>();
+				_compatibleGraphTypes.Add(type);
+			}
+
+			public bool IsCompatibleWithGraphType(Type graphType)
+			{
+				while (true)
+				{
+					if (graphType == null || _compatibleGraphTypes == null)
+					{
+						return true;
+					}
+
+					if (_compatibleGraphTypes.Contains(graphType))
+					{
+						return true;
+					}
+
+					if (graphType.BaseType == typeof(BaseGraph))
+					{
+						return false;
+					}
+
+					graphType = graphType.BaseType;
+				}
+			}
+		}
+
+		private static readonly AllCachedNodeDetails NodeCache = new();
+
+		private static void BuildNodeCache()
+		{
+			NodeCache.NodesByType.Add(typeof(BaseNode), new CachedNodeDetails(typeof(BaseNode)));
+			foreach (Type nodeType in TypeCache.GetTypesDerivedFrom<BaseNode>())
+			{
+				NodeCache.NodesByType.Add(nodeType, new CachedNodeDetails(nodeType));
+			}
+
+			// Collect node menu details
+			foreach (Type type in TypeCache.GetTypesWithAttribute<NodeMenuItemAttribute>())
+			{
+				if (!NodeCache.NodesByType.TryGetValue(type, out CachedNodeDetails cache))
+				{
+					Debug.LogError($"{type} was decorated with {nameof(NodeMenuItemAttribute)} but it doesn't inherit from {nameof(BaseNode)}.");
+					continue;
+				}
+
+				foreach (NodeMenuItemAttribute attribute in type.GetCustomAttributes<NodeMenuItemAttribute>())
+				{
+					if (!string.IsNullOrEmpty(attribute.menuTitle))
+					{
+						cache.AddMenuPath(attribute.menuTitle);
+					}
+
+					if (attribute.onlyCompatibleWithGraph != null)
+					{
+						cache.AddCompatibleGraphType(attribute.onlyCompatibleWithGraph);
+					}
+				}
+			}
+
+			// Collect views for nodes
+			foreach (Type type in TypeCache.GetTypesWithAttribute<NodeCustomEditorAttribute>())
+			{
+				foreach (NodeCustomEditorAttribute attribute in type.GetCustomAttributes<NodeCustomEditorAttribute>())
+				{
+					Type nodeType = attribute.nodeType;
+					if (!NodeCache.NodesByType.TryGetValue(nodeType, out CachedNodeDetails cachedDetails))
+					{
+						Debug.LogError($"{type} was decorated with {nameof(NodeCustomEditorAttribute)} but its target, {nodeType}, doesn't inherit from {nameof(BaseNode)}.");
+						continue;
+					}
+
+					if (cachedDetails.NodeEditorType != null)
+					{
+						Debug.LogError($"{type} targets, {nodeType}, with {nameof(NodeCustomEditorAttribute)}. Which already was used by {cachedDetails.NodeEditorType}.");
+						continue;
+					}
+
+					cachedDetails.NodeEditorType = type;
+				}
+			}
+		}
+
 		public struct PortDescription
 		{
 			public Type nodeType;
@@ -21,177 +179,30 @@ namespace GraphProcessor
 			public string portDisplayName;
 		}
 
-		static Dictionary< Type, MonoScript >	nodeViewScripts = new Dictionary< Type, MonoScript >();
-		static Dictionary< Type, MonoScript >	nodeScripts = new Dictionary< Type, MonoScript >();
-		static Dictionary< Type, Type >			nodeViewPerType = new Dictionary< Type, Type >();
-
-		public class NodeDescriptions
-		{
-			public Dictionary< string, Type >		nodePerMenuTitle = new Dictionary< string, Type >();
-			public List< Type >						slotTypes = new List< Type >();
-			public List< PortDescription >			nodeCreatePortDescription = new List<PortDescription>();
-		}
-
-		public struct NodeSpecificToGraph
-		{
-			public Type				nodeType;
-			public List<MethodInfo>	isCompatibleWithGraph;
-			public Type				compatibleWithGraphType;
-		} 
-
-		static Dictionary<BaseGraph, NodeDescriptions>	specificNodeDescriptions = new Dictionary<BaseGraph, NodeDescriptions>();
-		static List<NodeSpecificToGraph>				specificNodes = new List<NodeSpecificToGraph>();
-
-		static NodeDescriptions							genericNodes = new NodeDescriptions();
-
 		static NodeProvider()
 		{
-			BuildScriptCache();
-			BuildGenericNodeCache();
+			BuildNodeCache();
 		}
 
-		public static void LoadGraph(BaseGraph graph)
+		private static void ProvideNodePortCreationDescription(Type nodeType, List<PortDescription> descriptions)
 		{
-			// Clear old graph data in case there was some
-			specificNodeDescriptions.Remove(graph);
-			var descriptions = new NodeDescriptions();
-			specificNodeDescriptions.Add(graph, descriptions);
+			if (nodeType.IsAbstract || nodeType.IsGenericType)
+				return;
 
-			var graphType = graph.GetType();
-			foreach (var nodeInfo in specificNodes)
-			{
-				bool compatible = nodeInfo.compatibleWithGraphType == null || nodeInfo.compatibleWithGraphType == graphType;
+			var node = (BaseNode)Activator.CreateInstance(nodeType);
+			node.InitializePorts();
+			node.UpdateAllPorts();
 
-				if (nodeInfo.isCompatibleWithGraph != null)
-				{
-					foreach (var method in nodeInfo.isCompatibleWithGraph)
-						compatible &= (bool)method?.Invoke(null, new object[]{ graph });
-				}
-
-				if (compatible)
-					BuildCacheForNode(nodeInfo.nodeType, descriptions, graph);
-			}
-		}
-
-		public static void UnloadGraph(BaseGraph graph)
-		{
-			specificNodeDescriptions.Remove(graph);
-		}
-
-		static void BuildGenericNodeCache()
-		{
-			foreach (var nodeType in TypeCache.GetTypesDerivedFrom<BaseNode>())
-			{
-				if (!IsNodeAccessibleFromMenu(nodeType))
-					continue;
-
-				if (IsNodeSpecificToGraph(nodeType))
-					continue;
-
-				BuildCacheForNode(nodeType, genericNodes);
-			}
-		}
-
-		static void BuildCacheForNode(Type nodeType, NodeDescriptions targetDescription, BaseGraph graph = null)
-		{
-			var attrs = nodeType.GetCustomAttributes(typeof(NodeMenuItemAttribute), false) as NodeMenuItemAttribute[];
-
-			if (attrs != null && attrs.Length > 0)
-			{
-				foreach (var attr in attrs)
-					targetDescription.nodePerMenuTitle[attr.menuTitle] = nodeType;
-			}
-
-			foreach (var field in nodeType.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
-			{
-				if (field.GetCustomAttribute<HideInInspector>() == null && field.GetCustomAttributes().Any(c => c is InputAttribute || c is OutputAttribute))
-					targetDescription.slotTypes.Add(field.FieldType);
-			}
-
-			ProvideNodePortCreationDescription(nodeType, targetDescription, graph);
-		}
-
-		static bool IsNodeAccessibleFromMenu(Type nodeType)
-		{
-			if (nodeType.IsAbstract)
-				return false;
-
-			return nodeType.GetCustomAttributes<NodeMenuItemAttribute>().Count() > 0;
-		}
-
-		// Check if node has anything that depends on the graph type or settings
-		static bool IsNodeSpecificToGraph(Type nodeType)
-		{
-			var isCompatibleWithGraphMethods = nodeType.GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.FlattenHierarchy).Where(m => m.GetCustomAttribute<IsCompatibleWithGraph>() != null);
-			var nodeMenuAttributes = nodeType.GetCustomAttributes<NodeMenuItemAttribute>();
-
-			List<Type> compatibleGraphTypes = nodeMenuAttributes.Where(n => n.onlyCompatibleWithGraph != null).Select(a => a.onlyCompatibleWithGraph).ToList();
-
-			List<MethodInfo> compatibleMethods = new List<MethodInfo>();
-			foreach (var method in isCompatibleWithGraphMethods)
-			{
-				// Check if the method is static and have the correct prototype
-				var p = method.GetParameters();
-				if (method.ReturnType != typeof(bool) || p.Count() != 1 || p[0].ParameterType != typeof(BaseGraph))
-					Debug.LogError($"The function '{method.Name}' marked with the IsCompatibleWithGraph attribute either doesn't return a boolean or doesn't take one parameter of BaseGraph type.");
-				else
-					compatibleMethods.Add(method);
-			}
-
-			if (compatibleMethods.Count > 0 || compatibleGraphTypes.Count > 0)
-			{
-				// We still need to add the element in specificNode even without specific graph
-				if (compatibleGraphTypes.Count == 0)
-					compatibleGraphTypes.Add(null);
-
-				foreach (var graphType in compatibleGraphTypes)
-				{
-					specificNodes.Add(new NodeSpecificToGraph{
-						nodeType = nodeType,
-						isCompatibleWithGraph = compatibleMethods,
-						compatibleWithGraphType = graphType
-					});
-				}
-				return true;
-			}
-			return false;
-		}
-	
-		static void BuildScriptCache()
-		{
-			foreach (var nodeType in TypeCache.GetTypesDerivedFrom<BaseNode>())
-			{
-				if (!IsNodeAccessibleFromMenu(nodeType))
-					continue;
-
-				AddNodeScriptAsset(nodeType);
-			}
-
-			foreach (var nodeViewType in TypeCache.GetTypesDerivedFrom<BaseNodeView>())
-			{
-				if (!nodeViewType.IsAbstract)
-					AddNodeViewScriptAsset(nodeViewType);
-			}
-		}
-
-		static FieldInfo SetGraph = typeof(BaseNode).GetField("graph", BindingFlags.NonPublic | BindingFlags.Instance);
-		static void ProvideNodePortCreationDescription(Type nodeType, NodeDescriptions targetDescription, BaseGraph graph = null)
-		{
-			var node = Activator.CreateInstance(nodeType) as BaseNode;
-			try {
-				SetGraph.SetValue(node, graph);
-				node.InitializePorts();
-				node.UpdateAllPorts();
-			} catch (Exception) { }
-
-			foreach (var p in node.inputPorts)
+			foreach (NodePort p in node.inputPorts)
 				AddPort(p, true);
-			foreach (var p in node.outputPorts)
+			foreach (NodePort p in node.outputPorts)
 				AddPort(p, false);
+			return;
 
 			void AddPort(NodePort p, bool input)
 			{
-				targetDescription.nodeCreatePortDescription.Add(new PortDescription{
+				descriptions.Add(new PortDescription
+				{
 					nodeType = nodeType,
 					portType = p.portData.displayType ?? p.fieldInfo.FieldType,
 					isInput = input,
@@ -202,50 +213,19 @@ namespace GraphProcessor
 			}
 		}
 
-		static void AddNodeScriptAsset(Type type)
+		private static MonoScript FindScriptFromClassName(string className)
 		{
-			var nodeScriptAsset = FindScriptFromClassName(type.Name);
-
-			// Try find the class name with Node name at the end
-			if (nodeScriptAsset == null)
-				nodeScriptAsset = FindScriptFromClassName(type.Name + "Node");
-			if (nodeScriptAsset != null)
-				nodeScripts[type] = nodeScriptAsset;
-		}
-
-		static void	AddNodeViewScriptAsset(Type type)
-		{
-			var attrs = type.GetCustomAttributes(typeof(NodeCustomEditor), false) as NodeCustomEditor[];
-
-			if (attrs != null && attrs.Length > 0)
-			{
-				Type nodeType = attrs.First().nodeType;
-				nodeViewPerType[nodeType] = type;
-
-				var nodeViewScriptAsset = FindScriptFromClassName(type.Name);
-				if (nodeViewScriptAsset == null)
-					nodeViewScriptAsset = FindScriptFromClassName(type.Name + "View");
-				if (nodeViewScriptAsset == null)
-					nodeViewScriptAsset = FindScriptFromClassName(type.Name + "NodeView");
-
-				if (nodeViewScriptAsset != null)
-					nodeViewScripts[type] = nodeViewScriptAsset;
-			}
-		}
-
-		static MonoScript FindScriptFromClassName(string className)
-		{
-			var scriptGUIDs = AssetDatabase.FindAssets($"t:script {className}");
+			string[] scriptGUIDs = AssetDatabase.FindAssets($"t:script {className}");
 
 			if (scriptGUIDs.Length == 0)
 				return null;
 
-			foreach (var scriptGUID in scriptGUIDs)
+			foreach (string scriptGUID in scriptGUIDs)
 			{
-				var assetPath = AssetDatabase.GUIDToAssetPath(scriptGUID);
+				string assetPath = AssetDatabase.GUIDToAssetPath(scriptGUID);
 				var script = AssetDatabase.LoadAssetAtPath<MonoScript>(assetPath);
 
-				if (script != null && String.Equals(className, Path.GetFileNameWithoutExtension(assetPath), StringComparison.OrdinalIgnoreCase))
+				if (script != null && string.Equals(className, Path.GetFileNameWithoutExtension(assetPath), StringComparison.OrdinalIgnoreCase))
 					return script;
 			}
 
@@ -254,93 +234,72 @@ namespace GraphProcessor
 
 		public static Type GetNodeViewTypeFromType(Type nodeType)
 		{
-			Type view;
-
-            if (nodeViewPerType.TryGetValue(nodeType, out view))
-                return view;
-
-            Type baseType = null;
-
-            // Allow for inheritance in node views: multiple C# node using the same view
-            foreach (var type in nodeViewPerType)
-            {
-                // Find a view (not first fitted view) of nodeType
-                if (nodeType.IsSubclassOf(type.Key) && (baseType == null || type.Value.IsSubclassOf(baseType)))
-                    baseType = type.Value;
-            }
-
-            if (baseType != null)
-                return baseType;
-
-            return view;
-        }
-
-        public static IEnumerable<(string path, Type type)>	GetNodeMenuEntries(BaseGraph graph = null)
-		{
-			foreach (var node in genericNodes.nodePerMenuTitle)
-				yield return (node.Key, node.Value);
-
-			if (graph != null && specificNodeDescriptions.TryGetValue(graph, out var specificNodes))
+			while (true)
 			{
-				foreach (var node in specificNodes.nodePerMenuTitle)
-					yield return (node.Key, node.Value);
+				if (NodeCache.NodesByType.TryGetValue(nodeType!, out CachedNodeDetails details) && details.NodeEditorType != null)
+				{
+					return details.NodeEditorType;
+				}
+
+				if (nodeType == typeof(BaseNode))
+				{
+					return null;
+				}
+
+				nodeType = nodeType.BaseType;
+			}
+		}
+
+		public static IEnumerable<(string path, Type type)> GetNodeMenuEntries(BaseGraph graph = null)
+		{
+			Type graphType = graph == null ? null : graph.GetType();
+
+			foreach ((Type nodeType, CachedNodeDetails details) in NodeCache.NodesByType)
+			{
+				if (nodeType.IsAbstract)
+					continue;
+
+				if (!details.IsCompatibleWithGraphType(graphType))
+					continue;
+
+				foreach (string menuPath in details.MenuPaths)
+					yield return (menuPath, nodeType);
 			}
 		}
 
 		public static MonoScript GetNodeViewScript(Type type)
-		{
-			nodeViewScripts.TryGetValue(type, out var script);
-
-			return script;
-		}
+			=> NodeCache.NodesByType.TryGetValue(type, out CachedNodeDetails details) ? details.ViewScript : null;
 
 		public static MonoScript GetNodeScript(Type type)
-		{
-			nodeScripts.TryGetValue(type, out var script);
-
-			return script;
-		}
-
-		public static IEnumerable<Type> GetSlotTypes(BaseGraph graph = null) 
-		{
-			foreach (var type in genericNodes.slotTypes)
-				yield return type;
-
-			if (graph != null && specificNodeDescriptions.TryGetValue(graph, out var specificNodes))
-			{
-				foreach (var type in specificNodes.slotTypes)
-					yield return type;
-			}
-		}
+			=> NodeCache.NodesByType.TryGetValue(type, out CachedNodeDetails details) ? details.Script : null;
 
 		public static IEnumerable<PortDescription> GetEdgeCreationNodeMenuEntry(PortView portView, BaseGraph graph = null)
 		{
-			foreach (var description in genericNodes.nodeCreatePortDescription)
+			Type graphType = graph == null ? null : graph.GetType();
+
+			foreach ((_, CachedNodeDetails details) in NodeCache.NodesByType)
 			{
-				if (!IsPortCompatible(description))
+				if (!details.IsCompatibleWithGraphType(graphType))
 					continue;
 
-				yield return description;
-			}
-
-			if (graph != null && specificNodeDescriptions.TryGetValue(graph, out var specificNodes))
-			{
-				foreach (var description in specificNodes.nodeCreatePortDescription)
+				foreach (PortDescription port in details.PortDescriptions)
 				{
-					if (!IsPortCompatible(description))
+					if (!IsPortCompatible(port))
 						continue;
-					yield return description;
+					yield return port;
 				}
 			}
+
+			yield break;
 
 			bool IsPortCompatible(PortDescription description)
 			{
 				if ((portView.direction == Direction.Input && description.isInput) || (portView.direction == Direction.Output && !description.isInput))
 					return false;
-	
+
 				if (!BaseGraph.TypesAreConnectable(description.portType, portView.portType))
 					return false;
-					
+
 				return true;
 			}
 		}

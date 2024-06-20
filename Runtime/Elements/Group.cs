@@ -1,4 +1,4 @@
-﻿using System.Collections;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -7,11 +7,11 @@ namespace GraphProcessor
 	/// <summary>
 	/// Group the selected node when created
 	/// </summary>
-	[System.Serializable]
+	[Serializable]
 	public class Group
 	{
 		public string			title;
-		public Color			color = new Color(0, 0, 0, 0.3f);
+		public Color			color = new(0, 0, 0, 0.3f);
 		public Rect				position;
         public Vector2          size;
 
@@ -20,7 +20,7 @@ namespace GraphProcessor
 		/// </summary>
 		/// <typeparam name="string">GUID of a node</typeparam>
 		/// <returns></returns>
-		public List< string >	innerNodeGUIDs = new List< string >();
+		public List< string >	innerNodeGUIDs = new();
 
 		// For serialization loading
         public Group() {}

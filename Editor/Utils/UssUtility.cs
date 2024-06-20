@@ -7,6 +7,6 @@ namespace GraphProcessor
 	{
 		public static string PortVisualClass(Type type) => $"Port_{FormatTypeName(type)}";
 
-		static string FormatTypeName(Type type) => TypeUtility.FormatTypeName(type, '-', '-', '_');
+		private static string FormatTypeName(Type type) => TypeUtility.FormatTypeName(type, '-', '-', '_');
 	}
 }

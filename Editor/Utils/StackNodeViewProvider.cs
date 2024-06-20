@@ -8,13 +8,13 @@ namespace GraphProcessor
 {
 	public static class StackNodeViewProvider
 	{
-		static Dictionary< Type, Type >		stackNodeViewPerType = new Dictionary< Type, Type >();
+		private static readonly Dictionary< Type, Type >		stackNodeViewPerType = new();
 
         static StackNodeViewProvider()
         {
-            foreach (var t in TypeCache.GetTypesWithAttribute<CustomStackNodeView>())
+            foreach (Type t in TypeCache.GetTypesWithAttribute<CustomStackNodeViewAttribute>())
             {
-                var attr = t.GetCustomAttributes(false).Select(a => a as CustomStackNodeView).FirstOrDefault();
+                CustomStackNodeViewAttribute attr = t.GetCustomAttributes(false).Select(a => a as CustomStackNodeViewAttribute).FirstOrDefault();
 
                 stackNodeViewPerType.Add(attr.stackNodeType, t);
                 // Debug.Log("Add " + attr.stackNodeType);
@@ -24,11 +24,11 @@ namespace GraphProcessor
         public static Type GetStackNodeCustomViewType(Type stackNodeType)
         {
             // Debug.Log(stackNodeType);
-            foreach (var t in stackNodeViewPerType)
+            foreach (KeyValuePair<Type, Type> t in stackNodeViewPerType)
             {
                 // Debug.Log(t.Key + " -> " + t.Value);
             }
-            stackNodeViewPerType.TryGetValue(stackNodeType, out var view);
+            stackNodeViewPerType.TryGetValue(stackNodeType, out Type view);
             return view;
         }
     }

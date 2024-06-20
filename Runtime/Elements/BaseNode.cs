@@ -134,11 +134,11 @@ namespace GraphProcessor
 		/// </summary>
 		public bool createdWithinGroup { get; internal set; } = false;
 
-		[NonSerialized] internal Dictionary<string, NodeFieldInformation> nodeFields = new Dictionary<string, NodeFieldInformation>();
+		[NonSerialized] internal Dictionary<string, NodeFieldInformation> nodeFields = new();
 
-		[NonSerialized] internal Dictionary<Type, CustomPortTypeBehaviorDelegate> customPortTypeBehaviorMap = new Dictionary<Type, CustomPortTypeBehaviorDelegate>();
+		[NonSerialized] internal Dictionary<Type, CustomPortTypeBehaviorDelegate> customPortTypeBehaviorMap = new();
 
-		[NonSerialized] List<string> messages = new List<string>();
+		[NonSerialized] List<string> messages = new();
 
 		[NonSerialized] protected BaseGraph graph;
 
@@ -190,8 +190,8 @@ namespace GraphProcessor
 		}
 
 		// Used in port update algorithm
-		Stack<PortUpdate> fieldsToUpdate = new Stack<PortUpdate>();
-		HashSet<PortUpdate> updatedFields = new HashSet<PortUpdate>();
+		Stack<PortUpdate> fieldsToUpdate = new();
+		HashSet<PortUpdate> updatedFields = new();
 
 		/// <summary>
 		/// Creates a node of type T at a certain position
@@ -230,46 +230,9 @@ namespace GraphProcessor
 		public void Initialize(BaseGraph graph)
 		{
 			this.graph = graph;
-
 			ExceptionToLog.Call(Enable);
 
 			InitializePorts();
-		}
-
-		void InitializeCustomPortTypeMethods()
-		{
-			var methods = new MethodInfo[0];
-			Type baseType = GetType();
-			while (true)
-			{
-				methods = baseType.GetMethods(BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.FlattenHierarchy);
-				foreach (MethodInfo method in methods)
-				{
-					IEnumerable<CustomPortTypeBehavior> typeBehaviors = method.GetCustomAttributes<CustomPortTypeBehavior>();
-
-					if (!typeBehaviors.Any())
-						continue;
-
-					CustomPortTypeBehaviorDelegate deleg = null;
-					try
-					{
-						deleg = Delegate.CreateDelegate(typeof(CustomPortTypeBehaviorDelegate), this, method) as CustomPortTypeBehaviorDelegate;
-					}
-					catch (Exception e)
-					{
-						Debug.LogError(e);
-						Debug.LogError($"Cannot convert method {method} to a delegate of type {typeof(CustomPortTypeBehaviorDelegate)}");
-					}
-
-					foreach (CustomPortTypeBehavior typeBehavior in typeBehaviors)
-						customPortTypeBehaviorMap[typeBehavior.type] = deleg;
-				}
-
-				// Try to also find private methods in the base class
-				baseType = baseType.BaseType;
-				if (baseType == null)
-					break;
-			}
 		}
 
 		/// <summary>
@@ -278,8 +241,6 @@ namespace GraphProcessor
 		/// </summary>
 		public virtual void InitializePorts()
 		{
-			InitializeCustomPortTypeMethods();
-
 			foreach (FieldInfo key in OverrideFieldOrder(nodeFields.Values.Select(k => k.info)))
 			{
 				NodeFieldInformation nodeField = nodeFields[key.Name];
@@ -312,8 +273,11 @@ namespace GraphProcessor
 		/// </summary>
 		/// <param name="fields">List of fields to sort</param>
 		/// <returns>Sorted list of fields</returns>
-		public virtual IEnumerable<FieldInfo> OverrideFieldOrder(IEnumerable<FieldInfo> fields)
+		public static IEnumerable<FieldInfo> OverrideFieldOrder(IEnumerable<FieldInfo> fields)
 		{
+			// Order by MetadataToken and inheritance level to sync the order with the port order (make sure FieldDrawers are next to the correct port)
+			return fields.OrderByDescending(f => (GetFieldInheritanceLevel(f) << 32) | (uint)f.MetadataToken);
+
 			long GetFieldInheritanceLevel(FieldInfo f)
 			{
 				var level = 0;
@@ -326,9 +290,6 @@ namespace GraphProcessor
 
 				return level;
 			}
-
-			// Order by MetadataToken and inheritance level to sync the order with the port order (make sure FieldDrawers are next to the correct port)
-			return fields.OrderByDescending(f => (GetFieldInheritanceLevel(f) << 32) | (uint)f.MetadataToken);
 		}
 
 		protected BaseNode()
@@ -471,7 +432,7 @@ namespace GraphProcessor
 			return changed;
 		}
 
-		bool HasCustomBehavior(NodeFieldInformation info)
+		private bool HasCustomBehavior(NodeFieldInformation info)
 		{
 			if (info.behavior != null)
 				return true;
@@ -552,17 +513,11 @@ namespace GraphProcessor
 		void InitializeInOutDatas()
 		{
 			FieldInfo[] fields = GetNodeFields();
-			MethodInfo[] methods = GetType().GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
 
 			foreach (FieldInfo field in fields)
 			{
 				var inputAttribute = field.GetCustomAttribute<InputAttribute>();
 				var outputAttribute = field.GetCustomAttribute<OutputAttribute>();
-				var showInInspector = field.GetCustomAttribute<ShowInInspector>();
-				string name = field.Name;
-
-				if (showInInspector != null)
-					_needsInspector = true;
 
 				if (inputAttribute == null && outputAttribute == null)
 					continue;
@@ -580,6 +535,7 @@ namespace GraphProcessor
 					tooltip += $"\n{tooltipAttribute.tooltip}";
 				}
 
+				string name = field.Name;
 				if (!string.IsNullOrEmpty(inputAttribute?.name))
 					name = inputAttribute.name;
 				if (!string.IsNullOrEmpty(outputAttribute?.name))
@@ -589,6 +545,7 @@ namespace GraphProcessor
 				nodeFields[field.Name] = new NodeFieldInformation(field, name, input, isMultiple, tooltip, vertical != null, null, required != null);
 			}
 
+			MethodInfo[] methods = GetType().GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
 			foreach (MethodInfo method in methods)
 			{
 				var customPortBehaviorAttribute = method.GetCustomAttribute<CustomPortBehaviorAttribute>();

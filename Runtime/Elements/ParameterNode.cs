@@ -1,13 +1,10 @@
-﻿using System.Collections;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
-using GraphProcessor;
-using System.Linq;
-using System;
 
 namespace GraphProcessor
 {
-	[System.Serializable]
+	[Serializable]
 	public class ParameterNode : BaseNode
 	{
 		[Input]
