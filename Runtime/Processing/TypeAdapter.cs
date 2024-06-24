@@ -3,7 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Linq;
-using UnityEditor;
 
 namespace GraphProcessor
 {
@@ -49,8 +48,16 @@ namespace GraphProcessor
 
 		private static void LoadAllAdapters()
 		{
-			foreach (Type type in TypeCache.GetTypesDerivedFrom<ITypeAdapter>())
+#if UNITY_EDITOR
+			foreach (Type type in UnityEditor.TypeCache.GetTypesDerivedFrom<ITypeAdapter>())
 			{
+#else
+			foreach (Type type in AppDomain.CurrentDomain.GetAllTypes())
+			{
+				if (!typeof(ITypeAdapter).IsAssignableFrom(type))
+					continue;
+				
+#endif
 				if (type.IsAbstract)
 					continue;
 
