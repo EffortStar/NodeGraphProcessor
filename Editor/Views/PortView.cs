@@ -4,37 +4,36 @@ using UnityEditor.Experimental.GraphView;
 using UnityEngine.UIElements;
 using System;
 using System.Reflection;
+using UnityEditor.UIElements;
 
 namespace GraphProcessor
 {
 	public class PortView : Port
 	{
-		public string				fieldName => fieldInfo.Name;
-		public Type					fieldType => fieldInfo.FieldType;
-		public new Type				portType;
-        public BaseNodeView     	owner { get; private set; }
-		public PortData				portData;
+		public string fieldName => fieldInfo.Name;
+		public Type fieldType => fieldInfo.FieldType;
+		public new Type portType;
+		public BaseNodeView owner { get; private set; }
+		public PortData portData;
 
-		public event Action< PortView, Edge >	OnConnected;
-		public event Action< PortView, Edge >	OnDisconnected;
+		public event Action<PortView, Edge> OnConnected;
+		public event Action<PortView, Edge> OnDisconnected;
 
-		protected FieldInfo		fieldInfo;
-		protected BaseEdgeConnectorListener	listener;
+		protected FieldInfo fieldInfo;
+		protected BaseEdgeConnectorListener listener;
 
 		private const string UserPortStyleFile = "PortViewTypes";
 
-		private readonly List< EdgeView >		edges = new List< EdgeView >();
-
-		public int connectionCount => edges.Count;
+		private readonly List<EdgeView> edges = new List<EdgeView>();
 
 		private const string PortStyle = "GraphProcessorStyles/PortView";
 		private const string PortRequirementMessage = "Port is required";
-		
+
 		private IconBadges badges;
 		private IVisualElementScheduledItem _scheduledBadgeEvent;
 
 		protected PortView(Direction direction, FieldInfo fieldInfo, PortData portData, BaseEdgeConnectorListener edgeConnectorListener)
-            : base(portData.vertical ? Orientation.Vertical : Orientation.Horizontal, direction, Capacity.Multi, portData.displayType ?? fieldInfo.FieldType)
+			: base(portData.vertical ? Orientation.Vertical : Orientation.Horizontal, direction, Capacity.Multi, portData.displayType ?? fieldInfo.FieldType)
 		{
 			this.fieldInfo = fieldInfo;
 			listener = edgeConnectorListener;
@@ -49,10 +48,10 @@ namespace GraphProcessor
 			var userPortStyle = Resources.Load<StyleSheet>(UserPortStyleFile);
 			if (userPortStyle != null)
 				styleSheets.Add(userPortStyle);
-			
+
 			if (portData.vertical)
 				AddToClassList("Vertical");
-			
+
 			tooltip = portData.tooltip;
 		}
 
@@ -73,7 +72,7 @@ namespace GraphProcessor
 			// hide label when the port is vertical
 			if (portData.vertical && portLabel != null)
 				portLabel.style.display = DisplayStyle.None;
-			
+
 			// Fixup picking mode for vertical top ports
 			if (portData.vertical)
 				pv.Q("connector").pickingMode = PickingMode.Position;
@@ -114,7 +113,7 @@ namespace GraphProcessor
 				portName = name;
 			visualClass = UssUtility.PortVisualClass(portType);
 			tooltip = portData.tooltip;
-			
+
 			badges = new IconBadges(nodeView, m_ConnectorBoxCap);
 
 			// Schedule the port requirement error message once the edges have been connected to the port.
@@ -122,7 +121,7 @@ namespace GraphProcessor
 			{
 				_scheduledBadgeEvent = schedule.Execute(() =>
 				{
-					if (edges.Count == 0)
+					if (FailedPortRequirement())
 					{
 						AddBadge(PortRequirementMessage, BadgeMessageType.Error);
 					}
@@ -133,19 +132,19 @@ namespace GraphProcessor
 		public override void Connect(Edge edge)
 		{
 			bool wasPreviouslyConnected = edges.Count != 0;
-			
+
 			OnConnected?.Invoke(this, edge);
 
 			base.Connect(edge);
 
-			BaseNodeView inputNode = (edge.input as PortView).owner;
-			BaseNodeView outputNode = (edge.output as PortView).owner;
+			BaseNodeView inputNode = ((PortView)edge.input).owner;
+			BaseNodeView outputNode = ((PortView)edge.output).owner;
 
 			edges.Add(edge as EdgeView);
 
-			inputNode.OnPortConnected(edge.input as PortView);
-			outputNode.OnPortConnected(edge.output as PortView);
-			
+			inputNode.OnPortConnected((PortView)edge.input);
+			outputNode.OnPortConnected((PortView)edge.output);
+
 			if (!wasPreviouslyConnected && portData.required)
 			{
 				_scheduledBadgeEvent?.Pause();
@@ -159,8 +158,8 @@ namespace GraphProcessor
 
 			base.Disconnect(edge);
 
-			if (!(edge as EdgeView).isConnected)
-				return ;
+			if (!((EdgeView)edge).isConnected)
+				return;
 
 			BaseNodeView inputNode = (edge.input as PortView)?.owner;
 			BaseNodeView outputNode = (edge.output as PortView)?.owner;
@@ -170,14 +169,37 @@ namespace GraphProcessor
 
 			edges.Remove(edge as EdgeView);
 
-			if (edges.Count == 0 && portData.required)
+			if (FailedPortRequirement() && portData.required)
 			{
 				_scheduledBadgeEvent?.Pause();
 				_scheduledBadgeEvent = schedule.Execute(() => AddBadge(PortRequirementMessage, BadgeMessageType.Error));
 			}
 		}
-		
-		
+
+		private bool FailedPortRequirement()
+		{
+			return edges.Count == 0 &&
+			       (!owner.TryGetAssociatedControlField(this, out PropertyField field) 
+			       || field.Q<ObjectField>()?.value == null);
+		}
+
+		public void PortViewValueChanged()
+		{
+			if (portData.required)
+			{
+				_scheduledBadgeEvent = schedule.Execute(() =>
+				{
+					if (FailedPortRequirement())
+					{
+						AddBadge(PortRequirementMessage, BadgeMessageType.Error);
+					}
+					else
+					{
+						RemoveBadge(PortRequirementMessage);
+					}
+				});
+			}
+		}
 
 		public void UpdatePortView(PortData data)
 		{
@@ -185,15 +207,17 @@ namespace GraphProcessor
 			{
 				base.portType = data.displayType;
 				portType = data.displayType;
-  				visualClass = UssUtility.PortVisualClass(portType);
+				visualClass = UssUtility.PortVisualClass(portType);
 			}
-			if (!String.IsNullOrEmpty(data.displayName))
+
+			if (!string.IsNullOrEmpty(data.displayName))
 				portName = data.displayName;
 
 			portData = data;
 
 			// Update the edge in case the port color have changed
-			schedule.Execute(() => {
+			schedule.Execute(() =>
+			{
 				foreach (EdgeView edge in edges)
 				{
 					edge.UpdateEdgeControl();
@@ -204,7 +228,7 @@ namespace GraphProcessor
 			UpdatePortSize();
 		}
 
-		public List< EdgeView >	GetEdges() => edges;
+		public List<EdgeView> GetEdges() => edges;
 
 		/// <summary>
 		/// Adds a badge (an attached icon and message) to this port.
@@ -219,7 +243,7 @@ namespace GraphProcessor
 				(Direction.Output, false) => SpriteAlignment.RightCenter,
 				_ => throw new ArgumentOutOfRangeException()
 			};
-			
+
 			badges.AddBadge(message, messageType, alignment);
 		}
 
@@ -227,7 +251,7 @@ namespace GraphProcessor
 		/// Removes a badge matching the provided <paramref name="message" /> from the port.
 		/// </summary>
 		public void RemoveBadge(string message) => badges.RemoveBadge(message);
-		
+
 		/// <summary>
 		/// Removes all badges from the port.
 		/// </summary>
