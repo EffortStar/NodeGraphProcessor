@@ -87,11 +87,6 @@ namespace GraphProcessor
 		/// </summary>
 		public event Action							initialized;
 
-		/// <summary>
-		/// Triggered just after the compute order of the graph is updated
-		/// </summary>
-		public event ComputeOrderUpdatedDelegate	computeOrderUpdated;
-
 		// Safe event relay from BaseGraph (safe because you are sure to always point on a valid BaseGraph
 		// when one of these events is called), a graph switch can occur between two call tho
 		/// <summary>
@@ -500,7 +495,6 @@ namespace GraphProcessor
 		/// <param name="evt"></param>
 		protected virtual void BuildViewContextualMenu(ContextualMenuPopulateEvent evt)
 		{
-			evt.menu.AppendAction("View/Processor", (e) => ToggleView< ProcessorView >(), (e) => GetPinnedElementStatus< ProcessorView >());
 		}
 
 		/// <summary>
@@ -719,9 +713,7 @@ namespace GraphProcessor
 			InitializeStackNodes();
 
 			Reload();
-
-			UpdateComputeOrder();
-
+			
 			// Restore selection after re-creating all views
 			// selection = nodeViews.Where(v => selectedNodeGUIDs.Contains(v.nodeTarget.GUID)).Select(v => v as ISelectable).ToList();
 			foreach (string guid in selectedNodeGUIDs)
@@ -767,7 +759,6 @@ namespace GraphProcessor
 			InitializeStackNodes();
 
 			initialized?.Invoke();
-			UpdateComputeOrder();
 
 			InitializeView();
 			
@@ -938,9 +929,6 @@ namespace GraphProcessor
 
 			// Call create after the node have been initialized
 			ExceptionToLog.Call(() => view.OnCreated());
-
-			UpdateComputeOrder();
-
 			return view;
 		}
 
@@ -1208,9 +1196,6 @@ namespace GraphProcessor
 			e.userData = graph.Connect(inputPort, outputPort, autoDisconnectInputs);
 
 			ConnectView(e, autoDisconnectInputs);
-
-			UpdateComputeOrder();
-
 			return true;
 		}
 
@@ -1244,8 +1229,6 @@ namespace GraphProcessor
 				graph.Disconnect(serializableEdge.GUID);
 
 			DisconnectView(e, refreshPorts);
-
-			UpdateComputeOrder();
 		}
 
 		public void RemoveEdges()
@@ -1255,17 +1238,7 @@ namespace GraphProcessor
 			edgeViews.Clear();
 		}
 
-		public void UpdateComputeOrder()
-		{
-			graph.UpdateComputeOrder();
-
-			computeOrderUpdated?.Invoke();
-		}
-
-		public void RegisterCompleteObjectUndo(string name)
-		{
-			Undo.RegisterCompleteObjectUndo(graph, name);
-		}
+		public void RegisterCompleteObjectUndo(string name) => Undo.RegisterCompleteObjectUndo(graph, name);
 
 		public void SaveGraphToDisk()
 		{

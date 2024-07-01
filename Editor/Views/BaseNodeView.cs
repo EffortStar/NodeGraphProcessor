@@ -39,9 +39,7 @@ namespace GraphProcessor
 		private NodeSettingsView settingsContainer;
 		private Button settingButton;
 		private TextField titleTextField;
-
-		private readonly Label computeOrderLabel = new();
-
+		
 		public event Action<PortView> onPortConnected;
 		public event Action<PortView> onPortDisconnected;
 
@@ -80,7 +78,6 @@ namespace GraphProcessor
 			if (node.isRenamable)
 				capabilities |= Capabilities.Renamable;
 
-			owner.computeOrderUpdated += ComputeOrderUpdatedCallback;
 			node.onMessageAdded += AddBadge;
 			node.onMessageRemoved += RemoveBadge;
 			node.onPortsUpdated += a => schedule.Execute(_ => UpdatePortsForField(a)).ExecuteLater(0);
@@ -329,8 +326,6 @@ namespace GraphProcessor
 
 		private void InitializeDebug()
 		{
-			ComputeOrderUpdatedCallback();
-			debugContainer.Add(computeOrderLabel);
 		}
 
 		#endregion
@@ -619,12 +614,6 @@ namespace GraphProcessor
 		#endregion
 
 		#region Callbacks & Overrides
-
-		private void ComputeOrderUpdatedCallback()
-		{
-			//Update debug compute order
-			computeOrderLabel.text = "Compute order: " + nodeTarget.computeOrder;
-		}
 
 		public virtual void Enable(bool fromInspector = false) => DrawDefaultInspector(fromInspector);
 		public virtual void Enable() => DrawDefaultInspector(false);

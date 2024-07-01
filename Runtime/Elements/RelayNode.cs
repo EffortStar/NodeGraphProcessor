@@ -4,7 +4,7 @@ using System.Linq;
 using GraphProcessor;
 using UnityEngine;
 
-[Serializable, NodeMenuItem("Utils/Relay")]
+[Serializable]
 public class RelayNode : BaseNode
 {
 	const string packIdentifier = "_Pack";
