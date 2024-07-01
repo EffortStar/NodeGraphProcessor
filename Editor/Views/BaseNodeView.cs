@@ -810,7 +810,7 @@ namespace GraphProcessor
 
 		private readonly Regex s_ReplaceNodeIndexPropertyPath = new(@"(^nodes.Array.data\[)(\d+)(\])");
 
-		internal void SyncSerializedPropertyPathes()
+		internal void SyncSerializedPropertyPaths()
 		{
 			int nodeIndex = owner.graph.nodes.FindIndex(n => n == nodeTarget);
 

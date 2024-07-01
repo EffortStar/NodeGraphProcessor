@@ -167,7 +167,7 @@ namespace GraphProcessor
 
 		protected virtual void AddButtons()
 		{
-			AddButton("Center", graphView.ResetPositionAndZoom);
+			AddButton(new GUIContent("Center", "Frame the graph contents"), graphView.ResetPositionAndZoom);
 
 			bool exposedParamsVisible = graphView.GetPinnedElementStatus<ExposedParameterView>() != Status.Hidden;
 			showParameters = AddToggle("Show Parameters", exposedParamsVisible, (v) => graphView.ToggleView<ExposedParameterView>());

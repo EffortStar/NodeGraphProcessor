@@ -1,9 +1,7 @@
-﻿using System.Collections;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using System;
-using UnityEngine.Pool;
 using UnityEngine.Serialization;
 using UnityEngine.SceneManagement;
 
@@ -107,10 +105,6 @@ namespace GraphProcessor
 		[SerializeField]
 		internal UnityEngine.Object nodeInspectorReference;
 
-		//graph visual properties
-		public Vector3 position = Vector3.zero;
-		public Vector3 scale = Vector3.one;
-
 		/// <summary>
 		/// Triggered when something is changed in the list of exposed parameters
 		/// </summary>
@@ -141,9 +135,7 @@ namespace GraphProcessor
 			get => _isEnabled;
 			private set => _isEnabled = value;
 		}
-
-		public HashSet<BaseNode> graphOutputs { get; private set; } = new();
-
+		
 		protected virtual void OnEnable()
 		{
 			if (isEnabled)

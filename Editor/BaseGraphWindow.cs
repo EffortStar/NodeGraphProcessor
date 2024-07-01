@@ -8,26 +8,26 @@ using UnityEditor.SceneManagement;
 
 namespace GraphProcessor
 {
-	[System.Serializable]
+	[Serializable]
 	public abstract class BaseGraphWindow : EditorWindow
 	{
-		protected VisualElement		rootView;
-		protected BaseGraphView		graphView;
+		protected VisualElement rootView;
+		protected BaseGraphView graphView;
 
 		[SerializeField]
-		protected BaseGraph			graph;
+		protected BaseGraph graph;
 
-		readonly string				graphWindowStyle = "GraphProcessorStyles/BaseGraphView";
+		readonly string graphWindowStyle = "GraphProcessorStyles/BaseGraphView";
 
-		public bool					isGraphLoaded
+		public bool isGraphLoaded
 		{
 			get { return graphView != null && graphView.graph != null; }
 		}
 
-		bool						reloadWorkaround = false;
+		bool reloadWorkaround = false;
 
-		public event Action< BaseGraph >	graphLoaded;
-		public event Action< BaseGraph >	graphUnloaded;
+		public event Action<BaseGraph> graphLoaded;
+		public event Action<BaseGraph> graphUnloaded;
 
 		/// <summary>
 		/// Called by Unity when the window is enabled / opened
@@ -56,11 +56,11 @@ namespace GraphProcessor
 
 		void LoadGraph()
 		{
-            // We wait for the graph to be initialized
-            if (graph.isEnabled)
-                InitializeGraph(graph);
-            else
-                graph.onEnabled += OnGraphEnabled;
+			// We wait for the graph to be initialized
+			if (graph.isEnabled)
+				InitializeGraph(graph);
+			else
+				graph.onEnabled += OnGraphEnabled;
 		}
 
 		private void OnGraphEnabled() => InitializeGraph(graph);
@@ -117,9 +117,10 @@ namespace GraphProcessor
 			if (graphView == null)
 			{
 				Debug.LogError("GraphView has not been added to the BaseGraph root view !");
-				return ;
+				return;
 			}
 
+			reloadWorkaround = false;
 			graphView.Initialize(graph);
 
 			InitializeGraphView(graphView);
@@ -154,7 +155,10 @@ namespace GraphProcessor
 			graphView = null;
 		}
 
-		protected abstract void	InitializeWindow(BaseGraph graph);
-		protected virtual void InitializeGraphView(BaseGraphView view) {}
+		protected abstract void InitializeWindow(BaseGraph graph);
+
+		protected virtual void InitializeGraphView(BaseGraphView view)
+		{
+		}
 	}
 }
