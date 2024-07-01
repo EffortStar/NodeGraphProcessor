@@ -1330,8 +1330,12 @@ namespace GraphProcessor
 
 		public void ResetPositionAndZoom()
 		{
-			FrameAll();
-			UpdateViewTransform(contentViewContainer.transform.position, Vector3.one);
+			Vector2 min = graph.nodes.Aggregate(Vector2.zero, (current, node) => new Vector2(Mathf.Min(current.x, node.position.x), Mathf.Min(current.y, node.position.y)));
+			Vector2 max = graph.nodes.Aggregate(Vector2.zero, (current, node) => new Vector2(Mathf.Max(current.x, node.position.x), Mathf.Max(current.y, node.position.y)));
+			max += new Vector2(100f, 200f); // Expand by a normal size for a node.
+			Vector2 position = (min + max) * 0.5f;
+			
+			UpdateViewTransform(-position + localBound.size * 0.5f, Vector3.one);
 		}
 
 		/// <summary>
