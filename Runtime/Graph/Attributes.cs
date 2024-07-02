@@ -6,7 +6,7 @@ namespace GraphProcessor
 	/// Tell that this field is will generate an input port
 	/// </summary>
 	[AttributeUsage(AttributeTargets.Field)]
-	public class InputAttribute : Attribute
+	public sealed class InputAttribute : Attribute
 	{
 		public string name;
 		public bool allowMultiple;
@@ -27,7 +27,7 @@ namespace GraphProcessor
 	/// Tell that this field is will generate an output port
 	/// </summary>
 	[AttributeUsage(AttributeTargets.Field)]
-	public class OutputAttribute : Attribute
+	public sealed class OutputAttribute : Attribute
 	{
 		public string name;
 		public bool allowMultiple;
@@ -48,7 +48,7 @@ namespace GraphProcessor
 	/// Mark this port-generating (<see cref="InputAttribute"/>/<see cref="OutputAttribute"/> field as required.
 	/// </summary>
 	[AttributeUsage(AttributeTargets.Field)]
-	public class RequiredPortAttribute : Attribute
+	public sealed class RequiredPortAttribute : Attribute
 	{
 	}
 
@@ -56,7 +56,7 @@ namespace GraphProcessor
 	/// Creates a vertical port instead of the default horizontal one
 	/// </summary>
 	[AttributeUsage(AttributeTargets.Field)]
-	public class VerticalAttribute : Attribute
+	public sealed class VerticalAttribute : Attribute
 	{
 	}
 
@@ -64,7 +64,7 @@ namespace GraphProcessor
 	/// Register the node in the NodeProvider class. The node will also be available in the node creation window.
 	/// </summary>
 	[AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
-	public class NodeMenuItemAttribute : Attribute
+	public sealed class NodeMenuItemAttribute : Attribute
 	{
 		public string menuTitle;
 		public Type onlyCompatibleWithGraph;
@@ -84,7 +84,7 @@ namespace GraphProcessor
 	/// Allow you to customize the input function of a port
 	/// </summary>
 	[AttributeUsage(AttributeTargets.Method)]
-	public class CustomPortInputAttribute : Attribute
+	public sealed class CustomPortInputAttribute : Attribute
 	{
 		public string fieldName;
 		public Type inputType;
@@ -109,7 +109,7 @@ namespace GraphProcessor
 	/// Allow you to customize the input function of a port
 	/// </summary>
 	[AttributeUsage(AttributeTargets.Method)]
-	public class CustomPortOutputAttribute : Attribute
+	public sealed class CustomPortOutputAttribute : Attribute
 	{
 		public string fieldName;
 		public Type outputType;
@@ -134,7 +134,7 @@ namespace GraphProcessor
 	/// Allow you to modify the generated port view from a field. Can be used to generate multiple ports from one field.
 	/// </summary>
 	[AttributeUsage(AttributeTargets.Method)]
-	public class CustomPortBehaviorAttribute : Attribute
+	public sealed class CustomPortBehaviorAttribute : Attribute
 	{
 		public string fieldName;
 
@@ -156,7 +156,7 @@ namespace GraphProcessor
 	/// Allow you to have a custom view for your stack nodes
 	/// </summary>
 	[AttributeUsage(AttributeTargets.Class)]
-	public class CustomStackNodeViewAttribute : Attribute
+	public sealed class CustomStackNodeViewAttribute : Attribute
 	{
 		public Type stackNodeType;
 
@@ -171,7 +171,7 @@ namespace GraphProcessor
 	}
 
 	[AttributeUsage(AttributeTargets.Field)]
-	public class VisibleIfAttribute : Attribute
+	public sealed class VisibleIfAttribute : Attribute
 	{
 		public string fieldName;
 		public object value;
@@ -184,7 +184,7 @@ namespace GraphProcessor
 	}
 
 	[AttributeUsage(AttributeTargets.Field)]
-	public class ShowInInspectorAttribute : Attribute
+	public sealed class ShowInInspectorAttribute : Attribute
 	{
 		public bool showInNode;
 
@@ -195,12 +195,12 @@ namespace GraphProcessor
 	}
 
 	[AttributeUsage(AttributeTargets.Field)]
-	public class ShowAsDrawerAttribute : Attribute
+	public sealed class ShowAsDrawerAttribute : Attribute
 	{
 	}
 
 	[AttributeUsage(AttributeTargets.Field)]
-	public class SettingAttribute : Attribute
+	public sealed class SettingAttribute : Attribute
 	{
 		public string name;
 
@@ -208,5 +208,14 @@ namespace GraphProcessor
 		{
 			this.name = name;
 		}
+	}
+	
+	/// <summary>
+	/// Mark this node as used for prototyping.
+	/// This indicates that the node may undergo unsafe refactoring, and shouldn't be used in a production graph.
+	/// </summary>
+	[AttributeUsage(AttributeTargets.Class)]
+	public sealed class PrototypeNodeAttribute : Attribute
+	{
 	}
 }

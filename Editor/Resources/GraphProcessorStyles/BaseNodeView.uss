@@ -249,8 +249,35 @@ ParameterNodeView #controls EnumField > VisualElement > VisualElement {
     margin: 4px;
 }
 
-/* In Unity 2020.3, we need to manually hide labels of property fields with empty label */
-.DrawerField_2020_3 > * > Label
-{
+.node StripedElement {
+    position: absolute;
     display: none;
+    overflow: hidden;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    --stripe-color: #343434;
+    --stripe-width: 10;
+    --stripe-spacing: 10;
+    --stripe-angle: 45;
+}
+
+.node.node--obsolete StripedElement {
+    display: flex;
+    --stripe-color: #D32222;
+    opacity: 0.6;
+}
+
+.node.node--prototype StripedElement {
+    display: flex;
+    --stripe-color: #F4BC02;
+    opacity: 0.6;
+}
+
+.node.node--obsolete #title > Label,
+.node.node--prototype #title > Label {
+    background-color: rgba(54, 54, 54, 0.75);
+    padding-right: 3px;
+    margin-right: -3px;
 }

@@ -17,7 +17,14 @@ namespace GraphProcessor
 	[NodeCustomEditor(typeof(BaseNode))]
 	public class BaseNodeView : NodeView
 	{
+		public const string UssClassName = "node";
+		public const string ObsoleteUssClassName = UssClassName + "--obsolete";
+		public const string PrototypeUssClassName = UssClassName + "--prototype";
+			
+		public const string TitleContainerName = "title";
+		
 		public BaseNode nodeTarget;
+		private NodeProvider.NodeFlags nodeFlags;
 
 		public readonly List<PortView> inputPortViews = new();
 		public readonly List<PortView> outputPortViews = new();
@@ -84,6 +91,8 @@ namespace GraphProcessor
 
 			styleSheets.Add(Resources.Load<StyleSheet>(baseNodeStyle));
 
+			nodeFlags = NodeProvider.GetNodeFlags(node.GetType());
+
 			if (!string.IsNullOrEmpty(node.layoutStyle))
 				styleSheets.Add(Resources.Load<StyleSheet>(node.layoutStyle));
 
@@ -92,7 +101,7 @@ namespace GraphProcessor
 			InitializeDebug();
 
 			// If the standard Enable method is still overwritten, we call it
-			if (GetType().GetMethod(nameof(Enable), new Type[] { }).DeclaringType != typeof(BaseNodeView))
+			if (GetType().GetMethod(nameof(Enable), new Type[] { })?.DeclaringType != typeof(BaseNodeView))
 				ExceptionToLog.Call(() => Enable());
 			else
 				ExceptionToLog.Call(() => Enable(false));
@@ -125,6 +134,9 @@ namespace GraphProcessor
 
 		private void InitializeView()
 		{
+			if (nodeFlags != NodeProvider.NodeFlags.None)
+				this.Q(TitleContainerName).Insert(0, new StripedElement());
+			
 			controlsContainer = new VisualElement { name = "controls" };
 			controlsContainer.AddToClassList("NodeControls");
 			mainContainer.Add(controlsContainer);
@@ -181,6 +193,17 @@ namespace GraphProcessor
 			// Add renaming capability
 			if ((capabilities & Capabilities.Renamable) != 0)
 				SetupRenamableTitle();
+			
+			if ((nodeFlags & NodeProvider.NodeFlags.Obsolete) != 0)
+			{
+				AddToClassList(ObsoleteUssClassName);
+				AddBadge($"Obsolete: {nodeTarget.GetType().GetCustomAttributes<ObsoleteAttribute>().First().Message}", BadgeMessageType.Error);
+			}
+			else if ((nodeFlags & NodeProvider.NodeFlags.Prototype) != 0)
+			{
+				AddToClassList(PrototypeUssClassName);
+				AddBadge("Prototype node may be changed or removed", BadgeMessageType.Warning);
+			}
 		}
 
 		private void SetupRenamableTitle()
@@ -842,11 +865,6 @@ namespace GraphProcessor
 
 			var element = new PropertyField(FindSerializedProperty(field.Name), showInputDrawer ? "" : label);
 			element.Bind(owner.serializedGraph);
-
-#if UNITY_2020_3 // In Unity 2020.3 the empty label on property field doesn't hide it, so we do it manually
-			if ((showInputDrawer || String.IsNullOrEmpty(label)) && element != null)
-				element.AddToClassList("DrawerField_2020_3");
-#endif
 
 			if (typeof(IList).IsAssignableFrom(field.FieldType))
 				EnableSyncSelectionBorderHeight();

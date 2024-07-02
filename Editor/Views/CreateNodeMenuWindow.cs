@@ -11,14 +11,14 @@ using UnityEditor;
 namespace GraphProcessor
 {
 	// TODO: replace this by the new UnityEditor.Searcher package
-	class CreateNodeMenuWindow : ScriptableObject, ISearchWindowProvider
+	internal class CreateNodeMenuWindow : ScriptableObject, ISearchWindowProvider
 	{
-		BaseGraphView graphView;
-		EditorWindow window;
-		Texture2D icon;
-		EdgeView edgeFilter;
-		PortView inputPortView;
-		PortView outputPortView;
+		private BaseGraphView graphView;
+		private EditorWindow window;
+		private Texture2D icon;
+		private EdgeView edgeFilter;
+		private PortView inputPortView;
+		private PortView outputPortView;
 
 		public void Initialize(BaseGraphView graphView, EditorWindow window, EdgeView edgeFilter = null)
 		{
@@ -35,7 +35,7 @@ namespace GraphProcessor
 			icon.Apply();
 		}
 
-		void OnDestroy()
+		private void OnDestroy()
 		{
 			if (icon != null)
 			{
@@ -59,7 +59,7 @@ namespace GraphProcessor
 			return tree;
 		}
 
-		void CreateStandardNodeMenu(List<SearchTreeEntry> tree)
+		private void CreateStandardNodeMenu(List<SearchTreeEntry> tree)
 		{
 			// Sort menu by alphabetical order and submenus
 			IOrderedEnumerable<(string path, Type type)> nodeEntries = graphView.FilterCreateNodeMenuEntries().OrderBy(k => k.path);
@@ -104,20 +104,20 @@ namespace GraphProcessor
 			}
 		}
 
-		void CreateEdgeNodeMenu(List<SearchTreeEntry> tree)
+		private void CreateEdgeNodeMenu(List<SearchTreeEntry> tree)
 		{
 			IEnumerable<NodeProvider.PortDescription> entries = NodeProvider.GetEdgeCreationNodeMenuEntry((edgeFilter.input ?? edgeFilter.output) as PortView, graphView.graph);
 
 			var titlePaths = new HashSet<string>();
 
-			IEnumerable<(string path, Type type)> nodePaths = NodeProvider.GetNodeMenuEntries(graphView.graph);
+			(string path, Type type)[] nodePaths = NodeProvider.GetNodeMenuEntries(graphView.graph).ToArray();
 
 			tree.Add(new SearchTreeEntry(new GUIContent("Relay", icon))
 			{
 				level = 1,
 				userData = new NodeProvider.PortDescription
 				{
-					portType = typeof(System.Object),
+					portType = typeof(object),
 					isInput = inputPortView != null,
 					portFieldName = inputPortView != null ? nameof(RelayNode.output) : nameof(RelayNode.input),
 					portIdentifier = "0",
@@ -125,20 +125,20 @@ namespace GraphProcessor
 				}
 			});
 
-			IOrderedEnumerable<(NodeProvider.PortDescription port, string path)> sortedMenuItems = entries.Select(port => (port, nodePaths.FirstOrDefault(kp => kp.type == port.nodeType).path)).OrderBy(e => e.path);
+			IOrderedEnumerable<(NodeProvider.PortDescription port, string path)> sortedMenuItems = 
+				entries.Select(port => (port, nodePaths.FirstOrDefault(kp => kp.type == port.nodeType).path))
+					.OrderBy(e => e.path);
 
 			// Sort menu by alphabetical order and submenus
-			foreach ((NodeProvider.PortDescription port, string path) nodeMenuItem in sortedMenuItems)
+			foreach ((NodeProvider.PortDescription port, string path) in sortedMenuItems)
 			{
-				string nodePath = nodePaths.FirstOrDefault(kp => kp.type == nodeMenuItem.port.nodeType).path;
-
 				// Ignore the node if it's not in the create menu
-				if (string.IsNullOrEmpty(nodePath))
+				if (string.IsNullOrEmpty(path))
 					continue;
 
-				string nodeName = nodePath;
+				string nodeName = path;
 				var level = 0;
-				string[] parts = nodePath.Split('/');
+				string[] parts = path.Split('/');
 
 				if (parts.Length > 1)
 				{
@@ -164,10 +164,10 @@ namespace GraphProcessor
 					}
 				}
 
-				tree.Add(new SearchTreeEntry(new GUIContent($"{nodeName}:  {nodeMenuItem.port.portDisplayName}", icon))
+				tree.Add(new SearchTreeEntry(new GUIContent($"{nodeName}:  {port.portDisplayName}", icon))
 				{
 					level = level + 1,
-					userData = nodeMenuItem.port
+					userData = port
 				});
 			}
 		}

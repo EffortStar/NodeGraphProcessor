@@ -11,6 +11,16 @@ namespace GraphProcessor
 {
 	public static class NodeProvider
 	{
+		public const string ObsoleteNodePrefix = "[DEPRECATED]";
+		
+		[Flags]
+		public enum NodeFlags
+		{
+			None = 0,
+			Obsolete = 1 << 0,
+			Prototype = 1 << 1
+		}
+		
 		private class AllCachedNodeDetails
 		{
 			public readonly Dictionary<Type, CachedNodeDetails> NodesByType = new();
@@ -64,6 +74,8 @@ namespace GraphProcessor
 			}
 
 			public readonly Type NodeType;
+			public readonly bool Obsolete;
+			public bool Prototype;
 			public Type NodeEditorType;
 
 			private List<string> _menusPaths;
@@ -75,11 +87,21 @@ namespace GraphProcessor
 			public CachedNodeDetails(Type nodeType)
 			{
 				NodeType = nodeType;
+				Obsolete = Attribute.IsDefined(nodeType, typeof(ObsoleteAttribute));
 			}
 
 			public void AddMenuPath(string path)
 			{
 				_menusPaths ??= new List<string>();
+
+				if (Obsolete)
+				{
+					int lastSlash = path.LastIndexOf('/');
+					if (lastSlash >= 0)
+						path = path[(lastSlash + 1)..];
+					path = $"Deprecated/{ObsoleteNodePrefix} {path}";
+				}
+				
 				_menusPaths.Add(path);
 			}
 
@@ -167,6 +189,18 @@ namespace GraphProcessor
 					cachedDetails.NodeEditorType = type;
 				}
 			}
+			
+			// Collect prototype nodes
+			foreach (Type type in TypeCache.GetTypesWithAttribute<PrototypeNodeAttribute>())
+			{
+				if (!NodeCache.NodesByType.TryGetValue(type, out CachedNodeDetails cache))
+				{
+					Debug.LogError($"{type} was decorated with {nameof(PrototypeNodeAttribute)} but it doesn't inherit from {nameof(BaseNode)}.");
+					continue;
+				}
+
+				cache.Prototype = true;
+			}
 		}
 
 		public struct PortDescription
@@ -179,10 +213,7 @@ namespace GraphProcessor
 			public string portDisplayName;
 		}
 
-		static NodeProvider()
-		{
-			BuildNodeCache();
-		}
+		static NodeProvider() => BuildNodeCache();
 
 		private static void ProvideNodePortCreationDescription(Type nodeType, List<PortDescription> descriptions)
 		{
@@ -302,6 +333,19 @@ namespace GraphProcessor
 
 				return true;
 			}
+		}
+
+		public static NodeFlags GetNodeFlags(Type nodeType)
+		{
+			var flags = NodeFlags.None;
+			if (NodeCache.NodesByType.TryGetValue(nodeType, out CachedNodeDetails details))
+			{
+				if (details.Obsolete)
+					flags |= NodeFlags.Obsolete;
+				if (details.Prototype)
+					flags |= NodeFlags.Prototype;
+			}
+			return flags;
 		}
 	}
 }

@@ -25,11 +25,6 @@ namespace GraphProcessor
 	[Serializable]
 	public class BaseGraph : ScriptableObject, ISerializationCallbackReceiver
 	{
-		private static readonly int maxComputeOrderDepth = 1000;
-
-		/// <summary>Invalid compute order number of a node when it's inside a loop</summary>
-		public static readonly int loopComputeOrder = -2;
-
 		/// <summary>
 		/// List of all the nodes in the graph.
 		/// </summary>
