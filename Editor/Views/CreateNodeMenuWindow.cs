@@ -122,6 +122,7 @@ namespace GraphProcessor
 					portFieldName = inputPortView != null ? nameof(RelayNode.output) : nameof(RelayNode.input),
 					portIdentifier = "0",
 					portDisplayName = inputPortView != null ? "Out" : "In",
+					nodeType = typeof(RelayNode)
 				}
 			});
 
