@@ -84,7 +84,6 @@ ParameterNodeView #controls EnumField > VisualElement {
 }
 
 ParameterNodeView #controls EnumField > VisualElement > TextElement {
-    font-size: 10px;
     margin-top: 0;
 }
 
@@ -131,13 +130,13 @@ ParameterNodeView #controls EnumField > VisualElement > VisualElement {
 #input-container > .port-input-element > PropertyField > Vector2Field Label,
 #input-container > .port-input-element > PropertyField > Vector3IntField Label,
 #input-container > .port-input-element > PropertyField > Vector2IntField Label {
-    font-size: 8px;
-    min-width: 8px;
-    flex-basis: 8px;
+    min-width: 10px;
+    max-width: 10px;
     padding-top: 2px;
-    margin-right: 1px;
-    max-height: 150px;
+    margin-right: 2px;
+    margin-left: 2px;
 }
+
 
 #input-container > .port-input-element > PropertyField > Vector4Field FloatInput,
 #input-container > .port-input-element > PropertyField > Vector3Field FloatInput,
@@ -147,15 +146,14 @@ ParameterNodeView #controls EnumField > VisualElement > VisualElement {
     min-width: 28px;
 }
 
-#input-container > .port-input-element > PropertyField > * .unity-composite-field__field-spacer {
-    flex-grow: 0.01;
+#input-container > .port-input-element > PropertyField > Toggle {
+    margin-top: 0;
+    margin-bottom: 0;
 }
 
-#input-container ObjectFieldSelector {
-    width: 17px;
-    height: 15px;
-    border-top-right-radius: 2px;
-    border-bottom-right-radius: 2px;
+
+#input-container > .port-input-element > PropertyField > * .unity-composite-field__field-spacer {
+    flex-grow: 0.01;
 }
 
 #input-container ObjectFieldDisplay > Label {
@@ -174,22 +172,19 @@ ParameterNodeView #controls EnumField > VisualElement > VisualElement {
     margin-left: 2px;
 }
 
-#input-container > .port-input-element * {
-    font-size: 8px;
-}
-
 #input-container > .port-input-element {
     max-width: 180px;
     background-color: rgba(72, 72, 72, 0.6);
-    margin-top: 3px;
-    margin-bottom: 2px;
+    margin-top: 2px;
+    margin-bottom: 1px;
     padding-top: 1px;
     padding-bottom: 1px;
     border-top-left-radius: 4px;
     border-bottom-left-radius: 4px;
-    height: 19px;
+    height: 21px;
     overflow: hidden;
     padding-right: 1px;
+    justify-content: center;
 }
 
 #input-container > .port-input-element.empty {
@@ -201,10 +196,6 @@ ParameterNodeView #controls EnumField > VisualElement > VisualElement {
     visibility: hidden;
 }
 
-#input-container {
-    opacity: 0.6;
-}
-
 .node:checked > #input-container {
     opacity: 1;
 }
@@ -212,12 +203,8 @@ ParameterNodeView #controls EnumField > VisualElement > VisualElement {
 #input-container > .port-input-element IntegerInput,
 #input-container > .port-input-element FloatInput,
 #input-container > .port-input-element TextInput {
-    border-top-left-radius: 1px;
-    border-bottom-left-radius: 1px;
-    border-top-right-radius: 1px;
-    border-bottom-right-radius: 1px;
+    border-radius: 1px;
     padding-bottom: 1px;
-    height: 15px;
 }
 
 #TopPortContainer, #BottomPortContainer
