@@ -115,18 +115,6 @@ namespace GraphProcessor
 			tooltip = portData.tooltip;
 
 			badges = new IconBadges(nodeView, m_ConnectorBoxCap);
-
-			// Schedule the port requirement error message once the edges have been connected to the port.
-			if (portData.required)
-			{
-				_scheduledBadgeEvent = schedule.Execute(() =>
-				{
-					if (FailedPortRequirement())
-					{
-						AddBadge(PortRequirementMessage, BadgeMessageType.Error);
-					}
-				});
-			}
 		}
 
 		public override void Connect(Edge edge)
@@ -169,18 +157,52 @@ namespace GraphProcessor
 
 			edges.Remove(edge as EdgeView);
 
-			if (FailedPortRequirement() && portData.required)
+			if (FailedPortRequirement(out _) && portData.required)
 			{
 				_scheduledBadgeEvent?.Pause();
 				_scheduledBadgeEvent = schedule.Execute(() => AddBadge(PortRequirementMessage, BadgeMessageType.Error));
 			}
 		}
 
-		private bool FailedPortRequirement()
+		private enum FailureReason
 		{
-			return edges.Count == 0 &&
-			       (!owner.TryGetAssociatedControlField(this, out PropertyField field) 
-			       || field.Q<ObjectField>()?.value == null);
+			NoEdges,
+			PropertyFieldNotInitialized,
+			PropertyIsDefault
+		}
+
+		private bool FailedPortRequirement(out FailureReason reason)
+		{
+			reason = FailureReason.NoEdges;
+			if (edges.Count != 0)
+				return false;
+			
+			if (!owner.TryGetAssociatedControlField(this, out PropertyField field))
+				return true;
+
+			if (field.childCount == 0)
+			{
+				reason = FailureReason.PropertyFieldNotInitialized;
+				return true;
+			}
+			
+			reason = FailureReason.PropertyIsDefault;
+			switch (field[0])
+			{
+				case ObjectField objectField:
+					return objectField.value == null;
+				case TextField textField:
+					return string.IsNullOrEmpty(textField.value);
+				case PopupField<string> popup:
+					return popup.index == 0;
+				case EnumFlagsField flagsField:
+					return flagsField.value.GetHashCode() == 0; // Thanks for this C#.
+				case IntegerField intField:
+					return intField.value == 0;
+				case FloatField floatField:
+					return floatField.value == 0;
+			}
+			return false; // TODO not yet supported on this serialized field type.
 		}
 
 		public void PortViewValueChanged()
@@ -189,7 +211,7 @@ namespace GraphProcessor
 			{
 				_scheduledBadgeEvent = schedule.Execute(() =>
 				{
-					if (FailedPortRequirement())
+					if (FailedPortRequirement(out _))
 					{
 						AddBadge(PortRequirementMessage, BadgeMessageType.Error);
 					}
@@ -226,6 +248,28 @@ namespace GraphProcessor
 			}).ExecuteLater(50); // Hummm
 
 			UpdatePortSize();
+			
+			if (portData.required)
+			{
+				RetryPortReqsUntilExists();
+			}
+			
+			return;
+			void RetryPortReqsUntilExists()
+			{
+				if (!FailedPortRequirement(out FailureReason reason))
+				{
+					RemoveBadge(PortRequirementMessage);
+					return;
+				}
+
+				if (reason == FailureReason.PropertyFieldNotInitialized)
+				{
+					_scheduledBadgeEvent = schedule.Execute(RetryPortReqsUntilExists);
+					return;
+				}
+				AddBadge(PortRequirementMessage, BadgeMessageType.Error);
+			}
 		}
 
 		public List<EdgeView> GetEdges() => edges;

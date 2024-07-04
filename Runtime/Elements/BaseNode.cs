@@ -110,7 +110,7 @@ namespace GraphProcessor
 		/// </summary>
 		public event Action<string> onPortsUpdated;
 
-		[NonSerialized] bool _needsInspector;
+		[NonSerialized] private bool _needsInspector;
 
 		/// <summary>
 		/// Does the node needs to be visible in the inspector (when selected).
@@ -136,7 +136,7 @@ namespace GraphProcessor
 
 		[NonSerialized] internal Dictionary<Type, CustomPortTypeBehaviorDelegate> customPortTypeBehaviorMap = new();
 
-		[NonSerialized] List<string> messages = new();
+		[NonSerialized] private List<string> messages = new();
 
 		[NonSerialized] protected BaseGraph graph;
 
@@ -175,7 +175,7 @@ namespace GraphProcessor
 			}
 		}
 
-		struct PortUpdate
+		private struct PortUpdate
 		{
 			public List<string> fieldNames;
 			public BaseNode node;
@@ -188,8 +188,8 @@ namespace GraphProcessor
 		}
 
 		// Used in port update algorithm
-		Stack<PortUpdate> fieldsToUpdate = new();
-		HashSet<PortUpdate> updatedFields = new();
+		private Stack<PortUpdate> fieldsToUpdate = new();
+		private HashSet<PortUpdate> updatedFields = new();
 
 		/// <summary>
 		/// Creates a node of type T at a certain position
@@ -508,7 +508,7 @@ namespace GraphProcessor
 		public virtual FieldInfo[] GetNodeFields()
 			=> GetType().GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
 
-		void InitializeInOutDatas()
+		private void InitializeInOutDatas()
 		{
 			FieldInfo[] fields = GetNodeFields();
 
@@ -520,9 +520,10 @@ namespace GraphProcessor
 				if (inputAttribute == null && outputAttribute == null)
 					continue;
 
-				var vertical = field.GetCustomAttribute<VerticalAttribute>();
-				var required = field.GetCustomAttribute<RequiredPortAttribute>();
+				var isVertical = Attribute.IsDefined(field, typeof(VerticalAttribute));
+				var isRequired = Attribute.IsDefined(field, typeof(RequiredPortAttribute));
 				var tooltipAttribute = field.GetCustomAttribute<TooltipAttribute>();
+				
 
 				// check if field is a collection type
 				bool isMultiple = inputAttribute?.allowMultiple ?? outputAttribute.allowMultiple;
@@ -540,7 +541,7 @@ namespace GraphProcessor
 					name = outputAttribute.name;
 
 				// By default, we set the behavior to null, if the field have a custom behavior, it will be set in the loop just below
-				nodeFields[field.Name] = new NodeFieldInformation(field, name, input, isMultiple, tooltip, vertical != null, null, required != null);
+				nodeFields[field.Name] = new NodeFieldInformation(field, name, input, isMultiple, tooltip, isVertical, null, isRequired);
 			}
 
 			MethodInfo[] methods = GetType().GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);

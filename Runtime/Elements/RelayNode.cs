@@ -17,10 +17,10 @@ public class RelayNode : BaseNode
 		public List<Type>	types;
 	}
 
-	[Input(name = "In")]
+	[Input(name = "In"), RequiredPort]
     public PackedRelayData	input;
 
-	[Output(name = "Out")]
+	[Output(name = "Out"), RequiredPort]
 	public PackedRelayData	output;
 
 	public bool		unpackOutput;

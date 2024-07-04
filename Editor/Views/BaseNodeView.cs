@@ -258,28 +258,28 @@ namespace GraphProcessor
 
 		private void UpdateTitle()
 		{
-			title = (nodeTarget.GetCustomName() == null) ? nodeTarget.GetType().Name : nodeTarget.GetCustomName();
+			title = nodeTarget.GetCustomName() == null ? nodeTarget.GetType().Name : nodeTarget.GetCustomName();
 		}
 
 		private void InitializeSettings()
 		{
+			if (!hasSettings)
+				return;
 			// Initialize settings button:
-			if (hasSettings)
+			CreateSettingButton();
+			settingsContainer = new NodeSettingsView { visible = false };
+			settings = new VisualElement();
+			// Add Node type specific settings
+			settings.Add(CreateSettingsView());
+			settingsContainer.Add(settings);
+			Add(settingsContainer);
+
+			FieldInfo[] fields = nodeTarget.GetType().GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+
+			foreach (FieldInfo field in fields)
 			{
-				CreateSettingButton();
-				settingsContainer = new NodeSettingsView();
-				settingsContainer.visible = false;
-				settings = new VisualElement();
-				// Add Node type specific settings
-				settings.Add(CreateSettingsView());
-				settingsContainer.Add(settings);
-				Add(settingsContainer);
-
-				FieldInfo[] fields = nodeTarget.GetType().GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-
-				foreach (FieldInfo field in fields)
-					if (field.GetCustomAttribute(typeof(SettingAttribute)) != null)
-						AddSettingField(field);
+				if (Attribute.IsDefined(field, typeof(SettingAttribute)))
+					AddSettingField(field);
 			}
 		}
 
@@ -681,15 +681,14 @@ namespace GraphProcessor
 			foreach (FieldInfo field in fields)
 			{
 				//skip if the field is a node setting
-				if (field.GetCustomAttribute(typeof(SettingAttribute)) != null)
+				if (Attribute.IsDefined(field, typeof(SettingAttribute)))
 				{
 					hasSettings = true;
 					continue;
 				}
 
 				//skip if the field is not serializable
-				var serializeFieldAttribute = (SerializeField)field.GetCustomAttribute(typeof(SerializeField));
-				bool serializeField = serializeFieldAttribute != null;
+				bool serializeField = Attribute.IsDefined(field, typeof(SerializeField));
 				if ((!field.IsPublic && !serializeField) || field.IsNotSerialized)
 				{
 					AddEmptyField(field, fromInspector);
@@ -697,11 +696,10 @@ namespace GraphProcessor
 				}
 
 				//skip if the field is an input/output and not marked as SerializedField
-				var inputAttribute = (InputAttribute)field.GetCustomAttribute(typeof(InputAttribute));
-				var outputAttribute = (OutputAttribute)field.GetCustomAttribute(typeof(OutputAttribute));
-				bool hasInputAttribute = inputAttribute != null;
-				bool hasInputOrOutputAttribute = hasInputAttribute || outputAttribute != null;
-				bool showAsDrawer = !fromInspector && field.GetCustomAttribute(typeof(ShowAsDrawerAttribute)) != null;
+				var hasInputAttribute = Attribute.IsDefined(field, typeof(InputAttribute));
+				var hasOutputAttribute = Attribute.IsDefined(field, typeof(OutputAttribute));
+				bool hasInputOrOutputAttribute = hasInputAttribute || hasOutputAttribute;
+				bool showAsDrawer = !fromInspector && Attribute.IsDefined(field, typeof(ShowAsDrawerAttribute));
 				if (!serializeField && hasInputOrOutputAttribute && !showAsDrawer)
 				{
 					AddEmptyField(field, fromInspector);
@@ -709,7 +707,7 @@ namespace GraphProcessor
 				}
 
 				//skip if marked with NonSerialized or HideInInspector
-				if (field.GetCustomAttribute(typeof(NonSerializedAttribute)) != null || field.GetCustomAttribute(typeof(HideInInspector)) != null)
+				if (Attribute.IsDefined(field, typeof(NonSerializedAttribute)) || Attribute.IsDefined(field, typeof(HideInInspector)))
 				{
 					AddEmptyField(field, fromInspector);
 					continue;
@@ -723,8 +721,8 @@ namespace GraphProcessor
 					continue;
 				}
 
-				bool showInputDrawer = inputAttribute != null && serializeFieldAttribute != null;
-				showInputDrawer |= inputAttribute != null && field.GetCustomAttribute(typeof(ShowAsDrawerAttribute)) != null;
+				bool showInputDrawer = hasInputAttribute && serializeField;
+				showInputDrawer |= hasInputAttribute && Attribute.IsDefined(field, typeof(ShowAsDrawerAttribute));
 				showInputDrawer &= !fromInspector; // We can't show a drawer in the inspector
 				showInputDrawer &= !typeof(IList).IsAssignableFrom(field.FieldType);
 
@@ -755,10 +753,10 @@ namespace GraphProcessor
 
 		private void AddEmptyField(FieldInfo field, bool fromInspector)
 		{
-			if (field.GetCustomAttribute(typeof(InputAttribute)) == null || fromInspector)
+			if (!Attribute.IsDefined(field, typeof(InputAttribute)) || fromInspector)
 				return;
 
-			if (field.GetCustomAttribute<VerticalAttribute>() != null)
+			if (Attribute.IsDefined(field, typeof(VerticalAttribute)))
 				return;
 
 			var box = new VisualElement { name = field.Name };

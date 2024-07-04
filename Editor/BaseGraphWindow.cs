@@ -122,11 +122,6 @@ namespace GraphProcessor
 
 			reloadWorkaround = false;
 			graphView.Initialize(graph);
-
-			InitializeGraphView(graphView);
-
-			// TOOD: onSceneLinked...
-
 			if (graph.IsLinkedToScene())
 				LinkGraphWindowToScene(graph.GetLinkedScene());
 			else
@@ -156,9 +151,5 @@ namespace GraphProcessor
 		}
 
 		protected abstract void InitializeWindow(BaseGraph graph);
-
-		protected virtual void InitializeGraphView(BaseGraphView view)
-		{
-		}
 	}
 }
