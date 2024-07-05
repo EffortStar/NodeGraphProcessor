@@ -80,6 +80,25 @@ namespace GraphProcessor
 
 		#region Initialization
 
+		public BaseNodeView()
+		{
+			// Dragging support by clicking on IconBadges, to ease selection when errors are visible.
+			RegisterCallback<MouseDownEvent, BaseNodeView>(static (e, args) =>
+			{
+				if (e.clickCount != 1 || e.target is not IconBadge badge)
+				{
+					return;
+				}
+				PortView view = args.Query<PortView>().Where(p => p.HasBadge(badge)).First();
+				if (view == null)
+				{
+					return;
+				}
+				var connector = (BaseEdgeConnector)view.edgeConnector;
+				connector.TryStartDragging(e);
+			}, this);
+		}
+
 		public void Initialize(BaseGraphView owner, BaseNode node)
 		{
 			nodeTarget = node;

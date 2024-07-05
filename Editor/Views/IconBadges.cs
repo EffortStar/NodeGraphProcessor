@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -95,5 +96,10 @@ namespace GraphProcessor
 
 			_badges.Clear();
 		}
+
+		/// <summary>
+		/// Checks for the provided badge.
+		/// </summary>
+		public bool Contains(IconBadge badge) => _badges.Contains(badge);
 	}
 }

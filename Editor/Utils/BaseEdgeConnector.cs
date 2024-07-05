@@ -48,6 +48,21 @@ namespace GraphProcessor
             target.UnregisterCallback<MouseUpEvent>(OnMouseUp);
             target.UnregisterCallback<KeyDownEvent>(OnKeyDown);
         }
+        
+        public bool TryStartDragging(MouseDownEvent e)
+        {
+	        bool prev = active;
+	        OnMouseDown(e);
+	        bool started = active && prev != active;
+	        if (started)
+	        {
+		        // mouseDownPosition should be in local space,
+		        // but if this event was from another object we need to convert it.
+		        mouseDownPosition = ((VisualElement)e.currentTarget).ChangeCoordinatesTo(target, e.localMousePosition);
+	        }
+	        return started;
+        }
+
 
         protected virtual void OnMouseDown(MouseDownEvent e)
         {
