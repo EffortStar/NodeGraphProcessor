@@ -28,12 +28,6 @@ namespace GraphProcessor
 		public virtual Color color => Color.clear;
 
 		/// <summary>
-		/// Set a custom uss file for the node. We use a Resources.Load to get the stylesheet so be sure to put the correct resources path
-		/// https://docs.unity3d.com/ScriptReference/Resources.Load.html
-		/// </summary>
-		public virtual string layoutStyle => string.Empty;
-
-		/// <summary>
 		/// If the node can be locked or not
 		/// </summary>
 		public virtual bool unlockable => true;

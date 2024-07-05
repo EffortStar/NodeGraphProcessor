@@ -71,8 +71,33 @@ namespace GraphProcessor
 		private float selectedNodesNearBottom;
 		private float selectedNodesAvgHorizontal;
 		private float selectedNodesAvgVertical;
+		
+		/// <summary>
+		/// Set a custom uss file for the node. We use a Resources.Load to get the stylesheet so be sure to put the correct resources path
+		/// https://docs.unity3d.com/ScriptReference/Resources.Load.html
+		/// </summary>
+		public virtual string layoutStyle => string.Empty;
 
 		#region Initialization
+
+		public BaseNodeView()
+		{
+			// Dragging support by clicking on IconBadges, to ease selection when errors are visible.
+			RegisterCallback<MouseDownEvent, BaseNodeView>(static (e, args) =>
+			{
+				if (e.clickCount != 1 || e.target is not IconBadge badge)
+				{
+					return;
+				}
+				PortView view = args.Query<PortView>().Where(p => p.HasBadge(badge)).First();
+				if (view == null)
+				{
+					return;
+				}
+				var connector = (BaseEdgeConnector)view.edgeConnector;
+				connector.TryStartDragging(e);
+			}, this);
+		}
 
 		public void Initialize(BaseGraphView owner, BaseNode node)
 		{
@@ -93,8 +118,8 @@ namespace GraphProcessor
 
 			nodeFlags = NodeProvider.GetNodeFlags(node.GetType());
 
-			if (!string.IsNullOrEmpty(node.layoutStyle))
-				styleSheets.Add(Resources.Load<StyleSheet>(node.layoutStyle));
+			if (!string.IsNullOrEmpty(layoutStyle))
+				styleSheets.Add(Resources.Load<StyleSheet>(layoutStyle));
 
 			InitializeView();
 			InitializePorts();

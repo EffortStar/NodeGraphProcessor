@@ -4,6 +4,9 @@ using System.Linq;
 using GraphProcessor;
 using UnityEngine;
 
+/// <summary>
+/// Relay node that supports packing and all sorts of BS.
+/// </summary>
 [Serializable]
 public class RelayNode : BaseNode
 {
@@ -39,8 +42,6 @@ public class RelayNode : BaseNode
 		output = input;
 	}
 
-	public override string layoutStyle => "GraphProcessorStyles/RelayNode";
-
 	[CustomPortInput(nameof(input), typeof(object))]
 	public void GetInputs(List< SerializableEdge > edges)
 	{
@@ -49,12 +50,12 @@ public class RelayNode : BaseNode
 		// If the relay is only connected to another relay:
 		if (edges.Count == 1 && edges.First().outputNode.GetType() == typeof(RelayNode))
 		{
-			if (edges.First().passThroughBuffer != null)
-				input = (PackedRelayData)edges.First().passThroughBuffer;
+			if (edges.First().PassThroughBuffer != null)
+				input = (PackedRelayData)edges.First().PassThroughBuffer;
 		}
 		else
 		{
-			input.values = edges.Select(e => e.passThroughBuffer).ToList();
+			input.values = edges.Select(e => e.PassThroughBuffer).ToList();
 			input.names = edges.Select(e => e.outputPort.portData.displayName).ToList();
 			input.types = edges.Select(e => e.outputPort.portData.displayType ?? e.outputPort.fieldInfo.FieldType).ToList();
 		}
@@ -81,13 +82,13 @@ public class RelayNode : BaseNode
 			foreach (var edge in edges)
 			{
 				var inputRelay = edge.inputNode as RelayNode;
-				edge.passThroughBuffer = inputRelay != null && !inputRelay.packInput ? output : data;
+				edge.PassThroughBuffer = inputRelay != null && !inputRelay.packInput ? output : data;
 			}
 		}
 		else
 		{
 			foreach (var edge in edges)
-				edge.passThroughBuffer = output;
+				edge.PassThroughBuffer = output;
 		}
 	}
 
@@ -114,6 +115,7 @@ public class RelayNode : BaseNode
 			identifier = "0",
 			acceptMultipleEdges = true,
 			sizeInPixel = Mathf.Min(k_MaxPortSize, sizeInPixel + 8),
+			required = true
 		};
 	}
 
@@ -128,6 +130,7 @@ public class RelayNode : BaseNode
 				displayType = typeof(object),
 				identifier = "0",
 				acceptMultipleEdges = true,
+				required = true
 			};
 			yield break;
 		}
@@ -143,6 +146,7 @@ public class RelayNode : BaseNode
 				displayType = inputType.type,
 				acceptMultipleEdges = true,
 				sizeInPixel = Mathf.Min(k_MaxPortSize, Mathf.Max(underlyingPortData.Count, 1) + 7), // TODO: function
+				required = true
 			};
 
 			// We still keep the packed data as output when unpacking just in case we want to continue the relay after unpacking
@@ -154,6 +158,7 @@ public class RelayNode : BaseNode
 					identifier = i.ToString(),
 					acceptMultipleEdges = true,
 					sizeInPixel = 0,
+					required = true
 				};
 			}
 		}
@@ -165,6 +170,7 @@ public class RelayNode : BaseNode
 				identifier = "0",
 				acceptMultipleEdges = true,
 				sizeInPixel = Mathf.Min(k_MaxPortSize, Mathf.Max(underlyingPortData.Count, 1) + 7),
+				required = true
 			};
 		}
 	}

@@ -155,7 +155,7 @@ namespace GraphProcessor
 			inputNode?.OnPortDisconnected(edge.input as PortView);
 			outputNode?.OnPortDisconnected(edge.output as PortView);
 
-			edges.Remove(edge as EdgeView);
+			edges.Remove((EdgeView)edge);
 
 			if (FailedPortRequirement(out _) && portData.required)
 			{
@@ -279,6 +279,8 @@ namespace GraphProcessor
 		/// </summary>
 		public void AddBadge(string message, BadgeMessageType messageType)
 		{
+			RemoveBadge(message);
+			
 			SpriteAlignment alignment = (direction, portData.vertical) switch
 			{
 				(Direction.Input, true) => SpriteAlignment.TopCenter,
@@ -300,5 +302,10 @@ namespace GraphProcessor
 		/// Removes all badges from the port.
 		/// </summary>
 		public void RemoveAllBadges() => badges.RemoveAllBadges();
+
+		/// <summary>
+		/// Tests whether a badge has been added to this element.
+		/// </summary>
+		public bool HasBadge(IconBadge badge) => badges.Contains(badge);
 	}
 }

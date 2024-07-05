@@ -406,6 +406,23 @@ namespace GraphProcessor
 				EdgeView edge = edgeViews.FirstOrDefault(e => e.serializedEdge == changes.removedEdge);
 
 				DisconnectView(edge);
+
+				RemoveRelayIfRequired(changes.removedEdge.outputNode);
+				RemoveRelayIfRequired(changes.removedEdge.inputNode);
+			}
+
+			return;
+
+			// Deletes redirect nodes if they're found to have no connected edges.
+			void RemoveRelayIfRequired(BaseNode node)
+			{
+				if (
+					node is not SimplifiedRelayNode relay ||
+					relay.inputPorts[0].GetEdges().Count != 0 ||
+					relay.outputPorts[0].GetEdges().Count != 0
+				)
+					return;
+				graph.RemoveNode(relay);
 			}
 		}
 
@@ -1356,10 +1373,10 @@ namespace GraphProcessor
 			// TODO: add exposed properties to this list
 		}
 
-		public RelayNodeView AddRelayNode(PortView inputPort, PortView outputPort, Vector2 position)
+		public SimplifiedRelayNodeView AddRelayNode(PortView inputPort, PortView outputPort, Vector2 position)
 		{
-			var relayNode = BaseNode.CreateFromType<RelayNode>(position);
-			var view = (RelayNodeView)AddNode(relayNode);
+			var relayNode = BaseNode.CreateFromType<SimplifiedRelayNode>(position);
+			var view = (SimplifiedRelayNodeView)AddNode(relayNode);
 
 			if (outputPort != null)
 				Connect(view.inputPortViews[0], outputPort);
