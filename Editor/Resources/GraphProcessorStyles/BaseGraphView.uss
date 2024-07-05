@@ -3,6 +3,10 @@
     background-color: #101010;
 }
 
+.icon-badge {
+    min-height: 22px;
+}
+
 Label.icon-badge__text {
     background-color: black;
 }

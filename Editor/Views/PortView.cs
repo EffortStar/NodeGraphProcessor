@@ -155,7 +155,7 @@ namespace GraphProcessor
 			inputNode?.OnPortDisconnected(edge.input as PortView);
 			outputNode?.OnPortDisconnected(edge.output as PortView);
 
-			edges.Remove(edge as EdgeView);
+			edges.Remove((EdgeView)edge);
 
 			if (FailedPortRequirement(out _) && portData.required)
 			{

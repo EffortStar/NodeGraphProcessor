@@ -31,8 +31,8 @@ namespace GraphProcessor
 			if (input == null && output == null)
 				return;
 
-			PortData inputPortData = (input as PortView)?.portData;
-			PortData outputPortData = (output as PortView)?.portData;
+			PortData inputPortData = ((PortView)input)?.portData;
+			PortData outputPortData = ((PortView)output)?.portData;
 
 			for (var i = 1; i < 20; i++)
 				RemoveFromClassList($"edge_{i}");
@@ -57,7 +57,7 @@ namespace GraphProcessor
 				position += new Vector2(-10f, -28);
 				Vector2 mousePos = owner.ChangeCoordinatesTo(owner.contentViewContainer, position);
 
-				owner.AddRelayNode(input as PortView, output as PortView, mousePos);
+				owner.AddRelayNode((PortView)input, (PortView)output, mousePos);
 			}
 		}
 	}

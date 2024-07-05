@@ -296,7 +296,7 @@ namespace GraphProcessor
 			//if there are custom IO implementation on the other ports, they'll need our value in the passThrough buffer
 			object ourValue = fieldInfo.GetValue(fieldOwner);
 			foreach (SerializableEdge edge in edgeWithRemoteCustomIO)
-				edge.passThroughBuffer = ourValue;
+				edge.PassThroughBuffer = ourValue;
 		}
 
 		/// <summary>
@@ -342,7 +342,7 @@ namespace GraphProcessor
 			// take multiple inputs, you must create a custom input function see CustomPortsNode.cs
 			if (edges.Count > 0)
 			{
-				object passThroughObject = edges.First().passThroughBuffer;
+				object passThroughObject = edges.First().PassThroughBuffer;
 
 				// We do an extra conversion step in case the buffer output is not compatible with the input port
 				if (passThroughObject != null)

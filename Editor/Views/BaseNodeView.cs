@@ -71,6 +71,12 @@ namespace GraphProcessor
 		private float selectedNodesNearBottom;
 		private float selectedNodesAvgHorizontal;
 		private float selectedNodesAvgVertical;
+		
+		/// <summary>
+		/// Set a custom uss file for the node. We use a Resources.Load to get the stylesheet so be sure to put the correct resources path
+		/// https://docs.unity3d.com/ScriptReference/Resources.Load.html
+		/// </summary>
+		public virtual string layoutStyle => string.Empty;
 
 		#region Initialization
 
@@ -93,8 +99,8 @@ namespace GraphProcessor
 
 			nodeFlags = NodeProvider.GetNodeFlags(node.GetType());
 
-			if (!string.IsNullOrEmpty(node.layoutStyle))
-				styleSheets.Add(Resources.Load<StyleSheet>(node.layoutStyle));
+			if (!string.IsNullOrEmpty(layoutStyle))
+				styleSheets.Add(Resources.Load<StyleSheet>(layoutStyle));
 
 			InitializeView();
 			InitializePorts();

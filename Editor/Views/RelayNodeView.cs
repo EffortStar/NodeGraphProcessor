@@ -12,6 +12,8 @@ namespace GraphProcessor
 		VisualElement input => this.Q("input");
 		VisualElement output => this.Q("output");
 
+		public override string layoutStyle => "GraphProcessorStyles/RelayNode";
+		
 		public override void Enable()
 		{
 			// Remove useless elements

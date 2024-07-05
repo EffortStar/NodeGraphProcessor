@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using UnityEngine;
 
 namespace GraphProcessor
@@ -15,11 +16,11 @@ namespace GraphProcessor
 
 		[NonSerialized] public BaseNode inputNode;
 
-		[NonSerialized] public NodePort inputPort;
+		[NonSerialized] public NodePort inputPort; // edge goes from output to input
 		[NonSerialized] public NodePort outputPort;
 
 		//temporary object used to send port to port data when a custom input/output function is used.
-		[NonSerialized] public object passThroughBuffer;
+		[NonSerialized] public object PassThroughBuffer;
 
 		[NonSerialized] public BaseNode outputNode;
 

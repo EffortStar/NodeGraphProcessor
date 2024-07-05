@@ -151,6 +151,14 @@ namespace GraphProcessor
 			this.fieldName = fieldName;
 		}
 	}
+	
+	/// <summary>
+	/// Mark a type as capable of accepting multiple inputs into a relay node.
+	/// </summary>
+	[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
+	public sealed class MultipleInputsRelayTypeAttribute : Attribute
+	{
+	}
 
 	/// <summary>
 	/// Allow you to have a custom view for your stack nodes
