@@ -406,6 +406,23 @@ namespace GraphProcessor
 				EdgeView edge = edgeViews.FirstOrDefault(e => e.serializedEdge == changes.removedEdge);
 
 				DisconnectView(edge);
+
+				RemoveRelayIfRequired(changes.removedEdge.outputNode);
+				RemoveRelayIfRequired(changes.removedEdge.inputNode);
+			}
+
+			return;
+
+			// Deletes redirect nodes if they're found to have no connected edges.
+			void RemoveRelayIfRequired(BaseNode node)
+			{
+				if (
+					node is not SimplifiedRelayNode relay ||
+					relay.inputPorts[0].GetEdges().Count != 0 ||
+					relay.outputPorts[0].GetEdges().Count != 0
+				)
+					return;
+				graph.RemoveNode(relay);
 			}
 		}
 

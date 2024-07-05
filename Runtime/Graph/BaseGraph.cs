@@ -308,24 +308,18 @@ namespace GraphProcessor
 		/// <param name="edgeGUID"></param>
 		public void Disconnect(string edgeGUID)
 		{
-			var disconnectEvents = new List<(BaseNode, SerializableEdge)>();
-
 			edges.RemoveAll(r =>
 			{
 				if (r.GUID == edgeGUID)
 				{
-					disconnectEvents.Add((r.inputNode, r));
-					disconnectEvents.Add((r.outputNode, r));
+					r.inputNode?.OnEdgeDisconnected(r);
+					r.outputNode?.OnEdgeDisconnected(r);
 					onGraphChanges?.Invoke(new GraphChanges { removedEdge = r });
 					return true;
 				}
 
 				return false;
 			});
-
-			// Delay the edge disconnect event to avoid recursion
-			foreach ((BaseNode node, SerializableEdge edge) in disconnectEvents)
-				node?.OnEdgeDisconnected(edge);
 		}
 
 		/// <summary>
