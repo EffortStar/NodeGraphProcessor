@@ -2,10 +2,11 @@
 using UnityEngine.UIElements;
 using System.Linq;
 using System.Collections.Generic;
+using JetBrains.Annotations;
 
 namespace GraphProcessor
 {
-	[NodeCustomEditor(typeof(SimplifiedRelayNode))]
+	[NodeCustomEditor(typeof(SimplifiedRelayNode)), UsedImplicitly]
 	public sealed class SimplifiedRelayNodeView : BaseNodeView
 	{
 		public override string layoutStyle => "GraphProcessorStyles/RelayNode";

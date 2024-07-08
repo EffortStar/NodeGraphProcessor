@@ -407,17 +407,26 @@ namespace GraphProcessor
 
 				DisconnectView(edge);
 
-				RemoveRelayIfRequired(changes.removedEdge.outputNode);
-				RemoveRelayIfRequired(changes.removedEdge.inputNode);
+				RemoveRelayIfRequiredAfterDelay(changes.removedEdge.outputNode);
+				RemoveRelayIfRequiredAfterDelay(changes.removedEdge.inputNode);
 			}
 
 			return;
 
-			// Deletes redirect nodes if they're found to have no connected edges.
-			void RemoveRelayIfRequired(BaseNode node)
+			void RemoveRelayIfRequiredAfterDelay(BaseNode node)
 			{
+				if (node is not SimplifiedRelayNode relay)
+					return;
+				schedule.Execute(() => RemoveRelayIfRequired(relay));
+			}
+			
+			// Deletes redirect nodes if they're found to have no connected edges.
+			void RemoveRelayIfRequired(SimplifiedRelayNode relay)
+			{
+				if (!nodeViewsPerNode.ContainsKey(relay))
+					return;
+				
 				if (
-					node is not SimplifiedRelayNode relay ||
 					relay.inputPorts[0].GetEdges().Count != 0 ||
 					relay.outputPorts[0].GetEdges().Count != 0
 				)
@@ -451,9 +460,9 @@ namespace GraphProcessor
 
 			compatiblePorts.AddRange(ports.ToList().Where(p =>
 			{
-				var portView = p as PortView;
+				var portView = (PortView)p;
 
-				if (portView.owner == (startPort as PortView).owner)
+				if (portView.owner == ((PortView)startPort).owner)
 					return false;
 
 				if (p.direction == startPort.direction)
@@ -992,8 +1001,8 @@ namespace GraphProcessor
 
 		public void RemoveNode(BaseNode node)
 		{
-			BaseNodeView view = nodeViewsPerNode[node];
-			RemoveNodeView(view);
+			if (nodeViewsPerNode.TryGetValue(node, out BaseNodeView view))
+				RemoveNodeView(view);
 			graph.RemoveNode(node);
 		}
 
