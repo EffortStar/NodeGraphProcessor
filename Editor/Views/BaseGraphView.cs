@@ -422,7 +422,7 @@ namespace GraphProcessor
 					relay.outputPorts[0].GetEdges().Count != 0
 				)
 					return;
-				graph.RemoveNode(relay);
+				RemoveNode(relay);
 			}
 		}
 
