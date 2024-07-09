@@ -1018,16 +1018,13 @@ namespace GraphProcessor
 
 		public override void SetPosition(Rect newPos)
 		{
-			if (initializing)
-			{
-				base.SetPosition(newPos);
+			base.SetPosition(newPos);
 
-				if (!initializing)
-					owner.RegisterCompleteObjectUndo("Moved graph node");
+			if (!initializing)
+				owner.RegisterCompleteObjectUndo("Moved graph node");
 
-				nodeTarget.position = newPos.position;
-				initializing = false;
-			}
+			nodeTarget.position = newPos.position;
+			initializing = false;
 		}
 
 		public override bool expanded
