@@ -19,7 +19,7 @@ namespace GraphProcessor
 		[SerializeField, HideInInspector]
 		public string parameterGUID;
 
-		public ExposedParameter parameter { get; private set; }
+		public SubgraphParameter parameter { get; private set; }
 
 		public event Action onParameterChanged;
 
@@ -30,14 +30,14 @@ namespace GraphProcessor
 			// load the parameter
 			LoadExposedParameter();
 
-			graph.onExposedParameterModified += OnParamChanged;
+			graph.onSubgraphParameterModified += OnParamChanged;
 			if (onParameterChanged != null)
 				onParameterChanged?.Invoke();
 		}
 
 		void LoadExposedParameter()
 		{
-			parameter = graph.GetExposedParameterFromGUID(parameterGUID);
+			parameter = graph.GetSubgraphParameterFromGUID(parameterGUID);
 
 			if (parameter == null)
 			{
@@ -45,13 +45,10 @@ namespace GraphProcessor
 
 				// Delete this node as the property can't be found
 				graph.RemoveNode(this);
-				return;
 			}
-
-			output = parameter.value;
 		}
 
-		void OnParamChanged(ExposedParameter modifiedParam)
+		void OnParamChanged(SubgraphParameter modifiedParam)
 		{
 			if (parameter == modifiedParam)
 			{
@@ -88,24 +85,7 @@ namespace GraphProcessor
 			}
 		}
 
-		protected override void Process()
-		{
-#if UNITY_EDITOR // In the editor, an undo/redo can change the parameter instance in the graph, in this case the field in this class will point to the wrong parameter
-			parameter = graph.GetExposedParameterFromGUID(parameterGUID);
-#endif
-
-			ClearMessages();
-			if (parameter == null)
-			{
-				AddMessage($"Parameter not found: {parameterGUID}", BadgeMessageType.Error);
-				return;
-			}
-
-			if (accessor == ParameterAccessor.Get)
-				output = parameter.value;
-			else
-				graph.UpdateExposedParameter(parameter.guid, input);
-		}
+		protected override void Process() => throw new NotImplementedException("Parameters should be expanded when a SubGraph is instanced.");
 	}
 
 	public enum ParameterAccessor

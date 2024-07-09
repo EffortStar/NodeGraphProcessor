@@ -169,8 +169,8 @@ namespace GraphProcessor
 		{
 			AddButton(new GUIContent("Center", "Frame the graph contents"), graphView.ResetPositionAndZoom);
 
-			bool exposedParamsVisible = graphView.GetPinnedElementStatus<ExposedParameterView>() != Status.Hidden;
-			showParameters = AddToggle("Show Parameters", exposedParamsVisible, (v) => graphView.ToggleView<ExposedParameterView>());
+			bool exposedParamsVisible = graphView.GetPinnedElementStatus<SubgraphParameterView>() != Status.Hidden;
+			showParameters = AddToggle("Show Parameters", exposedParamsVisible, (v) => graphView.ToggleView<SubgraphParameterView>());
 
 			AddButton("Show In Project", () => EditorGUIUtility.PingObject(graphView.graph), false);
 		}
@@ -178,7 +178,7 @@ namespace GraphProcessor
 		public virtual void UpdateButtonStatus()
 		{
 			if (showParameters != null)
-				showParameters.value = graphView.GetPinnedElementStatus<ExposedParameterView>() != Status.Hidden;
+				showParameters.value = graphView.GetPinnedElementStatus<SubgraphParameterView>() != Status.Hidden;
 		}
 
 		void DrawImGUIButtonList(List<ToolbarButtonData> buttons)

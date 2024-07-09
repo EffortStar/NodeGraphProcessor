@@ -90,16 +90,10 @@ namespace GraphProcessor
 		// Safe event relay from BaseGraph (safe because you are sure to always point on a valid BaseGraph
 		// when one of these events is called), a graph switch can occur between two call tho
 		/// <summary>
-		/// Same event than BaseGraph.onExposedParameterListChanged
+		/// Same event than BaseGraph.onSubgraphParameterListChanged
 		/// Safe event (not triggered in case the graph is null).
 		/// </summary>
-		public event Action onExposedParameterListChanged;
-
-		/// <summary>
-		/// Same event than BaseGraph.onExposedParameterModified
-		/// Safe event (not triggered in case the graph is null).
-		/// </summary>
-		public event Action<ExposedParameter> onExposedParameterModified;
+		public event Action onSubgraphParameterListChanged;
 
 		/// <summary>
 		/// Triggered when a node is duplicated (crt-d) or copy-pasted (crtl-c/crtl-v)
@@ -119,11 +113,6 @@ namespace GraphProcessor
 				return graph.nodeInspectorReference as NodeInspectorObject;
 			}
 		}
-
-		/// <summary>
-		/// Workaround object for creating exposed parameter property fields.
-		/// </summary>
-		public ExposedParameterFieldFactory exposedParameterFactory { get; private set; }
 
 		public SerializedObject serializedGraph { get; private set; }
 
@@ -374,8 +363,8 @@ namespace GraphProcessor
 							UpdateSerializedProperties();
 							RemoveElement(group);
 							return true;
-						case ExposedParameterFieldView blackboardField:
-							graph.RemoveExposedParameter(blackboardField.parameter);
+						case SubgraphParameterFieldView blackboardField:
+							graph.RemoveSubgraphParameter(blackboardField.Parameter);
 							UpdateSerializedProperties();
 							return true;
 						case BaseStackNodeView stackNodeView:
@@ -645,14 +634,14 @@ namespace GraphProcessor
 			// Drag and Drop for elements inside the graph
 			if (dragData != null)
 			{
-				IEnumerable<ExposedParameterFieldView> exposedParameterFieldViews = dragData.OfType<ExposedParameterFieldView>();
+				IEnumerable<SubgraphParameterFieldView> exposedParameterFieldViews = dragData.OfType<SubgraphParameterFieldView>();
 				if (exposedParameterFieldViews.Any())
 				{
-					foreach (ExposedParameterFieldView paramFieldView in exposedParameterFieldViews)
+					foreach (SubgraphParameterFieldView paramFieldView in exposedParameterFieldViews)
 					{
 						RegisterCompleteObjectUndo("Create Parameter Node");
 						var paramNode = BaseNode.CreateFromType<ParameterNode>(mousePos);
-						paramNode.parameterGUID = paramFieldView.parameter.guid;
+						paramNode.parameterGUID = paramFieldView.Parameter.Guid;
 						AddNode(paramNode);
 					}
 				}
@@ -698,7 +687,7 @@ namespace GraphProcessor
 			if (dragData != null)
 			{
 				// Handle drag from exposed parameter view
-				if (dragData.OfType<ExposedParameterFieldView>().Any())
+				if (dragData.OfType<SubgraphParameterFieldView>().Any())
 				{
 					dragging = true;
 				}
@@ -771,8 +760,6 @@ namespace GraphProcessor
 			}
 
 			this.graph = graph;
-
-			exposedParameterFactory = new ExposedParameterFieldFactory(graph);
 
 			UpdateSerializedProperties();
 
@@ -850,8 +837,7 @@ namespace GraphProcessor
 
 		private void InitializeGraphView()
 		{
-			graph.onExposedParameterListChanged += OnExposedParameterListChanged;
-			graph.onExposedParameterModified += s => onExposedParameterModified?.Invoke(s);
+			graph.onSubgraphParameterListChanged += OnSubgraphParameterListChanged;
 			graph.onGraphChanges += GraphChangesCallback;
 			if (NodeGraphState.TryGetStateValue(graph, out _viewState, out string guid))
 			{
@@ -871,10 +857,10 @@ namespace GraphProcessor
 			nodeCreationRequest = c => SearchWindow.Open(new SearchWindowContext(c.screenMousePosition), createNodeMenu);
 		}
 
-		private void OnExposedParameterListChanged()
+		private void OnSubgraphParameterListChanged()
 		{
 			UpdateSerializedProperties();
-			onExposedParameterListChanged?.Invoke();
+			onSubgraphParameterListChanged?.Invoke();
 		}
 
 		private void InitializeNodeViews()
@@ -1414,11 +1400,8 @@ namespace GraphProcessor
 			RemoveFromHierarchy();
 			Undo.undoRedoPerformed -= ReloadView;
 			Object.DestroyImmediate(nodeInspector);
-			exposedParameterFactory.Dispose();
-			exposedParameterFactory = null;
 
-			graph.onExposedParameterListChanged -= OnExposedParameterListChanged;
-			graph.onExposedParameterModified += s => onExposedParameterModified?.Invoke(s);
+			graph.onSubgraphParameterListChanged -= OnSubgraphParameterListChanged;
 			graph.onGraphChanges -= GraphChangesCallback;
 		}
 

@@ -1,24 +1,18 @@
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
-using UnityEditor;
-using UnityEditor.UIElements;
-using UnityEditor.Experimental.GraphView;
 using UnityEngine.UIElements;
-using System.Linq;
+using JetBrains.Annotations;
 
 namespace GraphProcessor
 {
-	[NodeCustomEditor(typeof(ParameterNode))]
-	public class ParameterNodeView : BaseNodeView
+	[NodeCustomEditor(typeof(ParameterNode)), UsedImplicitly]
+	public sealed class ParameterNodeView : BaseNodeView
 	{
-		ParameterNode parameterNode;
+		private ParameterNode parameterNode;
 
 		public override void Enable(bool fromInspector = false)
 		{
-			parameterNode = nodeTarget as ParameterNode;
+			parameterNode = (ParameterNode)nodeTarget;
 
-			EnumField accessorSelector = new EnumField(parameterNode.accessor);
+			EnumField accessorSelector = new(parameterNode.accessor);
 			accessorSelector.SetValueWithoutNotify(parameterNode.accessor);
 			accessorSelector.RegisterValueChangedCallback(evt =>
 			{
@@ -42,12 +36,12 @@ namespace GraphProcessor
 			UpdateView();
 		}
 
-		void UpdateView()
+		private void UpdateView()
 		{
-			title = parameterNode.parameter?.name;
+			title = parameterNode.parameter?.Name;
 		}
-    
-		void UpdatePort()
+
+		private void UpdatePort()
 		{
 			if(parameterNode.accessor == ParameterAccessor.Set)
 			{

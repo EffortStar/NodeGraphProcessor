@@ -2,6 +2,7 @@
 using System.Linq;
 using UnityEngine;
 using System;
+using JetBrains.Annotations;
 using UnityEngine.Serialization;
 using UnityEngine.SceneManagement;
 
@@ -82,14 +83,15 @@ namespace GraphProcessor
 		/// <returns></returns>
 		[SerializeField, HideInInspector]
 		public List<PinnedElement> pinnedElements = new();
-
+		
+		[SerializeField, HideInInspector]
+		internal List<SubgraphParameter> subgraphParameters = new();
+		
 		/// <summary>
-		/// All exposed parameters in the graph
+		/// All exposed parameters in the graph.
 		/// </summary>
-		/// <typeparam name="ExposedParameter"></typeparam>
-		/// <returns></returns>
-		[SerializeField, SerializeReference, HideInInspector]
-		public List<ExposedParameter> exposedParameters = new();
+		[PublicAPI]
+		public IReadOnlyList<SubgraphParameter> SubgraphParameters => subgraphParameters;
 
 		[SerializeField, HideInInspector]
 		public List<StickyNote> stickyNotes = new();
@@ -103,10 +105,9 @@ namespace GraphProcessor
 		/// <summary>
 		/// Triggered when something is changed in the list of exposed parameters
 		/// </summary>
-		public event Action onExposedParameterListChanged;
+		public event Action onSubgraphParameterListChanged;
 
-		public event Action<ExposedParameter> onExposedParameterModified;
-		public event Action<ExposedParameter> onExposedParameterValueChanged;
+		public event Action<SubgraphParameter> onSubgraphParameterModified;
 
 		/// <summary>
 		/// Triggered when the graph is linked to an active scene.
@@ -147,7 +148,7 @@ namespace GraphProcessor
 			// Sanitize the element lists (it's possible that nodes are null if their full class name have changed)
 			// If you rename / change the assembly of a node or parameter, please use the MovedFrom() attribute to avoid breaking the graph.
 			nodes.RemoveAll(n => n == null);
-			exposedParameters.RemoveAll(e => e == null);
+			subgraphParameters.RemoveAll(e => e == null);
 
 			foreach (BaseNode node in nodes.ToList())
 			{
@@ -450,25 +451,13 @@ namespace GraphProcessor
 		/// <param name="type">parameter type (must be a subclass of ExposedParameter)</param>
 		/// <param name="value">default value</param>
 		/// <returns>The unique id of the parameter</returns>
-		public string AddExposedParameter(string name, Type type, object value = null)
+		public string AddSubgraphParameter(string name, Type type)
 		{
-			if (!type.IsSubclassOf(typeof(ExposedParameter)))
-			{
-				Debug.LogError($"Can't add parameter of type {type}, the type doesn't inherit from ExposedParameter.");
-			}
-
-			var param = (ExposedParameter)Activator.CreateInstance(type);
-
-			// patch value with correct type:
-			if (param.GetValueType().IsValueType)
-				value = Activator.CreateInstance(param.GetValueType());
-
-			param.Initialize(name, value);
-			exposedParameters.Add(param);
-
-			onExposedParameterListChanged?.Invoke();
-
-			return param.guid;
+			var param = new SubgraphParameter();
+			param.Initialize(name, type);
+			subgraphParameters.Add(param);
+			onSubgraphParameterListChanged?.Invoke();
+			return param.Guid;
 		}
 
 		/// <summary>
@@ -476,14 +465,14 @@ namespace GraphProcessor
 		/// </summary>
 		/// <param name="parameter">The parameter to add</param>
 		/// <returns>The unique id of the parameter</returns>
-		public string AddExposedParameter(ExposedParameter parameter)
+		public string AddSubgraphParameter(SubgraphParameter parameter)
 		{
 			var guid = Guid.NewGuid().ToString(); // Generated once and unique per parameter
 
-			parameter.guid = guid;
-			exposedParameters.Add(parameter);
+			parameter.Guid = guid;
+			subgraphParameters.Add(parameter);
 
-			onExposedParameterListChanged?.Invoke();
+			onSubgraphParameterListChanged?.Invoke();
 
 			return guid;
 		}
@@ -492,53 +481,35 @@ namespace GraphProcessor
 		/// Remove an exposed parameter
 		/// </summary>
 		/// <param name="ep">the parameter to remove</param>
-		public void RemoveExposedParameter(ExposedParameter ep)
+		public void RemoveSubgraphParameter(SubgraphParameter ep)
 		{
-			exposedParameters.Remove(ep);
+			subgraphParameters.Remove(ep);
 
-			onExposedParameterListChanged?.Invoke();
+			onSubgraphParameterListChanged?.Invoke();
 		}
 
 		/// <summary>
 		/// Remove an exposed parameter
 		/// </summary>
 		/// <param name="guid">GUID of the parameter</param>
-		public void RemoveExposedParameter(string guid)
+		public void RemoveSubgraphParameter(string guid)
 		{
-			if (exposedParameters.RemoveAll(e => e.guid == guid) != 0)
-				onExposedParameterListChanged?.Invoke();
+			if (subgraphParameters.RemoveAll(e => e.Guid == guid) != 0)
+				onSubgraphParameterListChanged?.Invoke();
 		}
 
 		internal void NotifyExposedParameterListChanged()
-			=> onExposedParameterListChanged?.Invoke();
-
-		/// <summary>
-		/// Update an exposed parameter value
-		/// </summary>
-		/// <param name="guid">GUID of the parameter</param>
-		/// <param name="value">new value</param>
-		public void UpdateExposedParameter(string guid, object value)
-		{
-			ExposedParameter param = exposedParameters.Find(e => e.guid == guid);
-			if (param == null)
-				return;
-
-			if (value != null && !param.GetValueType().IsAssignableFrom(value.GetType()))
-				throw new Exception("Type mismatch when updating parameter " + param.name + ": from " + param.GetValueType() + " to " + value.GetType().AssemblyQualifiedName);
-
-			param.value = value;
-			onExposedParameterModified?.Invoke(param);
-		}
+			=> onSubgraphParameterListChanged?.Invoke();
 
 		/// <summary>
 		/// Update the exposed parameter name
 		/// </summary>
 		/// <param name="parameter">The parameter</param>
 		/// <param name="name">new name</param>
-		public void UpdateExposedParameterName(ExposedParameter parameter, string name)
+		public void UpdateSubgraphParameterName(SubgraphParameter parameter, string name)
 		{
-			parameter.name = name;
-			onExposedParameterModified?.Invoke(parameter);
+			parameter.Name = name;
+			onSubgraphParameterModified?.Invoke(parameter);
 		}
 
 		/// <summary>
@@ -546,68 +517,21 @@ namespace GraphProcessor
 		/// </summary>
 		/// <param name="parameter">The parameter</param>
 		/// <param name="isHidden">is Hidden</param>
-		public void NotifyExposedParameterChanged(ExposedParameter parameter)
-		{
-			onExposedParameterModified?.Invoke(parameter);
-		}
-
-		public void NotifyExposedParameterValueChanged(ExposedParameter parameter)
-		{
-			onExposedParameterValueChanged?.Invoke(parameter);
-		}
+		public void NotifySubgraphParameterChanged(SubgraphParameter parameter) => onSubgraphParameterModified?.Invoke(parameter);
 
 		/// <summary>
 		/// Get the exposed parameter from name
 		/// </summary>
 		/// <param name="name">name</param>
 		/// <returns>the parameter or null</returns>
-		public ExposedParameter GetExposedParameter(string name)
-		{
-			return exposedParameters.FirstOrDefault(e => e.name == name);
-		}
+		public SubgraphParameter GetSubgraphParameter(string name) => subgraphParameters.FirstOrDefault(e => e.Name == name);
 
 		/// <summary>
 		/// Get exposed parameter from GUID
 		/// </summary>
 		/// <param name="guid">GUID of the parameter</param>
 		/// <returns>The parameter</returns>
-		public ExposedParameter GetExposedParameterFromGUID(string guid)
-		{
-			return exposedParameters.FirstOrDefault(e => e?.guid == guid);
-		}
-
-		/// <summary>
-		/// Set parameter value from name. (Warning: the parameter name can be changed by the user)
-		/// </summary>
-		/// <param name="name">name of the parameter</param>
-		/// <param name="value">new value</param>
-		/// <returns>true if the value have been assigned</returns>
-		public bool SetParameterValue(string name, object value)
-		{
-			ExposedParameter e = exposedParameters.FirstOrDefault(p => p.name == name);
-
-			if (e == null)
-				return false;
-
-			e.value = value;
-
-			return true;
-		}
-
-		/// <summary>
-		/// Get the parameter value
-		/// </summary>
-		/// <param name="name">parameter name</param>
-		/// <returns>value</returns>
-		public object GetParameterValue(string name) => exposedParameters.FirstOrDefault(p => p.name == name)?.value;
-
-		/// <summary>
-		/// Get the parameter value template
-		/// </summary>
-		/// <param name="name">parameter name</param>
-		/// <typeparam name="T">type of the parameter</typeparam>
-		/// <returns>value</returns>
-		public T GetParameterValue<T>(string name) => (T)GetParameterValue(name);
+		public SubgraphParameter GetSubgraphParameterFromGUID(string guid) => subgraphParameters.FirstOrDefault(e => e?.Guid == guid);
 
 		/// <summary>
 		/// Link the current graph to the scene in parameter, allowing the graph to pick and serialize objects from the scene.
