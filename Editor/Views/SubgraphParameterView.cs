@@ -32,9 +32,9 @@ namespace GraphProcessor
 			addItemRequested += OnAddClicked;
 			// moveItemRequested += 
 
-			_inputsSection = new BlackboardSection { title = "Inputs", canAcceptDrop = _ => true };
+			_inputsSection = new BlackboardSection { title = "Inputs", canAcceptDrop = _ => true, name = "InputsSection" };
 			Add(_inputsSection);
-			_outputsSection = new BlackboardSection { title = "Outputs", canAcceptDrop = _ => true };
+			_outputsSection = new BlackboardSection { title = "Outputs", canAcceptDrop = _ => true, name = "OutputsSection"  };
 			Add(_outputsSection);
 		}
 
