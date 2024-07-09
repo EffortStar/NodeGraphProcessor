@@ -30,7 +30,7 @@ namespace GraphProcessor
 		/// </summary>
 		/// <typeparam name="BaseNode"></typeparam>
 		/// <returns></returns>
-		[SerializeReference]
+		[SerializeReference, HideInInspector]
 		public List<BaseNode> nodes = new();
 
 		/// <summary>
@@ -47,7 +47,7 @@ namespace GraphProcessor
 		/// </summary>
 		/// <typeparam name="SerializableEdge"></typeparam>
 		/// <returns></returns>
-		[SerializeField]
+		[SerializeField, HideInInspector]
 		public List<SerializableEdge> edges = new();
 
 		/// <summary>
@@ -64,7 +64,7 @@ namespace GraphProcessor
 		/// </summary>
 		/// <typeparam name="Group"></typeparam>
 		/// <returns></returns>
-		[SerializeField, FormerlySerializedAs("commentBlocks")]
+		[SerializeField, FormerlySerializedAs("commentBlocks"), HideInInspector]
 		public List<Group> groups = new();
 
 		/// <summary>
@@ -72,7 +72,7 @@ namespace GraphProcessor
 		/// </summary>
 		/// <typeparam name="stackNodes"></typeparam>
 		/// <returns></returns>
-		[SerializeField, SerializeReference] // Polymorphic serialization
+		[SerializeField, SerializeReference, HideInInspector] // Polymorphic serialization
 		public List<BaseStackNode> stackNodes = new();
 
 		/// <summary>
@@ -80,7 +80,7 @@ namespace GraphProcessor
 		/// </summary>
 		/// <typeparam name="PinnedElement"></typeparam>
 		/// <returns></returns>
-		[SerializeField]
+		[SerializeField, HideInInspector]
 		public List<PinnedElement> pinnedElements = new();
 
 		/// <summary>
@@ -88,16 +88,16 @@ namespace GraphProcessor
 		/// </summary>
 		/// <typeparam name="ExposedParameter"></typeparam>
 		/// <returns></returns>
-		[SerializeField, SerializeReference]
+		[SerializeField, SerializeReference, HideInInspector]
 		public List<ExposedParameter> exposedParameters = new();
 
-		[SerializeField]
+		[SerializeField, HideInInspector]
 		public List<StickyNote> stickyNotes = new();
 		
 		[NonSerialized] private Scene linkedScene;
 
 		// Trick to keep the node inspector alive during the editor session
-		[SerializeField]
+		[SerializeField, HideInInspector]
 		internal UnityEngine.Object nodeInspectorReference;
 
 		/// <summary>
