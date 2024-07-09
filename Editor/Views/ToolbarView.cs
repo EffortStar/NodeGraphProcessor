@@ -170,7 +170,7 @@ namespace GraphProcessor
 			AddButton(new GUIContent("Center", "Frame the graph contents"), graphView.ResetPositionAndZoom);
 
 			bool exposedParamsVisible = graphView.GetPinnedElementStatus<SubgraphParameterView>() != Status.Hidden;
-			showParameters = AddToggle("Show Parameters", exposedParamsVisible, (v) => graphView.ToggleView<SubgraphParameterView>());
+			showParameters = AddToggle("Subgraph IO", exposedParamsVisible, (v) => graphView.ToggleView<SubgraphParameterView>());
 
 			AddButton("Show In Project", () => EditorGUIUtility.PingObject(graphView.graph), false);
 		}

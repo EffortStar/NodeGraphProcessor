@@ -14,11 +14,11 @@ namespace GraphProcessor
 
 		public string ShortType => GetValueType()?.Name;
 
-		public void Initialize(string name, Type type)
+		public void Initialize(string name, Type type, Direction direction)
 		{
 			Guid = System.Guid.NewGuid().ToString(); // Generated once and unique per parameter
 			Name = name;
-			Direction = Direction.Input;
+			Direction = direction;
 			Type = SerializedType.ToString(type);
 		}
 		

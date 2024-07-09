@@ -3,6 +3,7 @@ using System.Linq;
 using UnityEngine;
 using System;
 using JetBrains.Annotations;
+using UnityEditor.Experimental.GraphView;
 using UnityEngine.Serialization;
 using UnityEngine.SceneManagement;
 
@@ -447,14 +448,11 @@ namespace GraphProcessor
 		/// <summary>
 		/// Add an exposed parameter
 		/// </summary>
-		/// <param name="name">parameter name</param>
-		/// <param name="type">parameter type (must be a subclass of ExposedParameter)</param>
-		/// <param name="value">default value</param>
 		/// <returns>The unique id of the parameter</returns>
-		public string AddSubgraphParameter(string name, Type type)
+		public string AddSubgraphParameter(string name, Type type, Direction direction)
 		{
 			var param = new SubgraphParameter();
-			param.Initialize(name, type);
+			param.Initialize(name, type, direction);
 			subgraphParameters.Add(param);
 			onSubgraphParameterListChanged?.Invoke();
 			return param.Guid;

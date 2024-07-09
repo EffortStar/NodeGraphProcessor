@@ -16,39 +16,57 @@ namespace GraphProcessor
 
 		private readonly string exposedParameterViewStyle = "GraphProcessorStyles/SubgraphParameterView";
 
-		private List<Rect> blackboardLayouts = new();
+		private readonly BlackboardSection _inputsSection;
+		private readonly BlackboardSection _outputsSection;
 
 		public SubgraphParameterView()
 		{
 			var style = Resources.Load<StyleSheet>(exposedParameterViewStyle);
 			if (style != null)
 				styleSheets.Add(style);
-			
+
 			var userPortStyle = Resources.Load<StyleSheet>(PortView.UserPortStyleFile);
 			if (userPortStyle != null)
 				styleSheets.Add(userPortStyle);
 
 			addItemRequested += OnAddClicked;
 			// moveItemRequested += 
+
+			_inputsSection = new BlackboardSection { title = "Inputs", canAcceptDrop = _ => true };
+			Add(_inputsSection);
+			_outputsSection = new BlackboardSection { title = "Outputs", canAcceptDrop = _ => true };
+			Add(_outputsSection);
 		}
 
 		private void OnAddClicked(Blackboard blackboard)
 		{
-			var parameterType = new GenericMenu();
+			var typeMenu = new GenericMenu();
 
-			foreach (Type paramType in GetExposedParameterTypes())
-				parameterType.AddItem(new GUIContent(GetNiceNameFromType(paramType)), false, () =>
-				{
-					string uniqueName = "New " + GetNiceNameFromType(paramType);
+			foreach ((Direction direction, Type paramType) in GetPortTypes())
+			{
+				typeMenu.AddItem(
+					new GUIContent(
+						(direction == Direction.Input ? "Inputs/" : "Outputs/") + GetNiceNameFromType(paramType)
+					),
+					false,
+					() =>
+					{
+						string uniqueName = "New " + GetNiceNameFromType(paramType);
 
-					uniqueName = GetUniqueExposedPropertyName(uniqueName);
-					graphView.graph.AddSubgraphParameter(uniqueName, paramType);
-				});
+						uniqueName = GetUniqueExposedPropertyName(uniqueName);
+						graphView.graph.AddSubgraphParameter(
+							uniqueName,
+							paramType, 
+							direction
+						);
+					}
+				);
+			}
 
-			parameterType.ShowAsContext();
+			typeMenu.ShowAsContext();
 		}
 
-		private string GetNiceNameFromType(Type type)
+		private static string GetNiceNameFromType(Type type)
 		{
 			string name = type.Name;
 
@@ -68,75 +86,51 @@ namespace GraphProcessor
 			return name;
 		}
 
-		private IEnumerable<Type> GetExposedParameterTypes()
-		{
-			HashSet<Type> types = graphView.ports.Select(p => p.portType).ToHashSet();
-			types.Remove(typeof(object));
-			return types;
-		}
+		private IEnumerable<(Direction, Type)> GetPortTypes() => graphView.ports.Select(p => (p.direction, p.portType)).ToHashSet();
 
-		/*private void UpdateParameterList()
+		private void UpdateParameterList()
 		{
-			Content.Clear();
-			Content.Add(new BlackboardSection
-			{
-				title = "Inputs",
-			});
+			_inputsSection.Clear();
+			_outputsSection.Clear();
 
 			foreach (SubgraphParameter param in graphView.graph.SubgraphParameters)
 			{
 				if (param.Direction != Direction.Input) continue;
-				
+
 				var row = new BlackboardRow(new SubgraphParameterFieldView(graphView, param), null) { expanded = false };
-				Content.Add(row);
+				_inputsSection.Add(row);
 			}
-			
-			Content.Add(new BlackboardSection
-			{
-				title = "Outputs",
-			});
-			
+
 			foreach (SubgraphParameter param in graphView.graph.SubgraphParameters)
 			{
 				if (param.Direction != Direction.Output) continue;
-				
+
 				var row = new BlackboardRow(new SubgraphParameterFieldView(graphView, param), null) { expanded = false };
-				Content.Add(row);
+				_outputsSection.Add(row);
 			}
 		}
 
-		*/
 		protected override void Initialize(BaseGraphView graphView)
 		{
 			this.graphView = graphView;
 			title = Title;
 			subTitle = null;
 			scrollable = true;
-			
 
-			/*graphView.onSubgraphParameterListChanged += UpdateParameterList;
+
+			graphView.onSubgraphParameterListChanged += UpdateParameterList;
 			graphView.initialized += UpdateParameterList;
 			Undo.undoRedoPerformed += UpdateParameterList;
-
-			RegisterCallback<DragUpdatedEvent>(OnDragUpdatedEvent);
-			RegisterCallback<DragPerformEvent>(OnDragPerformEvent);
-			RegisterCallback<MouseDownEvent>(OnMouseDownEvent, TrickleDown.TrickleDown);
 			RegisterCallback<DetachFromPanelEvent>(OnViewClosed);
 
 			UpdateParameterList();
-
-			// Add exposed parameter button
-			Header.Add(new Button(OnAddClicked)
-			{
-				text = "+"
-			});*/
 		}
-		/*
+
 
 		private void OnViewClosed(DetachFromPanelEvent evt)
 			=> Undo.undoRedoPerformed -= UpdateParameterList;
 
-		private void OnMouseDownEvent(MouseDownEvent evt)
+		/*private void OnMouseDownEvent(MouseDownEvent evt)
 		{
 			blackboardLayouts = Content.Children().Select(c => c.layout).ToList();
 		}

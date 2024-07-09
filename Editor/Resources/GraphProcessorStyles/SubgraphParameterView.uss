@@ -321,6 +321,15 @@ SubgraphParameterView #titleLabel {
     padding-left: 6px;
 }
 
+SubgraphParameterView .pill #contents > #top > #icon {
+    width: 6px;
+    height: 6px;
+    border-radius: 3px;
+    margin-top: 0;
+    margin-left: 2px;
+    margin-right: 2px;
+}
+
 #subTitleLabel,
 BlackboardRow > .mainContainer > #root > #itemRow > #expandButton {
     display: none;
