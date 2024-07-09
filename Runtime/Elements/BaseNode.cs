@@ -27,16 +27,6 @@ namespace GraphProcessor
 		/// </summary>
 		public virtual Color color => Color.clear;
 
-		/// <summary>
-		/// If the node can be locked or not
-		/// </summary>
-		public virtual bool unlockable => true;
-
-		/// <summary>
-		/// Is the node is locked (if locked it can't be moved)
-		/// </summary>
-		public virtual bool isLocked => nodeLock;
-
 		//id
 		public string GUID;
 
@@ -73,12 +63,6 @@ namespace GraphProcessor
 		/// Is debug visible
 		/// </summary>
 		public bool debug;
-
-		/// <summary>
-		/// Node locked state
-		/// </summary>
-		public bool nodeLock;
-
 		public delegate void ProcessDelegate();
 
 		/// <summary>
@@ -207,7 +191,7 @@ namespace GraphProcessor
 			if (!nodeType.IsSubclassOf(typeof(BaseNode)))
 				return null;
 
-			var node = Activator.CreateInstance(nodeType) as BaseNode;
+			var node = (BaseNode)Activator.CreateInstance(nodeType);
 
 			node.position = position;
 

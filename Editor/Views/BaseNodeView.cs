@@ -1018,7 +1018,7 @@ namespace GraphProcessor
 
 		public override void SetPosition(Rect newPos)
 		{
-			if (initializing || !nodeTarget.isLocked)
+			if (initializing)
 			{
 				base.SetPosition(newPos);
 
@@ -1040,19 +1040,12 @@ namespace GraphProcessor
 			}
 		}
 
-		public void ChangeLockStatus()
-		{
-			nodeTarget.nodeLock ^= true;
-		}
-
 		public override void BuildContextualMenu(ContextualMenuPopulateEvent evt)
 		{
 			BuildAlignMenu(evt);
 			evt.menu.AppendAction("Open Node Script", (e) => OpenNodeScript(), OpenNodeScriptStatus);
 			evt.menu.AppendAction("Open Node View Script", (e) => OpenNodeViewScript(), OpenNodeViewScriptStatus);
 			evt.menu.AppendAction("Debug", (e) => ToggleDebug(), DebugStatus);
-			if (nodeTarget.unlockable)
-				evt.menu.AppendAction((nodeTarget.isLocked ? "Unlock" : "Lock"), (e) => ChangeLockStatus(), LockStatus);
 		}
 
 		protected void BuildAlignMenu(ContextualMenuPopulateEvent evt)
