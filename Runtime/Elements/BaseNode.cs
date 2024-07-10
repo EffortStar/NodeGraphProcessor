@@ -510,7 +510,7 @@ namespace GraphProcessor
 				}
 
 				string name = field.Name;
-				if (inputAttribute is { name: null })
+				if (inputAttribute is { name: not null })
 					name = inputAttribute.name;
 				if (outputAttribute is { name: not null })
 					name = outputAttribute.name;
