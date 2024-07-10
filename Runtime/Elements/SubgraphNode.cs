@@ -128,6 +128,9 @@ namespace GraphProcessor
 			}
 		}
 
+		protected override void Process()
+			=> throw new NotSupportedException($"{this} attempted execution. Call {nameof(BaseGraph)}.{nameof(BaseGraph.Realise)} to inline subgraph nodes before processing.");
+
 		private (bool required, bool acceptMultipleEdges) GetParameterPortInfoFromInner(
 			Dictionary<SubgraphParameter, List<ParameterNode>> parametersToNodes,
 			SubgraphParameter parameter

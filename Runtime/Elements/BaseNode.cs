@@ -30,9 +30,6 @@ namespace GraphProcessor
 		//id
 		public string GUID;
 
-		/// <summary>Tell wether or not the node can be processed. Do not check anything from inputs because this step happens before inputs are sent to the node</summary>
-		public virtual bool canProcess => true;
-
 		/// <summary>True if the node can be deleted, false otherwise</summary>
 		public virtual bool deletable => true;
 
@@ -54,43 +51,27 @@ namespace GraphProcessor
 		/// <summary>
 		/// Is the node expanded
 		/// </summary>
+		// ReSharper disable once NotAccessedField.Global -- serialized
 		public bool expanded;
 
 		/// <summary>
 		/// Is debug visible
 		/// </summary>
 		public bool debug;
-		public delegate void ProcessDelegate();
-
-		/// <summary>
-		/// Triggered when the node is processes
-		/// </summary>
-		public event ProcessDelegate onProcessed;
-
+		
 		public event Action<string, BadgeMessageType> onMessageAdded;
 		public event Action<string> onMessageRemoved;
 
-		/// <summary>
-		/// Triggered after an edge was connected on the node
-		/// </summary>
-		public event Action<SerializableEdge> onAfterEdgeConnected;
-
-		/// <summary>
-		/// Triggered after an edge was disconnected on the node
-		/// </summary>
-		public event Action<SerializableEdge> onAfterEdgeDisconnected;
 
 		/// <summary>
 		/// Triggered after a single/list of port(s) is updated, the parameter is the field name
 		/// </summary>
 		public event Action<string> onPortsUpdated;
-
-		[NonSerialized] private bool _needsInspector;
-
+		
 		/// <summary>
 		/// Does the node needs to be visible in the inspector (when selected).
 		/// </summary>
-		public virtual bool needsInspector => _needsInspector;
+		public virtual bool needsInspector => false;
 
 		/// <summary>
 		/// Can the node be renamed in the UI. By default a node can be renamed by double clicking it's name.
@@ -199,6 +180,8 @@ namespace GraphProcessor
 
 		#region Initialization
 
+		public BaseGraph Graph { set => graph = value; }
+		
 		// called by the BaseGraph when the node is added to the graph
 		public void Initialize(BaseGraph graph)
 		{
@@ -558,8 +541,6 @@ namespace GraphProcessor
 			portCollection.Add(edge);
 
 			UpdateAllPorts();
-
-			onAfterEdgeConnected?.Invoke(edge);
 		}
 
 		protected virtual bool CanResetPort(NodePort port) => true;
@@ -580,8 +561,6 @@ namespace GraphProcessor
 				edge.inputPort?.ResetToDefault();
 
 			UpdateAllPorts();
-
-			onAfterEdgeDisconnected?.Invoke(edge);
 		}
 
 		public void OnProcess()
@@ -589,14 +568,10 @@ namespace GraphProcessor
 			inputPorts.PullDatas();
 
 			ExceptionToLog.Call(Process);
-
-			InvokeOnProcessed();
-
+			
 			outputPorts.PushDatas();
 		}
-
-		public void InvokeOnProcessed() => onProcessed?.Invoke();
-
+		
 		/// <summary>
 		/// Called when the node is enabled
 		/// </summary>

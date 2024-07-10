@@ -233,14 +233,14 @@ namespace GraphProcessor
 				//And move a bit the new node
 				node.position += new Vector2(20, 20);
 
-				BaseNodeView newNodeView = AddNode(node);
+				AddNode(node);
 
 				// If the nodes were copied from another graph, then the source is null
 				if (sourceNode != null)
 					nodeDuplicated?.Invoke(sourceNode, node);
 				copiedNodesMap[sourceGUID] = node;
 
-				//Select the new node
+				// Select the new node
 				AddToSelection(nodeViewsPerNode[node]);
 			}
 

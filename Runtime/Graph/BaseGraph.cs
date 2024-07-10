@@ -3,12 +3,13 @@ using System.Linq;
 using UnityEngine;
 using System;
 using JetBrains.Annotations;
+using UnityEngine.Pool;
 using UnityEngine.Serialization;
 using UnityEngine.SceneManagement;
 
 namespace GraphProcessor
 {
-	public class GraphChanges
+	public struct GraphChanges
 	{
 		public SerializableEdge removedEdge;
 		public SerializableEdge addedEdge;
@@ -128,7 +129,7 @@ namespace GraphProcessor
 		/// Triggered when the graph is changed
 		/// </summary>
 		public event Action<GraphChanges> onGraphChanges;
-
+		
 		[NonSerialized] private bool _isEnabled;
 
 		public bool isEnabled
@@ -155,6 +156,7 @@ namespace GraphProcessor
 			nodes.RemoveAll(n => n == null);
 			subgraphParameters.RemoveAll(e => e == null);
 
+			// TODO consider whether these ToList calls are unnecessary. Knowing this codebase, they likely are.
 			foreach (BaseNode node in nodes.ToList())
 			{
 				nodesPerGUID[node.GUID] = node;
@@ -214,6 +216,15 @@ namespace GraphProcessor
 
 			onGraphChanges?.Invoke(new GraphChanges { addedNode = node });
 
+			return node;
+		}
+		
+		private BaseNode AddNodeAndDontInitialize(BaseNode node)
+		{
+			nodesPerGUID[node.GUID] = node;
+			nodes.Add(node);
+			node.Graph = this;
+			onGraphChanges?.Invoke(new GraphChanges { addedNode = node });
 			return node;
 		}
 
@@ -592,6 +603,76 @@ namespace GraphProcessor
 				return true;
 
 			return false;
+		}
+
+		/// <summary>
+		/// Inlines <see cref="SubgraphNodeBase{T}"/> and <see cref="SimplifiedRelayNode"/>.<br/>
+		/// Must be called manually before evaluation.
+		/// </summary>
+		public void Realise()
+		{
+			RealiseSubgraphs();
+			RealiseSimplifiedRelays();
+		}
+
+		private void RealiseSubgraphs()
+		{
+			using var _ = ListPool<SubgraphNodeBase>.Get(out var subgraphNodes);
+			subgraphNodes.AddRange(nodes.OfType<SubgraphNodeBase>());
+
+			for (int i = subgraphNodes.Count - 1; i >= 0; i--)
+			{
+				SubgraphNodeBase subgraphNode = subgraphNodes[i];
+
+				BaseGraph subgraph = subgraphNode.Subgraph;
+				if (subgraph == null)
+				{
+					Debug.LogError($"Subgraph node in {name} had no graph assigned.", this);
+					foreach (SerializableEdge edge in subgraphNode.GetAllEdges().ToArray())
+						Disconnect(edge);
+					continue;
+				}
+
+				// Note that we need to protect against modifying the subgraph asset in the asset database.
+				// But we also need to use its nodes, because we can't duplicate nodes at runtime, they're plain classes.
+				// So it's necessary to instantiate the subgraph to pull out that serialized data into a new instance.
+				// TODO consider whether we can employ the GraphPool, and share runtime instances of the subgraphs.
+				subgraph = Instantiate(subgraph);
+				subgraph.Realise(); // Realise any nested subgraphs
+
+				foreach (BaseNode node in subgraph.nodes)
+				{
+					// Parameter nodes shouldn't be inserted into the realised graph.
+					if (node is ParameterNode)
+						continue;
+					
+					AddNodeAndDontInitialize(node); // The node has already been initialized from the instantiation of the subgraph.
+				}
+				
+				foreach (SerializableEdge edge in subgraph.edges)
+				{
+					if (edge.inputNode is ParameterNode || edge.outputNode is ParameterNode)
+					{
+						// TODO wire up these edges with new ones that connect to nodes in this graph.
+						
+						continue;
+					}
+
+					edges.Add(edge);
+					edgesPerGUID[edge.GUID] = edge;
+				}
+				
+				subgraphNodes.RemoveAt(i);
+				
+				// We don't actually need that subgraph instance though,
+				// so after we've extracted the serialized data we care about it can be destroyed.
+				Destroy(subgraph);
+			}
+		}
+
+		private void RealiseSimplifiedRelays()
+		{
+			// TODO remove relay nodes and replace them with straight edges.
 		}
 	}
 }
