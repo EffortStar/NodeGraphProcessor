@@ -56,7 +56,10 @@ namespace GraphProcessor
 		[CustomPortBehavior(nameof(output))]
 		IEnumerable<PortData> GetOutputPort(List<SerializableEdge> edges)
 		{
-			if (Parameter.Direction == ParameterDirection.Input)
+			if (Parameter == null)
+				yield break;  // No port info is provided during any time when the graph isn't provided.
+			
+			if (Parameter!.Direction == ParameterDirection.Input)
 			{
 				yield return new PortData
 				{
@@ -72,7 +75,10 @@ namespace GraphProcessor
 		[CustomPortBehavior(nameof(input))]
 		IEnumerable<PortData> GetInputPort(List<SerializableEdge> edges)
 		{
-			if (Parameter.Direction == ParameterDirection.Output)
+			if (Parameter == null)
+				yield break; // No port info is provided during any time when the graph isn't provided.
+			
+			if (Parameter!.Direction == ParameterDirection.Output)
 			{
 				yield return new PortData
 				{

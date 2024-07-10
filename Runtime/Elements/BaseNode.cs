@@ -33,9 +33,6 @@ namespace GraphProcessor
 		/// <summary>Tell wether or not the node can be processed. Do not check anything from inputs because this step happens before inputs are sent to the node</summary>
 		public virtual bool canProcess => true;
 
-		/// <summary>Show the node controlContainer only when the mouse is over the node</summary>
-		public virtual bool showControlsOnHover => false;
-
 		/// <summary>True if the node can be deleted, false otherwise</summary>
 		public virtual bool deletable => true;
 
@@ -513,9 +510,9 @@ namespace GraphProcessor
 				}
 
 				string name = field.Name;
-				if (!string.IsNullOrEmpty(inputAttribute?.name))
+				if (inputAttribute is { name: null })
 					name = inputAttribute.name;
-				if (!string.IsNullOrEmpty(outputAttribute?.name))
+				if (outputAttribute is { name: not null })
 					name = outputAttribute.name;
 
 				// By default, we set the behavior to null, if the field have a custom behavior, it will be set in the loop just below

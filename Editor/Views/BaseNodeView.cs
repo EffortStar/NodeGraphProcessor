@@ -176,30 +176,6 @@ namespace GraphProcessor
 			bottomPortContainer = new VisualElement { name = "BottomPortContainer" };
 			Add(bottomPortContainer);
 
-			if (nodeTarget.showControlsOnHover)
-			{
-				bool mouseOverControls = false;
-				controlsContainer.style.display = DisplayStyle.None;
-				RegisterCallback<MouseOverEvent>(e =>
-				{
-					controlsContainer.style.display = DisplayStyle.Flex;
-					mouseOverControls = true;
-				});
-				RegisterCallback<MouseOutEvent>(e =>
-				{
-					Rect rect = GetPosition();
-					Vector2 graphMousePosition = owner.contentViewContainer.WorldToLocal(e.mousePosition);
-					if (rect.Contains(graphMousePosition) || !nodeTarget.showControlsOnHover)
-						return;
-					mouseOverControls = false;
-					schedule.Execute(_ =>
-					{
-						if (!mouseOverControls)
-							controlsContainer.style.display = DisplayStyle.None;
-					}).ExecuteLater(500);
-				});
-			}
-
 			Undo.undoRedoPerformed += UpdateFieldValues;
 
 			debugContainer = new VisualElement { name = "debug" };
@@ -758,7 +734,7 @@ namespace GraphProcessor
 				var showInInspector = field.GetCustomAttribute<ShowInInspectorAttribute>();
 				if (!serializeField && showInInspector != null && !showInInspector.showInNode && !fromInspector)
 				{
-					AddEmptyField(field, fromInspector);
+					AddEmptyField(field, false);
 					continue;
 				}
 
