@@ -3,7 +3,6 @@ using System.Linq;
 using UnityEngine;
 using System;
 using JetBrains.Annotations;
-using UnityEditor.Experimental.GraphView;
 using UnityEngine.Serialization;
 using UnityEngine.SceneManagement;
 
@@ -84,6 +83,11 @@ namespace GraphProcessor
 		/// <returns></returns>
 		[SerializeField, HideInInspector]
 		public List<PinnedElement> pinnedElements = new();
+
+		/// <summary>
+		/// Checks for any subgraph parameters. Doesn't perform checks for usage.
+		/// </summary>
+		public bool IsSubgraph => subgraphParameters.Count > 0;
 		
 		[SerializeField, HideInInspector]
 		internal List<SubgraphParameter> subgraphParameters = new();
@@ -397,7 +401,7 @@ namespace GraphProcessor
 		/// <returns>the pinned element</returns>
 		public PinnedElement OpenPinned(Type viewType)
 		{
-			PinnedElement pinned = pinnedElements.Find(p => p.editorType.type == viewType);
+			PinnedElement pinned = pinnedElements.Find(p => p.editorType.Type == viewType);
 
 			if (pinned == null)
 			{
@@ -416,7 +420,7 @@ namespace GraphProcessor
 		/// <param name="viewType">type of the pinned element</param>
 		public void ClosePinned(Type viewType)
 		{
-			PinnedElement pinned = pinnedElements.Find(p => p.editorType.type == viewType);
+			PinnedElement pinned = pinnedElements.Find(p => p.editorType.Type == viewType);
 			pinned.opened = false;
 		}
 
@@ -449,7 +453,7 @@ namespace GraphProcessor
 		/// Add an exposed parameter
 		/// </summary>
 		/// <returns>The unique id of the parameter</returns>
-		public string AddSubgraphParameter(string name, Type type, Direction direction)
+		public string AddSubgraphParameter(string name, Type type, ParameterDirection direction)
 		{
 			var param = new SubgraphParameter();
 			param.Initialize(name, type, direction);

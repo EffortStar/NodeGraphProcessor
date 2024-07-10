@@ -44,36 +44,27 @@ namespace GraphProcessor
 
 			foreach ((Direction direction, Type paramType) in GetPortTypes())
 			{
+				string typeName = TypeUtility.FormatTypeName(paramType);
 				typeMenu.AddItem(
 					new GUIContent(
-						(direction == Direction.Input ? "Inputs/" : "Outputs/") + GetNiceNameFromType(paramType)
+						(direction == Direction.Input ? "Inputs/" : "Outputs/") + typeName
 					),
 					false,
 					() =>
 					{
-						string uniqueName = "New " + GetNiceNameFromType(paramType);
+						string uniqueName = "New " + typeName;
 
 						uniqueName = GetUniqueExposedPropertyName(uniqueName);
 						graphView.graph.AddSubgraphParameter(
 							uniqueName,
 							paramType,
-							direction
+							(ParameterDirection)direction
 						);
 					}
 				);
 			}
 
 			typeMenu.ShowAsContext();
-		}
-
-		private static string GetNiceNameFromType(Type type)
-		{
-			string name = type.Name;
-
-			// Remove parameter in the name of the type if it exists
-			name = name.Replace("Parameter", "");
-
-			return ObjectNames.NicifyVariableName(name);
 		}
 
 		private string GetUniqueExposedPropertyName(string name)
@@ -95,7 +86,7 @@ namespace GraphProcessor
 
 			foreach (SubgraphParameter param in graphView.graph.SubgraphParameters)
 			{
-				if (param.Direction != Direction.Input) continue;
+				if (param.Direction != ParameterDirection.Input) continue;
 
 				var row = new BlackboardRow(new SubgraphParameterFieldView(graphView, param), null)
 				{
@@ -107,7 +98,7 @@ namespace GraphProcessor
 
 			foreach (SubgraphParameter param in graphView.graph.SubgraphParameters)
 			{
-				if (param.Direction != Direction.Output) continue;
+				if (param.Direction != ParameterDirection.Output) continue;
 
 				var row = new BlackboardRow(new SubgraphParameterFieldView(graphView, param), null)
 				{

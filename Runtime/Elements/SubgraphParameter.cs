@@ -1,28 +1,35 @@
 using System;
-using UnityEditor.Experimental.GraphView;
-using UnityEditor.Graphs;
 
 namespace GraphProcessor
 {
+	/// <summary>
+	/// <see cref="UnityEditor.Experimental.GraphView.Direction"/>.
+	/// </summary>
+	public enum ParameterDirection
+	{
+		Input,
+		Output,
+	}
+	
 	[Serializable]
 	public sealed class SubgraphParameter
 	{
 		public string Guid; // unique id to keep track of the parameter
 		public string Name;
-		public Direction Direction;
-		public string Type;
+		public ParameterDirection Direction;
+		public SerializableType Type;
 
-		public string ShortType => GetValueType()?.Name;
+		public string ShortType => TypeUtility.FormatTypeName(GetValueType());
 
-		public void Initialize(string name, Type type, Direction direction)
+		public void Initialize(string name, Type type, ParameterDirection direction)
 		{
 			Guid = System.Guid.NewGuid().ToString(); // Generated once and unique per parameter
 			Name = name;
 			Direction = direction;
-			Type = SerializedType.ToString(type);
+			Type = new SerializableType(type);
 		}
 		
-		public Type GetValueType() => SerializedType.FromString(Type);
+		public Type GetValueType() => Type.Type;
 
 		public static bool operator ==(SubgraphParameter param1, SubgraphParameter param2)
 		{

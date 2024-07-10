@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 
 namespace GraphProcessor
@@ -57,7 +56,7 @@ namespace GraphProcessor
 		[CustomPortBehavior(nameof(output))]
 		IEnumerable<PortData> GetOutputPort(List<SerializableEdge> edges)
 		{
-			if (Parameter.Direction == Direction.Input)
+			if (Parameter.Direction == ParameterDirection.Input)
 			{
 				yield return new PortData
 				{
@@ -73,7 +72,7 @@ namespace GraphProcessor
 		[CustomPortBehavior(nameof(input))]
 		IEnumerable<PortData> GetInputPort(List<SerializableEdge> edges)
 		{
-			if (Parameter.Direction == Direction.Output)
+			if (Parameter.Direction == ParameterDirection.Output)
 			{
 				yield return new PortData
 				{

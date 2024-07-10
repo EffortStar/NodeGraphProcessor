@@ -105,13 +105,13 @@ public class RelayNode : BaseNode
 		}
 		
 		if (edges.Count == 1 && !packInput)
-			inputType.type = edges[0].outputPort.portData.displayType;
+			inputType.Type = edges[0].outputPort.portData.displayType;
 		else
-			inputType.type = typeof(object);
+			inputType.Type = typeof(object);
 
 		yield return new PortData {
 			displayName = "",
-			displayType = inputType.type,
+			displayType = inputType.Type,
 			identifier = "0",
 			acceptMultipleEdges = true,
 			sizeInPixel = Mathf.Min(k_MaxPortSize, sizeInPixel + 8),
@@ -143,7 +143,7 @@ public class RelayNode : BaseNode
 			{
 				displayName = "Pack",
 				identifier = packIdentifier,
-				displayType = inputType.type,
+				displayType = inputType.Type,
 				acceptMultipleEdges = true,
 				sizeInPixel = Mathf.Min(k_MaxPortSize, Mathf.Max(underlyingPortData.Count, 1) + 7), // TODO: function
 				required = true
@@ -166,7 +166,7 @@ public class RelayNode : BaseNode
 		{
 			yield return new PortData {
 				displayName = "",
-				displayType = inputType.type,
+				displayType = inputType.Type,
 				identifier = "0",
 				acceptMultipleEdges = true,
 				sizeInPixel = Mathf.Min(k_MaxPortSize, Mathf.Max(underlyingPortData.Count, 1) + 7),

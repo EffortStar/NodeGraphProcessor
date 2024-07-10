@@ -900,7 +900,7 @@ namespace GraphProcessor
 			foreach (PinnedElement pinnedElement in graph.pinnedElements)
 			{
 				if (pinnedElement.opened)
-					OpenPinned(pinnedElement.editorType.type);
+					OpenPinned(pinnedElement.editorType.Type);
 			}
 		}
 
@@ -1328,7 +1328,7 @@ namespace GraphProcessor
 		public void ClosePinned(Type type, PinnedElementView elem)
 		{
 			pinnedElements.Remove(type);
-			Remove(elem);
+			elem.RemoveFromHierarchy();
 			graph.ClosePinned(type);
 		}
 
@@ -1336,7 +1336,7 @@ namespace GraphProcessor
 
 		public Status GetPinnedElementStatus(Type type)
 		{
-			PinnedElement pinned = graph.pinnedElements.Find(p => p.editorType.type == type);
+			PinnedElement pinned = graph.pinnedElements.Find(p => p.editorType.Type == type);
 			return pinned is { opened: true } ? Status.Normal : Status.Hidden;
 		}
 

@@ -1,6 +1,5 @@
 using UnityEngine.UIElements;
 using JetBrains.Annotations;
-using UnityEditor.Experimental.GraphView;
 
 namespace GraphProcessor
 {
@@ -33,7 +32,7 @@ namespace GraphProcessor
 
 		private void UpdatePort()
 		{
-			if(_parameterNode.Parameter.Direction == Direction.Output)
+			if(_parameterNode.Parameter.Direction == ParameterDirection.Output)
 			{
 				titleContainer.AddToClassList("input");
 			}

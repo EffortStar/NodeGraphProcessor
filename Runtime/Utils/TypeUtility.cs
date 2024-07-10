@@ -12,6 +12,8 @@ namespace GraphProcessor
 			char dot = '.',
 			bool nicify = false)
 		{
+			if (type == null)
+				return "null";
 			if (type == typeof(int))
 				return "Int";
 			if (type == typeof(float))
