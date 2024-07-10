@@ -106,8 +106,7 @@ namespace GraphProcessor
 			graphLoaded?.Invoke(graph);
 			this.graph = graph;
 
-			if (graphView != null)
-				rootView.Remove(graphView);
+			graphView?.RemoveFromHierarchy();
 
 			//Initialize will provide the BaseGraphView
 			InitializeWindow(graph);

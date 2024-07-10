@@ -8,9 +8,7 @@ namespace GraphProcessor
 	public abstract class PinnedElementView : Blackboard
 	{
 		protected PinnedElement PinnedElement;
-
-		protected event Action OnResized;
-
+		
 		private readonly Label _titleLabel;
 		private bool _scrollable;
 		private readonly ScrollView _scrollView;
@@ -45,14 +43,5 @@ namespace GraphProcessor
 		}
 
 		protected abstract void Initialize(BaseGraphView graphView);
-
-		~PinnedElementView()
-		{
-			Destroy();
-		}
-
-		protected virtual void Destroy()
-		{
-		}
 	}
 }

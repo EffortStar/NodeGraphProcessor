@@ -10,7 +10,7 @@ namespace GraphProcessor
 {
 	public sealed class SubgraphParameterView : PinnedElementView
 	{
-		private BaseGraphView graphView;
+		private new BaseGraphView graphView;
 
 		private const string Title = "Subgraph IO";
 
@@ -30,11 +30,11 @@ namespace GraphProcessor
 				styleSheets.Add(userPortStyle);
 
 			addItemRequested += OnAddClicked;
-			// moveItemRequested += 
+			moveItemRequested += MoveItemRequested;
 
 			_inputsSection = new BlackboardSection { title = "Inputs", canAcceptDrop = _ => true, name = "InputsSection" };
 			Add(_inputsSection);
-			_outputsSection = new BlackboardSection { title = "Outputs", canAcceptDrop = _ => true, name = "OutputsSection"  };
+			_outputsSection = new BlackboardSection { title = "Outputs", canAcceptDrop = _ => true, name = "OutputsSection" };
 			Add(_outputsSection);
 		}
 
@@ -56,7 +56,7 @@ namespace GraphProcessor
 						uniqueName = GetUniqueExposedPropertyName(uniqueName);
 						graphView.graph.AddSubgraphParameter(
 							uniqueName,
-							paramType, 
+							paramType,
 							direction
 						);
 					}
@@ -97,7 +97,11 @@ namespace GraphProcessor
 			{
 				if (param.Direction != Direction.Input) continue;
 
-				var row = new BlackboardRow(new SubgraphParameterFieldView(graphView, param), null) { expanded = false };
+				var row = new BlackboardRow(new SubgraphParameterFieldView(graphView, param), null)
+				{
+					expanded = false,
+					name = param.Name.Replace(' ', '_')
+				};
 				_inputsSection.Add(row);
 			}
 
@@ -105,7 +109,11 @@ namespace GraphProcessor
 			{
 				if (param.Direction != Direction.Output) continue;
 
-				var row = new BlackboardRow(new SubgraphParameterFieldView(graphView, param), null) { expanded = false };
+				var row = new BlackboardRow(new SubgraphParameterFieldView(graphView, param), null)
+				{
+					expanded = false,
+					name = param.Name.Replace(' ', '_')
+				};
 				_outputsSection.Add(row);
 			}
 		}
@@ -130,89 +138,27 @@ namespace GraphProcessor
 		private void OnViewClosed(DetachFromPanelEvent evt)
 			=> Undo.undoRedoPerformed -= UpdateParameterList;
 
-		/*private void OnMouseDownEvent(MouseDownEvent evt)
+		private void MoveItemRequested(Blackboard blackboard, int insertIndex, VisualElement element)
 		{
-			blackboardLayouts = Content.Children().Select(c => c.layout).ToList();
-		}
-
-		private int GetInsertIndexFromMousePosition(Vector2 pos)
-		{
-			pos = Content.WorldToLocal(pos);
-			// We only need to look for y axis;
-			float mousePos = pos.y;
-
-			if (mousePos < 0)
-				return 0;
-
-			int index = 0;
-			foreach (Rect layout in blackboardLayouts)
-			{
-				if (mousePos > layout.yMin && mousePos < layout.yMax)
-					return index + 1;
-				index++;
-			}
-
-			return Content.childCount;
-		}
-
-		private void OnDragUpdatedEvent(DragUpdatedEvent evt)
-		{
-			DragAndDrop.visualMode = DragAndDropVisualMode.Move;
-			int newIndex = GetInsertIndexFromMousePosition(evt.mousePosition);
-			object graphSelectionDragData = DragAndDrop.GetGenericData("DragSelection");
-
-			if (graphSelectionDragData == null)
+			if (element is not SubgraphParameterFieldView)
 				return;
 
-			foreach (ISelectable obj in graphSelectionDragData as List<ISelectable>)
-			{
-				if (obj is SubgraphParameterFieldView view)
-				{
-					VisualElement blackBoardRow = view.parent.parent.parent.parent.parent.parent;
-					int oldIndex = Content.Children().ToList().FindIndex(c => c == blackBoardRow);
-					// Try to find the blackboard row
-					Content.Remove(blackBoardRow);
+			var section = element.GetFirstAncestorOfType<BlackboardSection>();
+			var row = element.GetFirstAncestorOfType<BlackboardRow>();
 
-					if (newIndex > oldIndex)
-						newIndex--;
+			if (insertIndex == section.contentContainer.childCount)
+				row.BringToFront();
+			else
+				row.PlaceBehind(section[insertIndex]);
+			
+			graphView.RegisterCompleteObjectUndo("Moved parameters");
 
-					Content.Insert(newIndex, blackBoardRow);
-				}
-			}
+			List<SubgraphParameter> subgraphParameters = graphView.graph.subgraphParameters;
+			subgraphParameters.Clear();
+
+			_inputsSection.Query<SubgraphParameterFieldView>().ForEach(f => subgraphParameters.Add(f.Parameter));
+			_outputsSection.Query<SubgraphParameterFieldView>().ForEach(f => subgraphParameters.Add(f.Parameter));
+			graphView.graph.NotifyExposedParameterListChanged();
 		}
-
-		private void OnDragPerformEvent(DragPerformEvent evt)
-		{
-			bool updateList = false;
-
-			int newIndex = GetInsertIndexFromMousePosition(evt.mousePosition);
-			foreach (ISelectable obj in DragAndDrop.GetGenericData("DragSelection") as List<ISelectable>)
-			{
-				if (obj is SubgraphParameterFieldView view)
-				{
-					if (!updateList)
-						graphView.RegisterCompleteObjectUndo("Moved parameters");
-
-					int oldIndex = graphView.graph.subgraphParameters.FindIndex(e => e == view.Parameter);
-					SubgraphParameter parameter = graphView.graph.subgraphParameters[oldIndex];
-					graphView.graph.subgraphParameters.RemoveAt(oldIndex);
-
-					// Patch new index after the remove operation:
-					if (newIndex > oldIndex)
-						newIndex--;
-
-					graphView.graph.subgraphParameters.Insert(newIndex, parameter);
-
-					updateList = true;
-				}
-			}
-
-			if (updateList)
-			{
-				graphView.graph.NotifyExposedParameterListChanged();
-				evt.StopImmediatePropagation();
-				UpdateParameterList();
-			}
-		}*/
 	}
 }

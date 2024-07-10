@@ -59,6 +59,17 @@ ParameterNodeView PortView > Label {
     width: 0;
 }
 
+ParameterNodeView #title-label {
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+ParameterNodeView .input > #title-label {
+    height: 24px;
+    margin-left: 0;
+    margin-right: 6px;
+}
+
 #RightTitleContainer {
     justify-content: flex-end;
     flex-grow: 1;
