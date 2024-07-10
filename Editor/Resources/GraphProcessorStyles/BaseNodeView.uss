@@ -247,3 +247,17 @@ ParameterNodeView .input > #title-label {
     padding-right: 3px;
     margin-right: -3px;
 }
+
+#title {
+    align-items: center;
+}
+
+.node__icon {
+    height: 16px;
+    width: 16px;
+    margin: 0 0 0 6px;
+}
+
+.node__icon.subgraph-node__icon {
+    background-image: resource("Packages/com.alelievr.node-graph-processor/Editor/Icons/Subgraph@2x.png");
+}

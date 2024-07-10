@@ -18,9 +18,10 @@ namespace GraphProcessor
 	public class BaseNodeView : NodeView
 	{
 		public const string UssClassName = "node";
+		public const string IconUssClassName = UssClassName + "__icon";
 		public const string ObsoleteUssClassName = UssClassName + "--obsolete";
 		public const string PrototypeUssClassName = UssClassName + "--prototype";
-			
+
 		public const string TitleContainerName = "title";
 		
 		public BaseNode nodeTarget;
@@ -47,8 +48,8 @@ namespace GraphProcessor
 		private Button settingButton;
 		private TextField titleTextField;
 		
-		public event Action<PortView> onPortConnected;
-		public event Action<PortView> onPortDisconnected;
+		private VisualElement titleIcon;
+		private string currentTitleIconClass;
 
 		protected virtual bool hasSettings { get; set; }
 
@@ -157,7 +158,7 @@ namespace GraphProcessor
 			}
 		}
 
-		private void InitializeView()
+		protected virtual void InitializeView()
 		{
 			if (nodeFlags != NodeProvider.NodeFlags.None)
 				this.Q(TitleContainerName).Insert(0, new StripedElement());
@@ -230,6 +231,23 @@ namespace GraphProcessor
 				AddBadge("Prototype node may be changed or removed", BadgeMessageType.Warning);
 			}
 		}
+		
+		protected void SetTitleIcon(string className)
+		{
+			if (currentTitleIconClass != null)
+				titleIcon?.RemoveFromClassList(currentTitleIconClass);
+                
+			if (className == null)
+			{
+				titleIcon?.RemoveFromHierarchy();
+				return;
+			}
+                
+			titleIcon ??= new VisualElement { name = "TitleIcon", pickingMode = PickingMode.Ignore };
+			titleIcon.AddToClassList(IconUssClassName);
+			titleContainer.Insert(0, titleIcon);
+			titleIcon.AddToClassList(currentTitleIconClass = className);
+		}
 
 		private void SetupRenamableTitle()
 		{
@@ -281,10 +299,7 @@ namespace GraphProcessor
 			}
 		}
 
-		private void UpdateTitle()
-		{
-			title = nodeTarget.GetCustomName() == null ? nodeTarget.GetType().Name : nodeTarget.GetCustomName();
-		}
+		protected void UpdateTitle() => title = nodeTarget.GetCustomName() == null ? nodeTarget.GetType().Name : nodeTarget.GetCustomName();
 
 		private void InitializeSettings()
 		{
@@ -306,6 +321,7 @@ namespace GraphProcessor
 				if (Attribute.IsDefined(field, typeof(SettingAttribute)))
 					AddSettingField(field);
 			}
+			settingsContainer.Bind(owner.serializedGraph);
 		}
 
 		private void OnGeometryChanged(GeometryChangedEvent evt)
@@ -957,8 +973,7 @@ namespace GraphProcessor
 
 			string label = field.GetCustomAttribute<SettingAttribute>().name;
 
-			var element = new PropertyField(FindSerializedProperty(field.Name));
-			element.Bind(owner.serializedGraph);
+			var element = new PropertyField(FindSerializedProperty(field.Name), label);
 
 			if (element != null)
 			{
@@ -974,8 +989,6 @@ namespace GraphProcessor
 
 			if (hideElementIfConnected.TryGetValue(port.fieldName, out VisualElement elem))
 				elem.style.display = DisplayStyle.None;
-
-			onPortConnected?.Invoke(port);
 		}
 
 		internal void OnPortDisconnected(PortView port)
@@ -997,8 +1010,6 @@ namespace GraphProcessor
 
 			if (hideElementIfConnected.TryGetValue(port.fieldName, out VisualElement elem))
 				elem.style.display = DisplayStyle.Flex;
-
-			onPortDisconnected?.Invoke(port);
 		}
 
 		// TODO: a function to force to reload the custom behavior ports (if we want to do a button to add ports for example)
@@ -1130,7 +1141,7 @@ namespace GraphProcessor
 			}
 		}
 
-		public virtual new bool RefreshPorts()
+		public new virtual bool RefreshPorts()
 		{
 			// If a port behavior was attached to one port, then
 			// the port count might have been updated by the node
