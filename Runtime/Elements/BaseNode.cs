@@ -58,7 +58,7 @@ namespace GraphProcessor
 		/// Is debug visible
 		/// </summary>
 		public bool debug;
-		
+
 		public event Action<string, BadgeMessageType> onMessageAdded;
 		public event Action<string> onMessageRemoved;
 
@@ -67,7 +67,7 @@ namespace GraphProcessor
 		/// Triggered after a single/list of port(s) is updated, the parameter is the field name
 		/// </summary>
 		public event Action<string> onPortsUpdated;
-		
+
 		/// <summary>
 		/// Does the node needs to be visible in the inspector (when selected).
 		/// </summary>
@@ -185,7 +185,7 @@ namespace GraphProcessor
 			get => graph;
 			set => graph = value;
 		}
-		
+
 		// called by the BaseGraph when the node is added to the graph
 		public void Initialize(BaseGraph graph)
 		{
@@ -203,7 +203,7 @@ namespace GraphProcessor
 		{
 			inputPorts.Clear();
 			outputPorts.Clear();
-			
+
 			foreach (FieldInfo key in OverrideFieldOrder(nodeFields.Values.Select(k => k.info)))
 			{
 				NodeFieldInformation nodeField = nodeFields[key.Name];
@@ -346,8 +346,11 @@ namespace GraphProcessor
 					// in case the port type have changed for an incompatible type, we disconnect all the edges attached to this port
 					if (!BaseGraph.TypesAreConnectable(port.portData.displayType, portData.displayType))
 					{
-						foreach (SerializableEdge edge in port.GetEdges().ToList())
-							graph.Disconnect(edge.GUID);
+						if (this is not SimplifiedRelayNode)
+						{
+							foreach (SerializableEdge edge in port.GetEdges().ToList())
+								graph.Disconnect(edge.GUID);
+						}
 					}
 
 					// patch the port data
@@ -479,7 +482,7 @@ namespace GraphProcessor
 				var isVertical = Attribute.IsDefined(field, typeof(VerticalAttribute));
 				var isRequired = Attribute.IsDefined(field, typeof(RequiredPortAttribute));
 				var tooltipAttribute = field.GetCustomAttribute<TooltipAttribute>();
-				
+
 
 				// check if field is a collection type
 				bool isMultiple = inputAttribute?.allowMultiple ?? outputAttribute.allowMultiple;
@@ -569,10 +572,10 @@ namespace GraphProcessor
 			inputPorts.PullDatas();
 
 			ExceptionToLog.Call(Process);
-			
+
 			outputPorts.PushDatas();
 		}
-		
+
 		/// <summary>
 		/// Called when the node is enabled
 		/// </summary>
@@ -708,7 +711,7 @@ namespace GraphProcessor
 				return p.fieldName == fieldName && (bothNull || identifier == p.portData.identifier);
 			});
 		}
-		
+
 		/// <summary>
 		/// Get the port from field name and identifier ONLY using FormerlySerializedAsAttribute.<br/>
 		/// To be called sparingly when <see cref="GetPort"/> fails, in cases where deserializing and unexpectedly ports are missing.
@@ -728,7 +731,7 @@ namespace GraphProcessor
 					return true;
 				}
 			}
-			
+
 			value = null;
 			return false;
 		}
