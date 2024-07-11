@@ -180,7 +180,11 @@ namespace GraphProcessor
 
 		#region Initialization
 
-		public BaseGraph Graph { set => graph = value; }
+		public BaseGraph Graph
+		{
+			get => graph;
+			set => graph = value;
+		}
 		
 		// called by the BaseGraph when the node is added to the graph
 		public void Initialize(BaseGraph graph)
@@ -197,6 +201,9 @@ namespace GraphProcessor
 		/// </summary>
 		public virtual void InitializePorts()
 		{
+			inputPorts.Clear();
+			outputPorts.Clear();
+			
 			foreach (FieldInfo key in OverrideFieldOrder(nodeFields.Values.Select(k => k.info)))
 			{
 				NodeFieldInformation nodeField = nodeFields[key.Name];
@@ -446,15 +453,6 @@ namespace GraphProcessor
 
 			return changed;
 		}
-		
-		internal void DisableInternal()
-		{
-			// port containers are initialized in the OnEnable
-			inputPorts.Clear();
-			outputPorts.Clear();
-
-			ExceptionToLog.Call(Disable);
-		}
 
 		internal void DestroyInternal() => ExceptionToLog.Call(Destroy);
 
@@ -579,13 +577,6 @@ namespace GraphProcessor
 		/// Called when the node is enabled
 		/// </summary>
 		protected virtual void Enable()
-		{
-		}
-
-		/// <summary>
-		/// Called when the node is disabled
-		/// </summary>
-		protected virtual void Disable()
 		{
 		}
 

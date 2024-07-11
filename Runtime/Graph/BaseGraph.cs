@@ -194,8 +194,6 @@ namespace GraphProcessor
 		protected virtual void OnDisable()
 		{
 			isEnabled = false;
-			foreach (BaseNode node in nodes)
-				node.DisableInternal();
 		}
 
 		public virtual void OnAssetDeleted()
@@ -235,7 +233,7 @@ namespace GraphProcessor
 		public void RemoveNode(BaseNode node)
 		{
 			// Disconnect all edges:
-			foreach (var port in node.inputPorts)
+			foreach (NodePort port in node.inputPorts)
 			{
 				foreach (SerializableEdge edge in port.GetEdges())
 				{
@@ -245,7 +243,7 @@ namespace GraphProcessor
 				}
 			}
 
-			foreach (var port in node.outputPorts)
+			foreach (NodePort port in node.outputPorts)
 			{
 				foreach (SerializableEdge edge in port.GetEdges())
 				{
@@ -255,7 +253,6 @@ namespace GraphProcessor
 				}
 			}
 
-			node.DisableInternal();
 			node.DestroyInternal();
 
 			nodesPerGUID.Remove(node.GUID);
@@ -359,7 +356,7 @@ namespace GraphProcessor
 		/// <param name="edge"></param>
 		public void Disconnect(SerializableEdge edge)
 		{
-			if (!edges.Remove(edge)) return;
+			edges.Remove(edge); // Don't exit early, because we can have edges taken from other graphs during Realization/Inlining.
 			edge.inputNode?.OnEdgeDisconnected(edge);
 			edge.outputNode?.OnEdgeDisconnected(edge);
 			onGraphChanges?.Invoke(new GraphChanges { removedEdge = edge });
@@ -487,12 +484,6 @@ namespace GraphProcessor
 		public void Deserialize()
 		{
 			// Disable nodes correctly before removing them:
-			if (nodes != null)
-			{
-				foreach (BaseNode node in nodes)
-					node.DisableInternal();
-			}
-
 			InitializeGraphElements();
 		}
 
@@ -706,17 +697,21 @@ namespace GraphProcessor
 						continue;
 
 #if UNITY_EDITOR
-					node.position = node.position - zero + subgraphNode.position + new Vector2(500, 0);
+					node.position = node.position - zero + subgraphNode.position + new Vector2(0, -500);
 #endif
 
 					AddNodeAndDontInitialize(node); // The node has already been initialized from the instantiation of the subgraph.
 				}
 
-				foreach (SerializableEdge edge in subgraph.edges)
+				for (int i = subgraph.edges.Count - 1; i >= 0; i--)
 				{
+					SerializableEdge edge = subgraph.edges[i];
 					// Wire up parameter edges with new ones that connect to nodes in this graph.
 					if (ReconnectParameterEdges(edge, subgraphNode))
+					{
+						Disconnect(edge);
 						continue;
+					}
 
 					// Insert the normal edge into this graph.
 					edges.Add(edge);
