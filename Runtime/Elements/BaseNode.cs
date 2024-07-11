@@ -556,9 +556,12 @@ namespace GraphProcessor
 			portCollection.Remove(edge);
 
 			// Reset default values of input port:
-			bool haveConnectedEdges = edge.inputNode.inputPorts.Where(p => p.fieldName == edge.inputFieldName).Any(p => p.GetEdges().Count != 0);
-			if (edge.inputNode == this && !haveConnectedEdges && CanResetPort(edge.inputPort))
-				edge.inputPort?.ResetToDefault();
+			if (edge.inputNode != null)
+			{
+				bool haveConnectedEdges = edge.inputNode.inputPorts.Where(p => p.fieldName == edge.inputFieldName).Any(p => p.GetEdges().Count != 0);
+				if (edge.inputNode == this && !haveConnectedEdges && CanResetPort(edge.inputPort))
+					edge.inputPort?.ResetToDefault();
+			}
 
 			UpdateAllPorts();
 		}

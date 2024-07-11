@@ -89,10 +89,10 @@ namespace GraphProcessor
 		/// Checks for any subgraph parameters. Doesn't perform checks for usage.
 		/// </summary>
 		public bool IsSubgraph => subgraphParameters.Count > 0;
-		
+
 		[SerializeField, HideInInspector]
 		internal List<SubgraphParameter> subgraphParameters = new();
-		
+
 		/// <summary>
 		/// All exposed parameters in the graph.
 		/// </summary>
@@ -101,7 +101,7 @@ namespace GraphProcessor
 
 		[SerializeField, HideInInspector]
 		public List<StickyNote> stickyNotes = new();
-		
+
 		[NonSerialized] private Scene linkedScene;
 
 		// Trick to keep the node inspector alive during the editor session
@@ -129,7 +129,7 @@ namespace GraphProcessor
 		/// Triggered when the graph is changed
 		/// </summary>
 		public event Action<GraphChanges> onGraphChanges;
-		
+
 		[NonSerialized] private bool _isEnabled;
 
 		public bool isEnabled
@@ -137,7 +137,7 @@ namespace GraphProcessor
 			get => _isEnabled;
 			private set => _isEnabled = value;
 		}
-		
+
 		protected virtual void OnEnable()
 		{
 			if (isEnabled)
@@ -218,7 +218,7 @@ namespace GraphProcessor
 
 			return node;
 		}
-		
+
 		private BaseNode AddNodeAndDontInitialize(BaseNode node)
 		{
 			nodesPerGUID[node.GUID] = node;
@@ -234,6 +234,27 @@ namespace GraphProcessor
 		/// <param name="node"></param>
 		public void RemoveNode(BaseNode node)
 		{
+			// Disconnect all edges:
+			foreach (var port in node.inputPorts)
+			{
+				foreach (SerializableEdge edge in port.GetEdges())
+				{
+					edge.inputNode = null;
+					edge.inputPort = null;
+					Disconnect(edge);
+				}
+			}
+
+			foreach (var port in node.outputPorts)
+			{
+				foreach (SerializableEdge edge in port.GetEdges())
+				{
+					edge.outputNode = null;
+					edge.outputPort = null;
+					Disconnect(edge);
+				}
+			}
+
 			node.DisableInternal();
 			node.DestroyInternal();
 
@@ -242,6 +263,25 @@ namespace GraphProcessor
 			nodes.Remove(node);
 
 			onGraphChanges?.Invoke(new GraphChanges { removedNode = node });
+		}
+
+		/// <summary>
+		/// Removes a relay node, replacing it with an edge that bypasses the node.
+		/// </summary>
+		private void DissolveRelay(SimplifiedRelayNode relayNode, bool deleteNode = true)
+		{
+			foreach (SerializableEdge edgeIn in relayNode.inputPorts[0].GetEdges())
+			{
+				foreach (SerializableEdge edgeOut in relayNode.outputPorts[0].GetEdges())
+				{
+					Connect(edgeOut.inputPort, edgeIn.outputPort, false);
+				}
+			}
+
+			if (deleteNode)
+			{
+				RemoveNode(relayNode);
+			}
 		}
 
 		/// <summary>
@@ -317,7 +357,13 @@ namespace GraphProcessor
 		/// Disconnect an edge
 		/// </summary>
 		/// <param name="edge"></param>
-		public void Disconnect(SerializableEdge edge) => Disconnect(edge.GUID);
+		public void Disconnect(SerializableEdge edge)
+		{
+			if (!edges.Remove(edge)) return;
+			edge.inputNode?.OnEdgeDisconnected(edge);
+			edge.outputNode?.OnEdgeDisconnected(edge);
+			onGraphChanges?.Invoke(new GraphChanges { removedEdge = edge });
+		}
 
 		/// <summary>
 		/// Disconnect an edge
@@ -325,18 +371,12 @@ namespace GraphProcessor
 		/// <param name="edgeGUID"></param>
 		public void Disconnect(string edgeGUID)
 		{
-			edges.RemoveAll(r =>
+			for (int i = edges.Count - 1; i >= 0; i--)
 			{
-				if (r.GUID == edgeGUID)
-				{
-					r.inputNode?.OnEdgeDisconnected(r);
-					r.outputNode?.OnEdgeDisconnected(r);
-					onGraphChanges?.Invoke(new GraphChanges { removedEdge = r });
-					return true;
-				}
-
-				return false;
-			});
+				SerializableEdge r = edges[i];
+				if (r.GUID != edgeGUID) continue;
+				Disconnect(r);
+			}
 		}
 
 		/// <summary>
@@ -609,21 +649,30 @@ namespace GraphProcessor
 		/// Inlines <see cref="SubgraphNodeBase{T}"/> and <see cref="SimplifiedRelayNode"/>.<br/>
 		/// Must be called manually before evaluation.
 		/// </summary>
-		public void Realise()
+		public void Realize()
 		{
-			RealiseSubgraphs();
-			RealiseSimplifiedRelays();
+			try
+			{
+				InlineSubgraphs();
+				InlineSimplifiedRelays();
+			}
+			catch (Exception e)
+			{
+				Debug.LogException(e);
+			}
 		}
 
-		private void RealiseSubgraphs()
+		private void InlineSubgraphs()
 		{
 			using var _ = ListPool<SubgraphNodeBase>.Get(out var subgraphNodes);
 			subgraphNodes.AddRange(nodes.OfType<SubgraphNodeBase>());
 
-			for (int i = subgraphNodes.Count - 1; i >= 0; i--)
-			{
-				SubgraphNodeBase subgraphNode = subgraphNodes[i];
+			if (subgraphNodes.Count == 0)
+				return;
 
+			// Port the nodes and edges to this graph.
+			foreach (SubgraphNodeBase subgraphNode in subgraphNodes)
+			{
 				BaseGraph subgraph = subgraphNode.Subgraph;
 				if (subgraph == null)
 				{
@@ -633,46 +682,143 @@ namespace GraphProcessor
 					continue;
 				}
 
+				if (subgraph.nodes.Count == 0)
+				{
+					Debug.LogWarning($"Subgraph {subgraph} had no nodes, and couldn't be inlined.");
+					continue;
+				}
+
 				// Note that we need to protect against modifying the subgraph asset in the asset database.
 				// But we also need to use its nodes, because we can't duplicate nodes at runtime, they're plain classes.
 				// So it's necessary to instantiate the subgraph to pull out that serialized data into a new instance.
 				// TODO consider whether we can employ the GraphPool, and share runtime instances of the subgraphs.
 				subgraph = Instantiate(subgraph);
-				subgraph.Realise(); // Realise any nested subgraphs
+				subgraph.Realize(); // Realize any nested subgraphs
+
+#if UNITY_EDITOR
+				Vector2 zero = subgraph.nodes.Aggregate(Vector2.zero, (p, n) => p + n.position) / subgraph.nodes.Count;
+#endif
 
 				foreach (BaseNode node in subgraph.nodes)
 				{
 					// Parameter nodes shouldn't be inserted into the realised graph.
 					if (node is ParameterNode)
 						continue;
-					
+
+#if UNITY_EDITOR
+					node.position = node.position - zero + subgraphNode.position + new Vector2(500, 0);
+#endif
+
 					AddNodeAndDontInitialize(node); // The node has already been initialized from the instantiation of the subgraph.
 				}
-				
+
 				foreach (SerializableEdge edge in subgraph.edges)
 				{
-					if (edge.inputNode is ParameterNode || edge.outputNode is ParameterNode)
-					{
-						// TODO wire up these edges with new ones that connect to nodes in this graph.
-						
+					// Wire up parameter edges with new ones that connect to nodes in this graph.
+					if (ReconnectParameterEdges(edge, subgraphNode))
 						continue;
-					}
 
+					// Insert the normal edge into this graph.
 					edges.Add(edge);
 					edgesPerGUID[edge.GUID] = edge;
 				}
-				
-				subgraphNodes.RemoveAt(i);
-				
+
 				// We don't actually need that subgraph instance though,
 				// so after we've extracted the serialized data we care about it can be destroyed.
 				Destroy(subgraph);
 			}
+
+			// Remove the subgraph nodes, this disconnects them from the graph too.
+			foreach (SubgraphNodeBase subgraphNode in subgraphNodes)
+			{
+				RemoveNode(subgraphNode);
+			}
+
+			// OpenThisGraphInEditor();
+
+			return;
+
+			bool ReconnectParameterEdges(SerializableEdge edge, SubgraphNodeBase subgraphNode)
+			{
+				// inputNode <- edge ->
+				if (edge.outputNode is ParameterNode inputParameter)
+				{
+					// FirstOrDefault for identifier == parameterGUID
+					foreach (NodePort port in subgraphNode.inputPorts)
+					{
+						if (port.portData.identifier != inputParameter.parameterGUID) continue;
+						foreach (SerializableEdge thisEdge in port.GetEdges())
+						{
+							// inputParameter -> subgraphEdge -> subgraphEdge.inputPort
+							// thisEdge.outputPort <- thisEdge <- inputPorts | subgraphNode
+							foreach (SerializableEdge subgraphEdge in inputParameter.GetAllEdges())
+							{
+								Connect(subgraphEdge.inputPort, thisEdge.outputPort, false);
+							}
+						}
+
+						break;
+					}
+
+					return true;
+				}
+
+				// Wire up parameter edges with new ones that connect to nodes in this graph.
+				// <- edge -> outputNode
+				if (edge.inputNode is ParameterNode outputParameter)
+				{
+					// FirstOrDefault for identifier == parameterGUID
+					foreach (NodePort port in subgraphNode.outputPorts)
+					{
+						if (port.portData.identifier != outputParameter.parameterGUID) continue;
+						foreach (SerializableEdge thisEdge in port.GetEdges())
+						{
+							// subgraphNode | outputPorts -> thisEdge -> thisEdge.inputPort
+							// subgraphEdge.outputPort <- subgraphEdge <- outputParameter
+							foreach (SerializableEdge subgraphEdge in outputParameter.GetAllEdges())
+							{
+								Connect(thisEdge.inputPort, subgraphEdge.outputPort, false);
+							}
+						}
+
+						break;
+					}
+
+					return true;
+				}
+
+				return false;
+			}
 		}
 
-		private void RealiseSimplifiedRelays()
+		private void InlineSimplifiedRelays()
 		{
-			// TODO remove relay nodes and replace them with straight edges.
+			/*// Remove relay nodes and replace them with straight edges.
+			foreach (SimplifiedRelayNode relayNode in nodes.OfType<SimplifiedRelayNode>())
+			{
+				DissolveRelay(relayNode, false);
+			}
+
+			for (int i = nodes.Count - 1; i >= 0; i--)
+			{
+				if (nodes[i] is not SimplifiedRelayNode relayNode)
+					continue;
+				RemoveNode(relayNode);
+			}*/
+		}
+
+		[System.Diagnostics.Conditional("UNITY_EDITOR")]
+		public void OpenThisGraphInEditor()
+		{
+#if UNITY_EDITOR
+			var windowType = Type.GetType("EffortStar.NodeGraphProcessor.Editor.GraphWindow,ConditionalGraph.Editor");
+			System.Reflection.MethodInfo methodInfo = windowType.GetMethod(
+				"InitializeGraph",
+				System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance
+			);
+			var window = UnityEditor.EditorWindow.GetWindow(windowType);
+			methodInfo.Invoke(window, new object[] { this });
+#endif
 		}
 	}
 }
