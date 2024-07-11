@@ -45,7 +45,7 @@ namespace GraphProcessor
 					var input = outputEdge.input as PortView;
 					var output = inputEdge.output as PortView;
 
-					owner.Connect(input, output);
+					owner.Connect(output, input);
 				}
 			}).ExecuteLater(1);
 		}

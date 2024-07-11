@@ -48,7 +48,7 @@ public class RelayNode : BaseNode
 		inputEdgeCount = edges.Count;
 
 		// If the relay is only connected to another relay:
-		if (edges.Count == 1 && edges.First().outputNode.GetType() == typeof(RelayNode))
+		if (edges.Count == 1 && edges.First().FromNode.GetType() == typeof(RelayNode))
 		{
 			if (edges.First().PassThroughBuffer != null)
 				input = (PackedRelayData)edges.First().PassThroughBuffer;
@@ -56,8 +56,8 @@ public class RelayNode : BaseNode
 		else
 		{
 			input.values = edges.Select(e => e.PassThroughBuffer).ToList();
-			input.names = edges.Select(e => e.outputPort.portData.displayName).ToList();
-			input.types = edges.Select(e => e.outputPort.portData.displayType ?? e.outputPort.fieldInfo.FieldType).ToList();
+			input.names = edges.Select(e => e.FromPort.portData.displayName).ToList();
+			input.types = edges.Select(e => e.FromPort.portData.displayType ?? e.FromPort.fieldInfo.FieldType).ToList();
 		}
 	}
 
@@ -81,7 +81,7 @@ public class RelayNode : BaseNode
 
 			foreach (var edge in edges)
 			{
-				var inputRelay = edge.inputNode as RelayNode;
+				var inputRelay = edge.ToNode as RelayNode;
 				edge.PassThroughBuffer = inputRelay != null && !inputRelay.packInput ? output : data;
 			}
 		}
@@ -101,11 +101,11 @@ public class RelayNode : BaseNode
 		{
 			// Add the size of all input edges:
 			var inputEdges = inputPorts[0]?.GetEdges();
-			sizeInPixel = inputEdges.Sum(e => Mathf.Max(0, e.outputPort.portData.sizeInPixel - 8));
+			sizeInPixel = inputEdges.Sum(e => Mathf.Max(0, e.FromPort.portData.sizeInPixel - 8));
 		}
 		
 		if (edges.Count == 1 && !packInput)
-			inputType.Type = edges[0].outputPort.portData.displayType;
+			inputType.Type = edges[0].FromPort.portData.displayType;
 		else
 			inputType.Type = typeof(object);
 
@@ -185,7 +185,7 @@ public class RelayNode : BaseNode
 		var inputEdges = GetNonRelayEdges();
 
 		if (inputEdges != null)
-			return inputEdges.Select(e => (e.outputPort.portData.displayType ?? e.outputPort.fieldInfo.FieldType, e.outputPort.portData.displayName)).ToList();
+			return inputEdges.Select(e => (e.FromPort.portData.displayType ?? e.FromPort.fieldInfo.FieldType, e.FromPort.portData.displayName)).ToList();
 
 		return s_empty;
 	}
@@ -195,8 +195,8 @@ public class RelayNode : BaseNode
 		var inputEdges = inputPorts?[0]?.GetEdges();
 
 		// Iterate until we don't have a relay node in input
-		while (inputEdges.Count == 1 && inputEdges.First().outputNode.GetType() == typeof(RelayNode))
-			inputEdges = inputEdges.First().outputNode.inputPorts[0]?.GetEdges();
+		while (inputEdges.Count == 1 && inputEdges.First().FromNode.GetType() == typeof(RelayNode))
+			inputEdges = inputEdges.First().FromNode.inputPorts[0]?.GetEdges();
 
 		return inputEdges;
 	}

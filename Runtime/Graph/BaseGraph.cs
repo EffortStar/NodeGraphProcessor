@@ -156,21 +156,22 @@ namespace GraphProcessor
 			nodes.RemoveAll(n => n == null);
 			subgraphParameters.RemoveAll(e => e == null);
 
-			// TODO consider whether these ToList calls are unnecessary. Knowing this codebase, they likely are.
-			foreach (BaseNode node in nodes.ToList())
+			for (int i = nodes.Count - 1; i >= 0; i--)
 			{
+				BaseNode node = nodes[i];
 				nodesPerGUID[node.GUID] = node;
 				node.Initialize(this);
 			}
 
 			var requiresReserialization = false;
 
-			foreach (SerializableEdge edge in edges.ToList())
+			for (int i = edges.Count - 1; i >= 0; i--)
 			{
+				SerializableEdge edge = edges[i];
 				requiresReserialization |= edge.Deserialize() == SerializableEdge.DeserializationResult.Changed;
 
 				// Sanity check for the edge:
-				if (edge.inputPort == null || edge.outputPort == null)
+				if (edge.ToPort == null || edge.FromPort == null)
 				{
 					Disconnect(edge.GUID);
 					continue;
@@ -179,8 +180,8 @@ namespace GraphProcessor
 				edgesPerGUID[edge.GUID] = edge;
 
 				// Add the edge to the non-serialized port data
-				edge.inputPort.owner.OnEdgeConnected(edge);
-				edge.outputPort.owner.OnEdgeConnected(edge);
+				edge.ToPort.owner.OnEdgeConnected(edge);
+				edge.FromPort.owner.OnEdgeConnected(edge);
 			}
 
 			if (requiresReserialization)
@@ -237,8 +238,8 @@ namespace GraphProcessor
 			{
 				foreach (SerializableEdge edge in port.GetEdges())
 				{
-					edge.inputNode = null;
-					edge.inputPort = null;
+					edge.ToNode = null;
+					edge.ToPort = null;
 					Disconnect(edge);
 				}
 			}
@@ -247,8 +248,8 @@ namespace GraphProcessor
 			{
 				foreach (SerializableEdge edge in port.GetEdges())
 				{
-					edge.outputNode = null;
-					edge.outputPort = null;
+					edge.FromNode = null;
+					edge.FromPort = null;
 					Disconnect(edge);
 				}
 			}
@@ -267,11 +268,34 @@ namespace GraphProcessor
 		/// </summary>
 		private void DissolveRelay(SimplifiedRelayNode relayNode, bool deleteNode = true)
 		{
+			using var _ = ListPool<NodePort>.Get(out var endpoints);
 			foreach (SerializableEdge edgeIn in relayNode.inputPorts[0].GetEdges())
 			{
-				foreach (SerializableEdge edgeOut in relayNode.outputPorts[0].GetEdges())
+				if (edgeIn.FromNode is SimplifiedRelayNode) continue;
+				NodePort fromPort = edgeIn.FromPort;
+
+				endpoints.Clear();
+				CollectEndpoints(relayNode.outputPorts[0].GetEdges());
+				foreach (NodePort toPort in endpoints)
 				{
-					Connect(edgeOut.inputPort, edgeIn.outputPort, false);
+					Connect(fromPort, toPort, false);
+				}
+
+				continue;
+
+				void CollectEndpoints(List<SerializableEdge> serializableEdges)
+				{
+					foreach (SerializableEdge edge in serializableEdges)
+					{
+						if (edge.ToNode is SimplifiedRelayNode)
+						{
+							CollectEndpoints(edge.ToNode.outputPorts[0].GetEdges());
+						}
+						else
+						{
+							endpoints.Add(edge.ToPort);
+						}
+					}
 				}
 			}
 
@@ -284,18 +308,19 @@ namespace GraphProcessor
 		/// <summary>
 		/// Connect two ports with an edge
 		/// </summary>
-		/// <param name="inputPort">input port</param>
-		/// <param name="outputPort">output port</param>
+		/// <param name="fromPort">output port</param>
+		/// <param name="toPort">input port</param>
+		/// <param name="autoDisconnectInputs"></param>
 		/// <param name="DisconnectInputs">is the edge allowed to disconnect another edge</param>
 		/// <returns>the connecting edge</returns>
-		public SerializableEdge Connect(NodePort inputPort, NodePort outputPort, bool autoDisconnectInputs = true)
+		public SerializableEdge Connect(NodePort fromPort, NodePort toPort, bool autoDisconnectInputs = true)
 		{
-			var edge = SerializableEdge.CreateNewEdge(this, inputPort, outputPort);
+			var edge = SerializableEdge.CreateNewEdge(this, fromPort, toPort);
 
 			//If the input port does not support multi-connection, we remove them
-			if (autoDisconnectInputs && !inputPort.portData.acceptMultipleEdges)
+			if (autoDisconnectInputs && !toPort.portData.acceptMultipleEdges)
 			{
-				foreach (SerializableEdge e in inputPort.GetEdges().ToList())
+				foreach (SerializableEdge e in toPort.GetEdges().ToList())
 				{
 					// TODO: do not disconnect them if the connected port is the same than the old connected
 					Disconnect(e);
@@ -303,9 +328,9 @@ namespace GraphProcessor
 			}
 
 			// same for the output port:
-			if (autoDisconnectInputs && !outputPort.portData.acceptMultipleEdges)
+			if (autoDisconnectInputs && !fromPort.portData.acceptMultipleEdges)
 			{
-				foreach (SerializableEdge e in outputPort.GetEdges().ToList())
+				foreach (SerializableEdge e in fromPort.GetEdges().ToList())
 				{
 					// TODO: do not disconnect them if the connected port is the same than the old connected
 					Disconnect(e);
@@ -315,8 +340,8 @@ namespace GraphProcessor
 			edges.Add(edge);
 
 			// Add the edge to the list of connected edges in the nodes
-			inputPort.owner.OnEdgeConnected(edge);
-			outputPort.owner.OnEdgeConnected(edge);
+			toPort.owner.OnEdgeConnected(edge);
+			fromPort.owner.OnEdgeConnected(edge);
 
 			onGraphChanges?.Invoke(new GraphChanges { addedEdge = edge });
 
@@ -334,15 +359,15 @@ namespace GraphProcessor
 		{
 			edges.RemoveAll(r =>
 			{
-				bool remove = r.inputNode == inputNode
-				              && r.outputNode == outputNode
+				bool remove = r.ToNode == inputNode
+				              && r.FromNode == outputNode
 				              && r.outputFieldName == outputFieldName
 				              && r.inputFieldName == inputFieldName;
 
 				if (remove)
 				{
-					r.inputNode?.OnEdgeDisconnected(r);
-					r.outputNode?.OnEdgeDisconnected(r);
+					r.ToNode?.OnEdgeDisconnected(r);
+					r.FromNode?.OnEdgeDisconnected(r);
 					onGraphChanges?.Invoke(new GraphChanges { removedEdge = r });
 				}
 
@@ -357,8 +382,8 @@ namespace GraphProcessor
 		public void Disconnect(SerializableEdge edge)
 		{
 			edges.Remove(edge); // Don't exit early, because we can have edges taken from other graphs during Realization/Inlining.
-			edge.inputNode?.OnEdgeDisconnected(edge);
-			edge.outputNode?.OnEdgeDisconnected(edge);
+			edge.ToNode?.OnEdgeDisconnected(edge);
+			edge.FromNode?.OnEdgeDisconnected(edge);
 			onGraphChanges?.Invoke(new GraphChanges { removedEdge = edge });
 		}
 
@@ -373,6 +398,7 @@ namespace GraphProcessor
 				SerializableEdge r = edges[i];
 				if (r.GUID != edgeGUID) continue;
 				Disconnect(r);
+				break;
 			}
 		}
 
@@ -599,8 +625,8 @@ namespace GraphProcessor
 
 		private void DestroyBrokenGraphElements()
 		{
-			edges.RemoveAll(e => e.inputNode == null
-			                     || e.outputNode == null
+			edges.RemoveAll(e => e.ToNode == null
+			                     || e.FromNode == null
 			                     || string.IsNullOrEmpty(e.outputFieldName)
 			                     || string.IsNullOrEmpty(e.inputFieldName)
 			);
@@ -646,6 +672,8 @@ namespace GraphProcessor
 			{
 				InlineSubgraphs();
 				InlineSimplifiedRelays();
+				/*if (inlinedSubgraph)
+					OpenThisGraphInEditor();*/
 			}
 			catch (Exception e)
 			{
@@ -653,13 +681,13 @@ namespace GraphProcessor
 			}
 		}
 
-		private void InlineSubgraphs()
+		private bool InlineSubgraphs()
 		{
 			using var _ = ListPool<SubgraphNodeBase>.Get(out var subgraphNodes);
 			subgraphNodes.AddRange(nodes.OfType<SubgraphNodeBase>());
 
 			if (subgraphNodes.Count == 0)
-				return;
+				return false;
 
 			// Port the nodes and edges to this graph.
 			foreach (SubgraphNodeBase subgraphNode in subgraphNodes)
@@ -729,14 +757,12 @@ namespace GraphProcessor
 				RemoveNode(subgraphNode);
 			}
 
-			// OpenThisGraphInEditor();
-
-			return;
+			return true;
 
 			bool ReconnectParameterEdges(SerializableEdge edge, SubgraphNodeBase subgraphNode)
 			{
 				// inputNode <- edge ->
-				if (edge.outputNode is ParameterNode inputParameter)
+				if (edge.FromNode is ParameterNode inputParameter)
 				{
 					// FirstOrDefault for identifier == parameterGUID
 					foreach (NodePort port in subgraphNode.inputPorts)
@@ -744,11 +770,11 @@ namespace GraphProcessor
 						if (port.portData.identifier != inputParameter.parameterGUID) continue;
 						foreach (SerializableEdge thisEdge in port.GetEdges())
 						{
-							// inputParameter -> subgraphEdge -> subgraphEdge.inputPort
-							// thisEdge.outputPort <- thisEdge <- inputPorts | subgraphNode
+							// thisEdge.FromPort -> thisEdge -> inputPorts | [subgraphNode]
+							// [inputParameter] -> subgraphEdge -> subgraphEdge.ToPort
 							foreach (SerializableEdge subgraphEdge in inputParameter.GetAllEdges())
 							{
-								Connect(subgraphEdge.inputPort, thisEdge.outputPort, false);
+								Connect(thisEdge.FromPort, subgraphEdge.ToPort, false);
 							}
 						}
 
@@ -760,7 +786,7 @@ namespace GraphProcessor
 
 				// Wire up parameter edges with new ones that connect to nodes in this graph.
 				// <- edge -> outputNode
-				if (edge.inputNode is ParameterNode outputParameter)
+				if (edge.ToNode is ParameterNode outputParameter)
 				{
 					// FirstOrDefault for identifier == parameterGUID
 					foreach (NodePort port in subgraphNode.outputPorts)
@@ -768,11 +794,11 @@ namespace GraphProcessor
 						if (port.portData.identifier != outputParameter.parameterGUID) continue;
 						foreach (SerializableEdge thisEdge in port.GetEdges())
 						{
-							// subgraphNode | outputPorts -> thisEdge -> thisEdge.inputPort
-							// subgraphEdge.outputPort <- subgraphEdge <- outputParameter
+							// [subgraphNode] | outputPorts -> thisEdge -> thisEdge.ToPort
+							// subgraphEdge.FromPort -> subgraphEdge -> [outputParameter]
 							foreach (SerializableEdge subgraphEdge in outputParameter.GetAllEdges())
 							{
-								Connect(thisEdge.inputPort, subgraphEdge.outputPort, false);
+								Connect(subgraphEdge.FromPort, thisEdge.ToPort, false);
 							}
 						}
 
@@ -786,20 +812,27 @@ namespace GraphProcessor
 			}
 		}
 
-		private void InlineSimplifiedRelays()
+		private bool InlineSimplifiedRelays()
 		{
-			/*// Remove relay nodes and replace them with straight edges.
+			var hasRelays = false;
+			// Remove relay nodes and replace them with straight edges.
 			foreach (SimplifiedRelayNode relayNode in nodes.OfType<SimplifiedRelayNode>())
 			{
 				DissolveRelay(relayNode, false);
+				hasRelays = true;
 			}
+
+			if (!hasRelays)
+				return false;
 
 			for (int i = nodes.Count - 1; i >= 0; i--)
 			{
 				if (nodes[i] is not SimplifiedRelayNode relayNode)
 					continue;
 				RemoveNode(relayNode);
-			}*/
+			}
+
+			return true;
 		}
 
 		[System.Diagnostics.Conditional("UNITY_EDITOR")]

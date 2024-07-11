@@ -161,14 +161,14 @@ namespace GraphProcessor
 					{
 						foreach (SerializableEdge edge in port.GetEdges())
 						{
-							if (edge.inputNode is SimplifiedRelayNode)
+							if (edge.ToNode is SimplifiedRelayNode)
 							{
-								s_stack.Push(edge.inputNode);
+								s_stack.Push(edge.ToNode);
 							}
 							else
 							{
-								required |= edge.inputPort.portData.required;
-								acceptMultipleEdges |= edge.inputPort.portData.acceptMultipleEdges;
+								required |= edge.ToPort.portData.required;
+								acceptMultipleEdges |= edge.ToPort.portData.acceptMultipleEdges;
 							}
 						}
 					}
@@ -180,14 +180,14 @@ namespace GraphProcessor
 					{
 						foreach (SerializableEdge edge in port.GetEdges())
 						{
-							if (edge.outputNode is SimplifiedRelayNode)
+							if (edge.FromNode is SimplifiedRelayNode)
 							{
-								s_stack.Push(edge.outputNode);
+								s_stack.Push(edge.FromNode);
 							}
 							else
 							{
-								required |= edge.outputPort.portData.required;
-								acceptMultipleEdges |= edge.outputPort.portData.acceptMultipleEdges;
+								required |= edge.FromPort.portData.required;
+								acceptMultipleEdges |= edge.FromPort.portData.acceptMultipleEdges;
 							}
 						}
 					}

@@ -20,8 +20,8 @@ namespace GraphProcessor
 		protected override void Process() => Out = In;
 
 		private Type GetRelayType() =>
-			inputPorts.FirstOrDefault()?.GetEdges().FirstOrDefault()?.outputPort.portData.displayType
-			?? outputPorts.FirstOrDefault()?.GetEdges().FirstOrDefault()?.inputPort.portData.displayType
+			inputPorts.FirstOrDefault()?.GetEdges().FirstOrDefault()?.FromPort.portData.displayType
+			?? outputPorts.FirstOrDefault()?.GetEdges().FirstOrDefault()?.ToPort.portData.displayType
 			?? typeof(object);
 
 		[CustomPortBehavior(nameof(In)), UsedImplicitly]

@@ -189,9 +189,9 @@ namespace GraphProcessor
 			{
 				PortView targetPort = view.GetPortViewFromFieldName(desc.portFieldName, desc.portIdentifier);
 				if (inputPortView == null)
-					graphView.Connect(targetPort, outputPortView);
+					graphView.Connect(outputPortView, targetPort);
 				else
-					graphView.Connect(inputPortView, targetPort);
+					graphView.Connect(targetPort, inputPortView);
 			}
 
 			return true;

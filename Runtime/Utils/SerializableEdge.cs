@@ -14,15 +14,27 @@ namespace GraphProcessor
 		[SerializeField] string inputNodeGUID;
 		[SerializeField] string outputNodeGUID;
 
-		[NonSerialized] public BaseNode inputNode;
+		/// <summary>
+		/// Formerly InputNode
+		/// </summary>
+		[NonSerialized] public BaseNode ToNode;
 
-		[NonSerialized] public NodePort inputPort; // edge goes from output to input
-		[NonSerialized] public NodePort outputPort;
+		/// <summary>
+		/// Formerly InputPort
+		/// </summary>
+		[NonSerialized] public NodePort ToPort; // edge goes from output to input
+		/// <summary>
+		/// Formerly OutputPort
+		/// </summary>
+		[NonSerialized] public NodePort FromPort;
 
 		//temporary object used to send port to port data when a custom input/output function is used.
 		[NonSerialized] public object PassThroughBuffer;
 
-		[NonSerialized] public BaseNode outputNode;
+		/// <summary>
+		/// Formerly OutputNode
+		/// </summary>
+		[NonSerialized] public BaseNode FromNode;
 
 		public string inputFieldName;
 		public string outputFieldName;
@@ -31,27 +43,27 @@ namespace GraphProcessor
 		public string inputPortIdentifier;
 		public string outputPortIdentifier;
 
-		public static SerializableEdge CreateNewEdge(BaseGraph graph, NodePort inputPort, NodePort outputPort)
+		public static SerializableEdge CreateNewEdge(BaseGraph graph, NodePort fromPort, NodePort toPort)
 		{
 			return new SerializableEdge
 			{
 				owner = graph,
 				GUID = Guid.NewGuid().ToString(),
-				inputNode = inputPort.owner,
-				inputFieldName = inputPort.fieldName,
-				outputNode = outputPort.owner,
-				outputFieldName = outputPort.fieldName,
-				inputPort = inputPort,
-				outputPort = outputPort,
-				inputPortIdentifier = inputPort.portData.identifier,
-				outputPortIdentifier = outputPort.portData.identifier
+				ToNode = toPort.owner,
+				inputFieldName = toPort.fieldName,
+				FromNode = fromPort.owner,
+				outputFieldName = fromPort.fieldName,
+				ToPort = toPort,
+				FromPort = fromPort,
+				inputPortIdentifier = toPort.portData.identifier,
+				outputPortIdentifier = fromPort.portData.identifier
 			};
 		}
 
 		public void OnBeforeSerialize()
 		{
-			outputNodeGUID = outputNode?.GUID;
-			inputNodeGUID = inputNode?.GUID;
+			outputNodeGUID = FromNode?.GUID;
+			inputNodeGUID = ToNode?.GUID;
 		}
 
 		public void OnAfterDeserialize()
@@ -73,15 +85,15 @@ namespace GraphProcessor
 				return DeserializationResult.NoChanges;
 			}
 
-			outputNode = owner.nodesPerGUID[outputNodeGUID];
-			inputNode = owner.nodesPerGUID[inputNodeGUID];
-			inputPort = inputNode.GetPort(inputFieldName, inputPortIdentifier);
-			outputPort = outputNode.GetPort(outputFieldName, outputPortIdentifier);
+			FromNode = owner.nodesPerGUID[outputNodeGUID];
+			ToNode = owner.nodesPerGUID[inputNodeGUID];
+			ToPort = ToNode.GetPort(inputFieldName, inputPortIdentifier);
+			FromPort = FromNode.GetPort(outputFieldName, outputPortIdentifier);
 
 			var result = DeserializationResult.NoChanges;
-			if (inputPort == null)
+			if (ToPort == null)
 			{
-				if (inputNode.TryGetFallbackPort(ref inputFieldName, ref inputPortIdentifier, out inputPort))
+				if (ToNode.TryGetFallbackPort(ref inputFieldName, ref inputPortIdentifier, out ToPort))
 				{
 					result = DeserializationResult.Changed;
 				}
@@ -91,9 +103,9 @@ namespace GraphProcessor
 				}
 			}
 
-			if (outputPort == null)
+			if (FromPort == null)
 			{
-				if (outputNode.TryGetFallbackPort(ref outputFieldName, ref outputPortIdentifier, out outputPort))
+				if (FromNode.TryGetFallbackPort(ref outputFieldName, ref outputPortIdentifier, out FromPort))
 				{
 					result = DeserializationResult.Changed;
 				}
@@ -106,6 +118,6 @@ namespace GraphProcessor
 			return result;
 		}
 
-		public override string ToString() => $"{outputNode.name}:{outputPort.fieldName} -> {inputNode.name}:{inputPort.fieldName}";
+		public override string ToString() => $"{FromNode.name}:{FromPort.fieldName} -> {ToNode.name}:{ToPort.fieldName}";
 	}
 }

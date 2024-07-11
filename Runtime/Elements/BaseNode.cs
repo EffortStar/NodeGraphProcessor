@@ -441,7 +441,7 @@ namespace GraphProcessor
 
 						foreach (SerializableEdge edge in port.GetEdges())
 						{
-							BaseNode edgeNode = node.IsFieldInput(field) ? edge.outputNode : edge.inputNode;
+							BaseNode edgeNode = node.IsFieldInput(field) ? edge.FromNode : edge.ToNode;
 							List<string> fieldsWithBehavior = edgeNode.nodeFields.Values.Where(HasCustomBehavior).Select(f => f.fieldName).ToList();
 							fieldsToUpdate.Push(new PortUpdate { fieldNames = fieldsWithBehavior, node = edgeNode });
 						}
@@ -533,7 +533,7 @@ namespace GraphProcessor
 
 		public void OnEdgeConnected(SerializableEdge edge)
 		{
-			bool input = edge.inputNode == this;
+			bool input = edge.ToNode == this;
 			NodePortContainer portCollection = input ? inputPorts : outputPorts;
 
 			portCollection.Add(edge);
@@ -548,17 +548,17 @@ namespace GraphProcessor
 			if (edge == null)
 				return;
 
-			bool input = edge.inputNode == this;
+			bool input = edge.ToNode == this;
 			NodePortContainer portCollection = input ? inputPorts : outputPorts;
 
 			portCollection.Remove(edge);
 
 			// Reset default values of input port:
-			if (edge.inputNode != null)
+			if (edge.ToNode != null)
 			{
-				bool haveConnectedEdges = edge.inputNode.inputPorts.Where(p => p.fieldName == edge.inputFieldName).Any(p => p.GetEdges().Count != 0);
-				if (edge.inputNode == this && !haveConnectedEdges && CanResetPort(edge.inputPort))
-					edge.inputPort?.ResetToDefault();
+				bool haveConnectedEdges = edge.ToNode.inputPorts.Where(p => p.fieldName == edge.inputFieldName).Any(p => p.GetEdges().Count != 0);
+				if (edge.ToNode == this && !haveConnectedEdges && CanResetPort(edge.ToPort))
+					edge.ToPort?.ResetToDefault();
 			}
 
 			UpdateAllPorts();
@@ -649,7 +649,7 @@ namespace GraphProcessor
 		{
 			foreach (NodePort port in inputPorts)
 			foreach (SerializableEdge edge in port.GetEdges())
-				yield return edge.outputNode;
+				yield return edge.FromNode;
 		}
 
 		/// <summary>
@@ -660,7 +660,7 @@ namespace GraphProcessor
 		{
 			foreach (NodePort port in outputPorts)
 			foreach (SerializableEdge edge in port.GetEdges())
-				yield return edge.inputNode;
+				yield return edge.ToNode;
 		}
 
 		/// <summary>

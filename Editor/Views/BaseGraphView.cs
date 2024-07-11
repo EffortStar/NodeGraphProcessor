@@ -280,20 +280,20 @@ namespace GraphProcessor
 				edge.Deserialize();
 
 				// Find port of new nodes:
-				copiedNodesMap.TryGetValue(edge.inputNode.GUID, out BaseNode oldInputNode);
-				copiedNodesMap.TryGetValue(edge.outputNode.GUID, out BaseNode oldOutputNode);
+				copiedNodesMap.TryGetValue(edge.ToNode.GUID, out BaseNode oldInputNode);
+				copiedNodesMap.TryGetValue(edge.FromNode.GUID, out BaseNode oldOutputNode);
 
 				// We avoid to break the graph by replacing unique connections:
-				if (oldInputNode == null && !edge.inputPort.portData.acceptMultipleEdges || !edge.outputPort.portData.acceptMultipleEdges)
+				if (oldInputNode == null && !edge.ToPort.portData.acceptMultipleEdges || !edge.FromPort.portData.acceptMultipleEdges)
 					continue;
 
-				oldInputNode = oldInputNode ?? edge.inputNode;
-				oldOutputNode = oldOutputNode ?? edge.outputNode;
+				oldInputNode = oldInputNode ?? edge.ToNode;
+				oldOutputNode = oldOutputNode ?? edge.FromNode;
 
-				NodePort inputPort = oldInputNode.GetPort(edge.inputPort.fieldName, edge.inputPortIdentifier);
-				NodePort outputPort = oldOutputNode.GetPort(edge.outputPort.fieldName, edge.outputPortIdentifier);
+				NodePort inputPort = oldInputNode.GetPort(edge.ToPort.fieldName, edge.inputPortIdentifier);
+				NodePort outputPort = oldOutputNode.GetPort(edge.FromPort.fieldName, edge.outputPortIdentifier);
 
-				var newEdge = SerializableEdge.CreateNewEdge(graph, inputPort, outputPort);
+				var newEdge = SerializableEdge.CreateNewEdge(graph, outputPort, inputPort);
 
 				if (nodeViewsPerNode.ContainsKey(oldInputNode) && nodeViewsPerNode.ContainsKey(oldOutputNode))
 				{
@@ -396,8 +396,8 @@ namespace GraphProcessor
 
 				DisconnectView(edge);
 
-				RemoveRelayIfRequiredAfterDelay(changes.removedEdge.outputNode);
-				RemoveRelayIfRequiredAfterDelay(changes.removedEdge.inputNode);
+				RemoveRelayIfRequiredAfterDelay(changes.removedEdge.FromNode);
+				RemoveRelayIfRequiredAfterDelay(changes.removedEdge.ToNode);
 			}
 
 			return;
@@ -876,12 +876,12 @@ namespace GraphProcessor
 		private void InitializeEdgeViews()
 		{
 			// Sanitize edges in case a node broke something while loading
-			graph.edges.RemoveAll(edge => edge == null || edge.inputNode == null || edge.outputNode == null);
+			graph.edges.RemoveAll(edge => edge == null || edge.ToNode == null || edge.FromNode == null);
 
 			foreach (SerializableEdge serializedEdge in graph.edges)
 			{
-				nodeViewsPerNode.TryGetValue(serializedEdge.inputNode, out BaseNodeView inputNodeView);
-				nodeViewsPerNode.TryGetValue(serializedEdge.outputNode, out BaseNodeView outputNodeView);
+				nodeViewsPerNode.TryGetValue(serializedEdge.ToNode, out BaseNodeView inputNodeView);
+				nodeViewsPerNode.TryGetValue(serializedEdge.FromNode, out BaseNodeView outputNodeView);
 				if (inputNodeView == null || outputNodeView == null)
 					continue;
 
@@ -1192,23 +1192,21 @@ namespace GraphProcessor
 			return true;
 		}
 
-		public bool Connect(PortView inputPortView, PortView outputPortView, bool autoDisconnectInputs = true)
+		public bool Connect(PortView fromPortView, PortView toPortView, bool autoDisconnectInputs = true)
 		{
-			NodePort inputPort = inputPortView.owner.nodeTarget.GetPort(inputPortView.fieldName, inputPortView.portData.identifier);
-			NodePort outputPort = outputPortView.owner.nodeTarget.GetPort(outputPortView.fieldName, outputPortView.portData.identifier);
+			NodePort toPort = toPortView.owner.nodeTarget.GetPort(toPortView.fieldName, toPortView.portData.identifier);
+			NodePort fromPort = fromPortView.owner.nodeTarget.GetPort(fromPortView.fieldName, fromPortView.portData.identifier);
 
 			// Checks that the node we are connecting still exists
-			if (inputPortView.owner.parent == null || outputPortView.owner.parent == null)
+			if (toPortView.owner.parent == null || fromPortView.owner.parent == null)
 				return false;
 
-			var newEdge = SerializableEdge.CreateNewEdge(graph, inputPort, outputPort);
+			var newEdge = SerializableEdge.CreateNewEdge(graph, fromPort, toPort);
 
 			EdgeView edgeView = CreateEdgeView();
 			edgeView.userData = newEdge;
-			edgeView.input = inputPortView;
-			edgeView.output = outputPortView;
-
-
+			edgeView.output = fromPortView;
+			edgeView.input = toPortView;
 			return Connect(edgeView);
 		}
 
@@ -1224,7 +1222,7 @@ namespace GraphProcessor
 			NodePort inputPort = inputNodeView.nodeTarget.GetPort(inputPortView.fieldName, inputPortView.portData.identifier);
 			NodePort outputPort = outputNodeView.nodeTarget.GetPort(outputPortView.fieldName, outputPortView.portData.identifier);
 
-			e.userData = graph.Connect(inputPort, outputPort, autoDisconnectInputs);
+			e.userData = graph.Connect(outputPort, inputPort, autoDisconnectInputs);
 
 			ConnectView(e, autoDisconnectInputs);
 			return true;
@@ -1374,9 +1372,9 @@ namespace GraphProcessor
 			var view = (SimplifiedRelayNodeView)AddNode(relayNode);
 
 			if (outputPort != null)
-				Connect(view.inputPortViews[0], outputPort);
+				Connect(outputPort, view.inputPortViews[0]);
 			if (inputPort != null)
-				Connect(inputPort, view.outputPortViews[0]);
+				Connect(view.outputPortViews[0], inputPort);
 
 			return view;
 		}
