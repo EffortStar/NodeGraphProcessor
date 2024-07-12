@@ -680,7 +680,7 @@ namespace GraphProcessor
 		}
 
 		/// <summary>
-		/// Inlines <see cref="SubgraphNodeBase{T}"/> and <see cref="SimplifiedRelayNode"/>.<br/>
+		/// Inlines <see cref="SubgraphNode{T}"/> and <see cref="SimplifiedRelayNode"/>.<br/>
 		/// Must be called manually before evaluation.
 		/// </summary>
 		public void Realize()
@@ -700,14 +700,14 @@ namespace GraphProcessor
 
 		private bool InlineSubgraphs()
 		{
-			using var _ = ListPool<SubgraphNodeBase>.Get(out var subgraphNodes);
-			subgraphNodes.AddRange(nodes.OfType<SubgraphNodeBase>());
+			using var _ = ListPool<SubgraphNode>.Get(out var subgraphNodes);
+			subgraphNodes.AddRange(nodes.OfType<SubgraphNode>());
 
 			if (subgraphNodes.Count == 0)
 				return false;
 
 			// Port the nodes and edges to this graph.
-			foreach (SubgraphNodeBase subgraphNode in subgraphNodes)
+			foreach (SubgraphNode subgraphNode in subgraphNodes)
 			{
 				BaseGraph subgraph = subgraphNode.Subgraph;
 				if (subgraph == null)
@@ -769,14 +769,14 @@ namespace GraphProcessor
 			}
 
 			// Remove the subgraph nodes, this disconnects them from the graph too.
-			foreach (SubgraphNodeBase subgraphNode in subgraphNodes)
+			foreach (SubgraphNode subgraphNode in subgraphNodes)
 			{
 				RemoveNode(subgraphNode);
 			}
 
 			return true;
 
-			bool ReconnectParameterEdges(SerializableEdge edge, SubgraphNodeBase subgraphNode)
+			bool ReconnectParameterEdges(SerializableEdge edge, SubgraphNode subgraphNode)
 			{
 				// inputNode <- edge ->
 				if (edge.FromNode is ParameterNode inputParameter)

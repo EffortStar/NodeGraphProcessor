@@ -1,19 +1,19 @@
-#nullable enable
-
+using System;
 using JetBrains.Annotations;
 using UnityEditor;
 using UnityEditor.UIElements;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace GraphProcessor
 {
-	[NodeCustomEditor(typeof(SubgraphNodeBase)), UsedImplicitly]
+	[NodeCustomEditor(typeof(SubgraphNode)), UsedImplicitly]
 	public sealed class SubgraphNodeView : BaseNodeView
 	{
 		public new const string UssClassName = "subgraph-node";
 		public const string TitleUssClassName = UssClassName + "__icon";
-		
-		private SubgraphNodeBase SubgraphNode => (SubgraphNodeBase)nodeTarget;
+
+		private SubgraphNode SubgraphNode => (SubgraphNode)nodeTarget;
 
 		protected override bool hasSettings => true;
 
@@ -24,7 +24,7 @@ namespace GraphProcessor
 			{
 				if (evt.button != 0 || evt.clickCount != 2)
 					return;
-				BaseGraph? subgraph = ((SubgraphNodeBase)nodeTarget).Subgraph;
+				BaseGraph? subgraph = ((SubgraphNode)nodeTarget).Subgraph;
 				if (subgraph == null)
 					return;
 				AssetDatabase.OpenAsset(subgraph);

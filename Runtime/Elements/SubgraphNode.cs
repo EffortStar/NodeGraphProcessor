@@ -9,44 +9,39 @@ using UnityEngine.Pool;
 
 namespace GraphProcessor
 {
-	/// <summary>
-	/// Used solely as a non-generic anchor for the view.
-	/// </summary>
 	[Serializable]
-	public abstract class SubgraphNodeBase : BaseNode
-	{
-		public abstract BaseGraph Subgraph { get; }
-#if UNITY_EDITOR
-		protected static Stack<BaseNode> s_stack = new();
-#endif
-	}
-
-	[Serializable]
-	public abstract class SubgraphNodeBase<T> : SubgraphNodeBase where T : BaseGraph
+	public sealed class SubgraphNode : BaseNode
 	{
 #if UNITY_EDITOR
-		public override string name
+		private static Stack<BaseNode> s_stack = new();
+		
+		public static string GetNameFromSubgraph(BaseGraph graph)
 		{
-			get
-			{
-				if (Subgraph == null)
-					return "Subgraph";
-				string result = Subgraph.name;
-				if (result.EndsWith("Subgraph", StringComparison.OrdinalIgnoreCase))
-					result = result[..^"Subgraph".Length];
-				else if (result.StartsWith("Subgraph", StringComparison.OrdinalIgnoreCase))
-					result = result["Subgraph".Length..];
-				return ObjectNames.NicifyVariableName(result);
-			}
+			if (graph == null)
+				return "Subgraph";
+			string result = graph.name;
+			if (result.EndsWith("Subgraph", StringComparison.OrdinalIgnoreCase))
+				result = result[..^"Subgraph".Length];
+			else if (result.StartsWith("Subgraph", StringComparison.OrdinalIgnoreCase))
+				result = result["Subgraph".Length..];
+			return ObjectNames.NicifyVariableName(result);
 		}
+#endif
+		
+#if UNITY_EDITOR
+		public override string name => GetNameFromSubgraph(Subgraph);
 #else
 		public override string name => Subgraph == null ? "Subgraph" : Subgraph.name;
 #endif
 
 		[HideInInspector]
-		[SerializeField] protected T _subgraph;
+		[SerializeField] private BaseGraph _subgraph;
 
-		public sealed override BaseGraph Subgraph => _subgraph;
+		public BaseGraph Subgraph
+		{
+			get => _subgraph;
+			internal set => _subgraph = value;
+		}
 
 		[Input, RequiredPort]
 		public object Inputs;

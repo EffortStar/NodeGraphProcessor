@@ -64,10 +64,25 @@ namespace GraphProcessor
 			// Sort menu by alphabetical order and submenus
 			IOrderedEnumerable<(string path, Type type)> nodeEntries = graphView.FilterCreateNodeMenuEntries().OrderBy(k => k.path);
 			var titlePaths = new HashSet<string>();
+			AddNodeEntries(tree, nodeEntries, titlePaths);
+			IEnumerable<(string, BaseGraph)> subgraphEntries = GetSubgraphEntries();
+			AddNodeEntries(tree, subgraphEntries, titlePaths);
+		}
 
-			foreach ((string path, Type type) nodeMenuItem in nodeEntries)
+		private IEnumerable<(string, BaseGraph)> GetSubgraphEntries()
+		{
+			foreach (BaseGraph subgraph in AssetDatabase.FindAssets($"t:{graphView.graph.GetType().FullName}")
+				         .Select(path => AssetDatabase.LoadAssetAtPath<BaseGraph>(AssetDatabase.GUIDToAssetPath(path)))
+				         .Where(g => g != null && g.IsSubgraph))
 			{
-				string nodePath = nodeMenuItem.path;
+				yield return ($"Subgraph/{SubgraphNode.GetNameFromSubgraph(subgraph)}", subgraph);
+			}
+		}
+
+		private void AddNodeEntries<T>(List<SearchTreeEntry> tree, IEnumerable<(string path, T type)> nodeEntries, HashSet<string> titlePaths)
+		{
+			foreach ((string nodePath, T type) in nodeEntries)
+			{
 				string nodeName = nodePath;
 				var level = 0;
 				string[] parts = nodePath.Split('/');
@@ -75,7 +90,7 @@ namespace GraphProcessor
 				if (parts.Length > 1)
 				{
 					level++;
-					nodeName = parts[parts.Length - 1];
+					nodeName = parts[^1];
 					var fullTitleAsPath = "";
 
 					for (var i = 0; i < parts.Length - 1; i++)
@@ -99,7 +114,7 @@ namespace GraphProcessor
 				tree.Add(new SearchTreeEntry(new GUIContent(nodeName, icon))
 				{
 					level = level + 1,
-					userData = nodeMenuItem.type
+					userData = type
 				});
 			}
 		}
@@ -180,10 +195,26 @@ namespace GraphProcessor
 			Vector2 windowMousePosition = windowRoot.ChangeCoordinatesTo(windowRoot.parent, context.screenMousePosition - window.position.position);
 			Vector2 graphMousePosition = graphView.contentViewContainer.WorldToLocal(windowMousePosition);
 
-			Type nodeType = searchTreeEntry.userData is Type ? (Type)searchTreeEntry.userData : ((NodeProvider.PortDescription)searchTreeEntry.userData).nodeType;
+			BaseNode node;
+			switch (searchTreeEntry.userData)
+			{
+				case Type t:
+					node = BaseNode.CreateFromType(t, graphMousePosition);
+					break;
+				case NodeProvider.PortDescription description:
+					node = BaseNode.CreateFromType(description.nodeType, graphMousePosition);
+					break;
+				case BaseGraph graph:
+					var subgraphNode = BaseNode.CreateFromType<SubgraphNode>(graphMousePosition);
+					subgraphNode.Subgraph = graph;
+					node = subgraphNode;
+					break;
+				default:
+					throw new NotImplementedException();
+			}
 
-			graphView.RegisterCompleteObjectUndo("Added " + nodeType);
-			BaseNodeView view = graphView.AddNode(BaseNode.CreateFromType(nodeType, graphMousePosition));
+			graphView.RegisterCompleteObjectUndo("Added " + node.GetType().Name);
+			BaseNodeView view = graphView.AddNode(node);
 
 			if (searchTreeEntry.userData is NodeProvider.PortDescription desc)
 			{
