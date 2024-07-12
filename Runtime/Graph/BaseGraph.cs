@@ -145,6 +145,7 @@ namespace GraphProcessor
 
 			InitializeGraphElements();
 			DestroyBrokenGraphElements();
+			RebuildNodeCache();
 			isEnabled = true;
 			onEnabled?.Invoke();
 		}
@@ -192,6 +193,23 @@ namespace GraphProcessor
 			}
 		}
 
+		protected void RebuildNodeCache()
+		{
+			ClearNodeCache();
+			foreach (BaseNode node in nodes)
+				CacheNode(node);
+		}
+
+		/// <summary>
+		/// Called before <see cref="CacheNode"/> is invoked on all the nodes in the graph.
+		/// </summary>
+		protected virtual void ClearNodeCache() { }
+
+		/// <summary>
+		/// Optionally override to cache node details for later processing.
+		/// </summary>
+		protected virtual void CacheNode(BaseNode node) { }
+
 		protected virtual void OnDisable()
 		{
 			isEnabled = false;
@@ -209,12 +227,10 @@ namespace GraphProcessor
 		public BaseNode AddNode(BaseNode node)
 		{
 			nodesPerGUID[node.GUID] = node;
-
 			nodes.Add(node);
 			node.Initialize(this);
-
 			onGraphChanges?.Invoke(new GraphChanges { addedNode = node });
-
+			CacheNode(node);
 			return node;
 		}
 
@@ -224,6 +240,7 @@ namespace GraphProcessor
 			nodes.Add(node);
 			node.Graph = this;
 			onGraphChanges?.Invoke(new GraphChanges { addedNode = node });
+			CacheNode(node);
 			return node;
 		}
 
