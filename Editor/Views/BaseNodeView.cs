@@ -23,7 +23,7 @@ namespace GraphProcessor
 		public const string PrototypeUssClassName = UssClassName + "--prototype";
 
 		public const string TitleContainerName = "title";
-		
+
 		public BaseNode nodeTarget;
 		private NodeProvider.NodeFlags nodeFlags;
 
@@ -47,7 +47,7 @@ namespace GraphProcessor
 		private NodeSettingsView settingsContainer;
 		private Button settingButton;
 		private TextField titleTextField;
-		
+
 		private VisualElement titleIcon;
 		private string currentTitleIconClass;
 
@@ -72,7 +72,7 @@ namespace GraphProcessor
 		private float selectedNodesNearBottom;
 		private float selectedNodesAvgHorizontal;
 		private float selectedNodesAvgVertical;
-		
+
 		/// <summary>
 		/// Set a custom uss file for the node. We use a Resources.Load to get the stylesheet so be sure to put the correct resources path
 		/// https://docs.unity3d.com/ScriptReference/Resources.Load.html
@@ -90,11 +90,13 @@ namespace GraphProcessor
 				{
 					return;
 				}
+
 				PortView view = args.Query<PortView>().Where(p => p.HasBadge(badge)).First();
 				if (view == null)
 				{
 					return;
 				}
+
 				var connector = (BaseEdgeConnector)view.edgeConnector;
 				connector.TryStartDragging(e);
 			}, this);
@@ -162,7 +164,7 @@ namespace GraphProcessor
 		{
 			if (nodeFlags != NodeProvider.NodeFlags.None)
 				this.Q(TitleContainerName).Insert(0, new StripedElement());
-			
+
 			controlsContainer = new VisualElement { name = "controls" };
 			controlsContainer.AddToClassList("NodeControls");
 			mainContainer.Add(controlsContainer);
@@ -195,7 +197,7 @@ namespace GraphProcessor
 			// Add renaming capability
 			if ((capabilities & Capabilities.Renamable) != 0)
 				SetupRenamableTitle();
-			
+
 			if ((nodeFlags & NodeProvider.NodeFlags.Obsolete) != 0)
 			{
 				AddToClassList(ObsoleteUssClassName);
@@ -207,18 +209,18 @@ namespace GraphProcessor
 				AddBadge("Prototype node may be changed or removed", BadgeMessageType.Warning);
 			}
 		}
-		
+
 		protected void SetTitleIcon(string className)
 		{
 			if (currentTitleIconClass != null)
 				titleIcon?.RemoveFromClassList(currentTitleIconClass);
-                
+
 			if (className == null)
 			{
 				titleIcon?.RemoveFromHierarchy();
 				return;
 			}
-                
+
 			titleIcon ??= new VisualElement { name = "TitleIcon", pickingMode = PickingMode.Ignore };
 			titleIcon.AddToClassList(IconUssClassName);
 			titleContainer.Insert(0, titleIcon);
@@ -297,6 +299,7 @@ namespace GraphProcessor
 				if (Attribute.IsDefined(field, typeof(SettingAttribute)))
 					AddSettingField(field);
 			}
+
 			settingsContainer.Bind(owner.serializedGraph);
 		}
 
@@ -387,9 +390,14 @@ namespace GraphProcessor
 		}
 
 		public PortView GetPortViewFromFieldName(string fieldName, string identifier)
-		{
-			return GetPortViewsFromFieldName(fieldName)?.FirstOrDefault(pv => { return (pv.portData.identifier == identifier) || (String.IsNullOrEmpty(pv.portData.identifier) && String.IsNullOrEmpty(identifier)); });
-		}
+			=> GetPortViewsFromFieldName(fieldName)?
+				.FirstOrDefault(
+					pv => pv.portData.identifier == identifier
+					      || (
+						      string.IsNullOrEmpty(pv.portData.identifier)
+						      && string.IsNullOrEmpty(identifier)
+					      )
+				);
 
 
 		public PortView AddPort(FieldInfo fieldInfo, Direction direction, BaseEdgeConnectorListener listener, PortData portData)
