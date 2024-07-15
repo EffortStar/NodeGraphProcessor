@@ -9,6 +9,7 @@ using System.Linq;
 using System;
 using UnityEditor.SceneManagement;
 using System.Reflection;
+using DG.Tweening.Plugins.Core.PathCore;
 using Status = UnityEngine.UIElements.DropdownMenuAction.Status;
 using Object = UnityEngine.Object;
 
@@ -110,6 +111,7 @@ namespace GraphProcessor
 		private Dictionary<Type, (Type nodeType, MethodInfo initalizeNodeFromObject)> nodeTypePerCreateAssetType = new();
 		private NodeGraphState.StateValue _viewState;
 		private readonly BaseGraphWindow _window;
+		private Dictionary<string, BaseNode> _lastCopiedNodesMap;
 
 		public BaseGraphView(BaseGraphWindow window)
 		{
@@ -148,10 +150,10 @@ namespace GraphProcessor
 
 		#region Callbacks
 
-		protected override bool canCopySelection 
+		protected override bool canCopySelection
 			=> selection.Any(e => e is BaseNodeView or GroupView);
 
-		protected override bool canCutSelection 
+		protected override bool canCutSelection
 			=> selection.Any(e => e is BaseNodeView or GroupView);
 
 		private string SerializeGraphElementsCallback(IEnumerable<GraphElement> elements)
@@ -196,11 +198,11 @@ namespace GraphProcessor
 
 		private void UnserializeAndPasteCallback(string operationName, string serializedData)
 		{
-			var data = JsonUtility.FromJson<CopyPasteHelper>(serializedData);
-
 			RegisterCompleteObjectUndo(operationName);
 
-			Dictionary<string, BaseNode> copiedNodesMap = new();
+			var data = JsonUtility.FromJson<CopyPasteHelper>(serializedData);
+
+			Dictionary<string, BaseNode> copiedNodesMap = _lastCopiedNodesMap = new Dictionary<string, BaseNode>();
 
 			List<Group> unserializedGroups = data.copiedGroups.Select(g => JsonSerializer.Deserialize<Group>(g)).ToList();
 
@@ -221,7 +223,7 @@ namespace GraphProcessor
 				node.position += new Vector2(20, 20);
 
 				AddNode(node);
-				
+
 				copiedNodesMap[sourceGUID] = node;
 
 				// Select the new node
@@ -386,13 +388,13 @@ namespace GraphProcessor
 					return;
 				schedule.Execute(() => RemoveRelayIfRequired(relay));
 			}
-			
+
 			// Deletes redirect nodes if they're found to have no connected edges.
 			void RemoveRelayIfRequired(SimplifiedRelayNode relay)
 			{
 				if (!nodeViewsPerNode.ContainsKey(relay))
 					return;
-				
+
 				if (
 					relay.inputPorts[0].GetEdges().Count != 0 ||
 					relay.outputPorts[0].GetEdges().Count != 0
@@ -459,6 +461,7 @@ namespace GraphProcessor
 			BuildGroupContextualMenu(evt, 1);
 			BuildStickyNoteContextualMenu(evt, 2);
 			BuildViewContextualMenu(evt);
+			BuildSubgraphContextualMenu(evt);
 			BuildSelectAssetContextualMenu(evt);
 			BuildSaveAssetContextualMenu(evt);
 			BuildHelpContextualMenu(evt);
@@ -488,6 +491,18 @@ namespace GraphProcessor
 			Vector2 position = (evt.currentTarget as VisualElement).ChangeCoordinatesTo(contentViewContainer, evt.localMousePosition);
 			evt.menu.InsertAction(menuPosition, "Create Sticky Note", e => AddStickyNote(new StickyNote("Create Note", position)), DropdownMenuAction.AlwaysEnabled);
 #endif
+		}
+
+		/// <summary>
+		/// Add the Save Asset entry to the context menu
+		/// </summary>
+		/// <param name="evt"></param>
+		protected virtual void BuildSubgraphContextualMenu(ContextualMenuPopulateEvent evt)
+		{
+			evt.menu.AppendAction("Create Subgraph", e => CreateSubgraph(), CanCreateSubgraphFromElements() ? Status.Normal : Status.Disabled);
+			return;
+
+			bool CanCreateSubgraphFromElements() => selection.OfType<BaseNodeView>().Any();
 		}
 
 		/// <summary>
@@ -831,6 +846,7 @@ namespace GraphProcessor
 				};
 				schedule.Execute(ResetPositionAndZoom);
 			}
+
 			nodeCreationRequest = c => SearchWindow.Open(new SearchWindowContext(c.screenMousePosition), createNodeMenu);
 		}
 
@@ -1266,6 +1282,7 @@ namespace GraphProcessor
 				OpenPinned(type);
 				return true;
 			}
+
 			ClosePinned(type, view);
 			return false;
 		}
@@ -1311,7 +1328,7 @@ namespace GraphProcessor
 		{
 			if (graph == null)
 				return Status.Hidden;
-			
+
 			PinnedElement pinned = graph.pinnedElements.Find(p => p.editorType.Type == type);
 			return pinned is { opened: true } ? Status.Normal : Status.Hidden;
 		}
@@ -1322,7 +1339,7 @@ namespace GraphProcessor
 			Vector2 max = graph.nodes.Aggregate(Vector2.zero, (current, node) => new Vector2(Mathf.Max(current.x, node.position.x), Mathf.Max(current.y, node.position.y)));
 			max += new Vector2(100f, 200f); // Expand by a normal size for a node.
 			Vector2 position = (min + max) * 0.5f;
-			
+
 			UpdateViewTransform(-position + localBound.size * 0.5f, Vector3.one);
 		}
 
@@ -1387,5 +1404,168 @@ namespace GraphProcessor
 		/// Opens a graph as a subgraph, appending the currently opened graph to the breadcrumbs.
 		/// </summary>
 		public void OpenSubgraph(BaseGraph subgraph) => _window.OpenSubgraph(subgraph);
+
+		private void CreateSubgraph()
+		{
+			HashSet<BaseNodeView> viewsInSubgraph = selection.OfType<BaseNodeView>().ToHashSet();
+			HashSet<BaseNode> inSubgraph = viewsInSubgraph.Select(v => v.nodeTarget).ToHashSet();
+
+			string assetPath = AssetDatabase.GetAssetPath(graph);
+			string directory = System.IO.Path.GetDirectoryName(assetPath)!;
+			string subgraphPath = EditorUtility.SaveFilePanelInProject(
+				"Create Subgraph",
+				"New Subgraph",
+				"asset",
+				$"Creating a subgraph out of {inSubgraph.Count} nodes.",
+				directory
+			);
+
+			if (string.IsNullOrEmpty(subgraphPath))
+				return;
+
+			// Gather the edges that make up the border of the subgraph.
+			Dictionary<(PortView port, bool isInput), List<EdgeView>> borderEdges = new();
+			foreach (BaseNodeView node in viewsInSubgraph)
+			{
+				foreach (PortView port in node.AllPortViews)
+				{
+					foreach (EdgeView edgeView in port.GetEdges())
+					{
+						SerializableEdge edge = edgeView.serializedEdge;
+						if (!inSubgraph.Contains(edge.FromNode))
+						{
+							var key = (port, true);
+							if (!borderEdges.TryGetValue(key, out var list))
+								borderEdges.Add(key, list = new());
+							list.Add(edgeView);
+							RemoveFromSelection(edgeView);
+							continue;
+						}
+
+						if (!inSubgraph.Contains(edge.ToNode))
+						{
+							var key = (port, false);
+							if (!borderEdges.TryGetValue(key, out var list))
+								borderEdges.Add(key, list = new());
+							list.Add(edgeView);
+							RemoveFromSelection(edgeView);
+							continue;
+						}
+
+						// Add any edges that are entirely within the subgraph to our selection.
+						AddToSelection(edgeView);
+					}
+				}
+			}
+
+			// Copy the current selection (i.e. the subgraph nodes and edges).
+			HashSet<GraphElement> graphElementSet = new();
+			CollectCopyableGraphElements(selection.OfType<GraphElement>(), graphElementSet);
+			string copy = SerializeGraphElements(graphElementSet);
+			if (string.IsNullOrEmpty(copy))
+			{
+				Debug.LogWarning("Copy of elements was empty, subgraph creation was cancelled.");
+				return;
+			}
+
+
+			Vector2 center = inSubgraph.Aggregate(Vector2.zero, (vector2, node) => vector2 + node.position) / inSubgraph.Count;
+
+			// Create the subgraph asset.
+			var subgraph = (BaseGraph)ScriptableObject.CreateInstance(graph.GetType());
+			var subgraphNodeView = new BaseGraphView(_window); // We create a view so we can paste into it.
+			subgraphNodeView.Initialize(subgraph);
+
+			// Paste the subgraph into the asset.
+			subgraphNodeView.UnserializeAndPasteOperation("create subgraph", copy);
+
+			Dictionary<PortView, string> parameterLookup = new();
+			Dictionary<PortView, Vector2> positionLookup = new();
+
+			// Cache the positions of the ports so we can sort the parameters by coordinate.
+			foreach ((PortView port, _) in borderEdges.Keys)
+			{
+				positionLookup.Add(port, port.ChangeCoordinatesTo(contentViewContainer, Vector2.zero));
+			}
+
+			// For every port connected to a border edge.
+			// Hook-up edges to parameter nodes.
+			foreach (
+				((PortView port, bool isInputParameter), var list) in borderEdges
+					// Sort parameters by coordinate.
+					.OrderBy(kvp => positionLookup[kvp.Key.port].x)
+					.ThenBy(kvp => positionLookup[kvp.Key.port].y)
+			)
+			{
+				// Create a matching parameter.
+				string parameterGuid = subgraph.AddSubgraphParameter(port.portData.displayName, port.portType, isInputParameter ? ParameterDirection.Input : ParameterDirection.Output);
+
+				parameterLookup.Add(port, parameterGuid);
+
+				// For each border edge.
+				foreach (EdgeView edge in list)
+				{
+					// Create a parameter node using the parameter guid.
+					var source = (PortView)(isInputParameter ? edge.output : edge.input);
+					var parameterNode = BaseNode.CreateFromType<ParameterNode>(source.ChangeCoordinatesTo(contentViewContainer, Vector2.zero));
+					parameterNode.parameterGUID = parameterGuid;
+					subgraph.AddNode(parameterNode);
+
+					// Find the nodes to connect edges to.
+					BaseNode copiedNode = subgraphNodeView._lastCopiedNodesMap[port.owner.nodeTarget.GUID];
+					NodePort originPortInSubgraph = copiedNode.GetPort(port.fieldName, port.portData.identifier);
+
+					// Connect the parameter nodes to their matching ports.
+					if (isInputParameter)
+					{
+						NodePort from = parameterNode.outputPorts.First();
+						subgraph.Connect(from, originPortInSubgraph);
+					}
+					else
+					{
+						NodePort to = parameterNode.inputPorts.First();
+						subgraph.Connect(originPortInSubgraph, to);
+					}
+				}
+			}
+
+			AssetDatabase.CreateAsset(subgraph, subgraphPath);
+
+			var subgraphNode = BaseNode.CreateFromType<SubgraphNode>(center);
+			subgraphNode.Subgraph = subgraph;
+			BaseNodeView view = AddNode(subgraphNode);
+
+			// Hookup border edges to the subgraph node's ports.
+			foreach (((PortView port, bool isInputParameter), var list) in borderEdges)
+			{
+				string parameter = parameterLookup[port];
+				if (isInputParameter)
+				{
+					PortView to = view.GetPortViewFromFieldName(
+						nameof(SubgraphNode.Inputs),
+						parameter
+					);
+					foreach (EdgeView edge in list)
+					{
+						Connect((PortView)edge.output, to);
+					}
+				}
+				else
+				{
+					PortView from = view.GetPortViewFromFieldName(
+						nameof(SubgraphNode.Outputs),
+						parameter
+					);
+					foreach (EdgeView edge in list)
+					{
+						Connect(from, (PortView)edge.input);
+					}
+				}
+			}
+
+			// Delete and disconnect all the nodes that have become a part of the subgraph.
+			foreach (BaseNode node in inSubgraph)
+				RemoveNode(node);
+		}
 	}
 }

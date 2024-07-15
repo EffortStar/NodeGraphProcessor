@@ -100,8 +100,14 @@ namespace GraphProcessor
 			if (graphView == null)
 			{
 				graphView = CreateView();
-				Toolbar toolbar = new();
-				rootVisualElement.Add(toolbar);
+				var toolbar = rootVisualElement.Q<Toolbar>("graph-view-toolbar");
+				if (toolbar == null)
+				{
+					toolbar = new Toolbar { name = "graph-view-toolbar" };
+					rootVisualElement.Add(toolbar);
+				}
+				
+				toolbar.Clear();
 				AppendToToolbar(toolbar);
 			}
 			

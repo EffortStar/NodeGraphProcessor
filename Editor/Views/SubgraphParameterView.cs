@@ -18,7 +18,7 @@ namespace GraphProcessor
 
 		private readonly BlackboardSection _inputsSection;
 		private readonly BlackboardSection _outputsSection;
-
+		
 		public SubgraphParameterView()
 		{
 			var style = Resources.Load<StyleSheet>(exposedParameterViewStyle);
@@ -36,6 +36,7 @@ namespace GraphProcessor
 			Add(_inputsSection);
 			_outputsSection = new BlackboardSection { title = "Outputs", canAcceptDrop = _ => true, name = "OutputsSection" };
 			Add(_outputsSection);
+			capabilities |= Capabilities.Resizable;
 		}
 
 		private void OnAddClicked(Blackboard blackboard)
