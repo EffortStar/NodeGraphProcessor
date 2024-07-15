@@ -3,6 +3,7 @@ using System.Linq;
 using UnityEngine;
 using System;
 using JetBrains.Annotations;
+using UnityEngine.Assertions;
 using UnityEngine.Pool;
 using UnityEngine.Serialization;
 using UnityEngine.SceneManagement;
@@ -203,12 +204,16 @@ namespace GraphProcessor
 		/// <summary>
 		/// Called before <see cref="CacheNode"/> is invoked on all the nodes in the graph.
 		/// </summary>
-		protected virtual void ClearNodeCache() { }
+		protected virtual void ClearNodeCache()
+		{
+		}
 
 		/// <summary>
 		/// Optionally override to cache node details for later processing.
 		/// </summary>
-		protected virtual void CacheNode(BaseNode node) { }
+		protected virtual void CacheNode(BaseNode node)
+		{
+		}
 
 		protected virtual void OnDisable()
 		{
@@ -679,15 +684,22 @@ namespace GraphProcessor
 			return false;
 		}
 
+		public void Realize() => Realize(0);
+
 		/// <summary>
-		/// Inlines <see cref="SubgraphNode{T}"/> and <see cref="SimplifiedRelayNode"/>.<br/>
+		/// Inlines <see cref="SubgraphNode"/> and <see cref="SimplifiedRelayNode"/>.<br/>
 		/// Must be called manually before evaluation.
 		/// </summary>
-		public void Realize()
+		private void Realize(int depth)
 		{
+#if UNITY_ASSERTIONS
+			if (depth > 50)
+				throw new StackOverflowException($"A subgraph was nested an infinite loop \"{this}\" was in the chain.");
+#endif
+
 			try
 			{
-				InlineSubgraphs();
+				InlineSubgraphs(depth);
 				InlineSimplifiedRelays();
 				/*if (inlinedSubgraph)
 					OpenThisGraphInEditor();*/
@@ -698,7 +710,7 @@ namespace GraphProcessor
 			}
 		}
 
-		private bool InlineSubgraphs()
+		private bool InlineSubgraphs(int depth)
 		{
 			using var _ = ListPool<SubgraphNode>.Get(out var subgraphNodes);
 			subgraphNodes.AddRange(nodes.OfType<SubgraphNode>());
@@ -718,54 +730,19 @@ namespace GraphProcessor
 					continue;
 				}
 
+				if (subgraph == this)
+				{
+					Debug.LogError("A subgraph node was nested inside of itself!", this);
+					continue;
+				}
+
 				if (subgraph.nodes.Count == 0)
 				{
 					Debug.LogWarning($"Subgraph {subgraph} had no nodes, and couldn't be inlined.");
 					continue;
 				}
 
-				// Note that we need to protect against modifying the subgraph asset in the asset database.
-				// But we also need to use its nodes, because we can't duplicate nodes at runtime, they're plain classes.
-				// So it's necessary to instantiate the subgraph to pull out that serialized data into a new instance.
-				// TODO consider whether we can employ the GraphPool, and share runtime instances of the subgraphs.
-				subgraph = Instantiate(subgraph);
-				subgraph.Realize(); // Realize any nested subgraphs
-
-#if UNITY_EDITOR
-				Vector2 zero = subgraph.nodes.Aggregate(Vector2.zero, (p, n) => p + n.position) / subgraph.nodes.Count;
-#endif
-
-				foreach (BaseNode node in subgraph.nodes)
-				{
-					// Parameter nodes shouldn't be inserted into the realised graph.
-					if (node is ParameterNode)
-						continue;
-
-#if UNITY_EDITOR
-					node.position = node.position - zero + subgraphNode.position + new Vector2(0, -500);
-#endif
-
-					AddNodeAndDontInitialize(node); // The node has already been initialized from the instantiation of the subgraph.
-				}
-
-				for (int i = subgraph.edges.Count - 1; i >= 0; i--)
-				{
-					SerializableEdge edge = subgraph.edges[i];
-					// Wire up parameter edges with new ones that connect to nodes in this graph.
-					if (ReconnectParameterEdges(edge, subgraphNode))
-					{
-						Disconnect(edge);
-						continue;
-					}
-
-					// Insert the normal edge into this graph.
-					edges.Add(edge);
-					edgesPerGUID[edge.GUID] = edge;
-				}
-
-				// We don't actually need that subgraph instance though,
-				// so after we've extracted the serialized data we care about it can be destroyed.
-				Destroy(subgraph);
+				InlineSubgraphNode(subgraphNode, depth, true);
 			}
 
 			// Remove the subgraph nodes, this disconnects them from the graph too.
@@ -775,6 +752,64 @@ namespace GraphProcessor
 			}
 
 			return true;
+		}
+
+		internal void InlineSubgraphNode(SubgraphNode subgraphNode) => InlineSubgraphNode(subgraphNode, 0, false);
+
+		private void InlineSubgraphNode(SubgraphNode subgraphNode, int depth, bool recursive)
+		{
+			BaseGraph subgraph = subgraphNode.Subgraph;
+			// Note that we need to protect against modifying the subgraph asset in the asset database.
+			// But we also need to use its nodes, because we can't duplicate nodes at runtime, they're plain classes.
+			// So it's necessary to instantiate the subgraph to pull out that serialized data into a new instance.
+			// TODO consider whether we can employ the GraphPool, and share runtime instances of the subgraphs.
+			subgraph = Instantiate(subgraph);
+			if (recursive)
+				subgraph.Realize(depth + 1); // Realize any nested subgraphs
+
+#if UNITY_EDITOR
+			Vector2 zero = subgraph.nodes.Aggregate(Vector2.zero, (p, n) => p + n.position) / subgraph.nodes.Count;
+#endif
+
+			foreach (BaseNode node in subgraph.nodes)
+			{
+				// Parameter nodes shouldn't be inserted into the realised graph.
+				if (node is ParameterNode)
+					continue;
+
+#if UNITY_EDITOR
+				node.position = node.position - zero + subgraphNode.position + new Vector2(0, -500);
+#endif
+
+				AddNodeAndDontInitialize(node); // The node has already been initialized from the instantiation of the subgraph.
+			}
+
+			for (int i = subgraph.edges.Count - 1; i >= 0; i--)
+			{
+				SerializableEdge edge = subgraph.edges[i];
+				// Wire up parameter edges with new ones that connect to nodes in this graph.
+				if (ReconnectParameterEdges(edge, subgraphNode))
+				{
+					Disconnect(edge);
+					continue;
+				}
+
+				// Insert the normal edge into this graph.
+				edges.Add(edge);
+				edgesPerGUID[edge.GUID] = edge;
+			}
+
+			// We don't actually need that subgraph instance though,
+			// so after we've extracted the serialized data we care about it can be destroyed.
+#if UNITY_EDITOR
+			if (Application.isPlaying)
+				Destroy(subgraph);
+			else
+				DestroyImmediate(subgraph);
+#else
+			Destroy(subgraph);
+#endif
+			return;
 
 			bool ReconnectParameterEdges(SerializableEdge edge, SubgraphNode subgraphNode)
 			{

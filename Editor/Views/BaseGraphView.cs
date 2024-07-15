@@ -499,10 +499,12 @@ namespace GraphProcessor
 		/// <param name="evt"></param>
 		protected virtual void BuildSubgraphContextualMenu(ContextualMenuPopulateEvent evt)
 		{
-			evt.menu.AppendAction("Create Subgraph", e => CreateSubgraph(), CanCreateSubgraphFromElements() ? Status.Normal : Status.Disabled);
+			evt.menu.AppendAction("Subgraph/Create", e => CreateSubgraph(), CanCreateSubgraphFromElements() ? Status.Normal : Status.Disabled);
+			evt.menu.AppendAction("Subgraph/Unpack", e => UnpackSubgraph(), CanUnpackSubgraphFromElements() ? Status.Normal : Status.Disabled);
 			return;
 
 			bool CanCreateSubgraphFromElements() => selection.OfType<BaseNodeView>().Any();
+			bool CanUnpackSubgraphFromElements() => selection.OfType<SubgraphNodeView>().Any();
 		}
 
 		/// <summary>
@@ -622,10 +624,9 @@ namespace GraphProcessor
 		private void DragPerformedCallback(DragPerformEvent e)
 		{
 			Vector2 mousePos = (e.currentTarget as VisualElement).ChangeCoordinatesTo(contentViewContainer, e.localMousePosition);
-			var dragData = DragAndDrop.GetGenericData("DragSelection") as List<ISelectable>;
 
 			// Drag and Drop for elements inside the graph
-			if (dragData != null)
+			if (DragAndDrop.GetGenericData("DragSelection") is List<ISelectable> dragData)
 			{
 				IEnumerable<SubgraphParameterFieldView> exposedParameterFieldViews = dragData.OfType<SubgraphParameterFieldView>();
 				if (exposedParameterFieldViews.Any())
@@ -646,6 +647,15 @@ namespace GraphProcessor
 				RegisterCompleteObjectUndo("Create Node From Object(s)");
 				foreach (Object obj in DragAndDrop.objectReferences)
 				{
+					// ReSharper disable once Unity.NoNullPatternMatching
+					if (obj is BaseGraph draggedGraph)
+					{
+						var node = BaseNode.CreateFromType<SubgraphNode>(mousePos);
+						node.Subgraph = draggedGraph;
+						AddNode(node);
+						break;
+					}
+					
 					Type objectType = obj.GetType();
 
 					foreach (KeyValuePair<Type, (Type nodeType, MethodInfo initalizeNodeFromObject)> kp in nodeTypePerCreateAssetType)
@@ -1566,6 +1576,14 @@ namespace GraphProcessor
 			// Delete and disconnect all the nodes that have become a part of the subgraph.
 			foreach (BaseNode node in inSubgraph)
 				RemoveNode(node);
+		}
+		
+		private void UnpackSubgraph()
+		{
+			var subgraphNode = (SubgraphNode)selection.OfType<SubgraphNodeView>().First().nodeTarget;
+			graph.InlineSubgraphNode(subgraphNode);
+			graph.RemoveNode(subgraphNode);
+			Initialize(graph); // Reload this completely.
 		}
 	}
 }
