@@ -865,6 +865,14 @@ namespace GraphProcessor
 
 		private void OnSubgraphParameterListChanged()
 		{
+			for (int i = graph.nodes.Count - 1; i >= 0; i--)
+			{
+				BaseNode node = graph.nodes[i];
+				if (node is not ParameterNode parameter) continue;
+				if (graph.GetSubgraphParameterFromGUID(parameter.parameterGUID) == null)
+					RemoveNode(node);
+			}
+			
 			UpdateSerializedProperties();
 			onSubgraphParameterListChanged?.Invoke();
 		}
@@ -1435,6 +1443,8 @@ namespace GraphProcessor
 
 			if (string.IsNullOrEmpty(subgraphPath))
 				return;
+
+			subgraphPath = AssetDatabase.GenerateUniqueAssetPath(subgraphPath);
 
 			// Gather the edges that make up the border of the subgraph.
 			Dictionary<(PortView port, bool isInput), List<EdgeView>> borderEdges = new();
