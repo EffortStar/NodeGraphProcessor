@@ -42,9 +42,11 @@ namespace GraphProcessor
 		{
 			var typeMenu = new GenericMenu();
 
-			foreach ((Direction direction, Type paramType) in GetPortTypes())
+			foreach ((Direction direction, Type paramType, string typeName)
+			         in GetPortTypes()
+				         .Select(d => (d.direction, d.portType, TypeUtility.FormatTypeName(d.portType)))
+				         .OrderBy(d => d.Item3))
 			{
-				string typeName = TypeUtility.FormatTypeName(paramType);
 				typeMenu.AddItem(
 					new GUIContent(
 						(direction == Direction.Input ? "Inputs/" : "Outputs/") + typeName
@@ -77,7 +79,7 @@ namespace GraphProcessor
 			return name;
 		}
 
-		private IEnumerable<(Direction, Type)> GetPortTypes() => graphView.ports.Select(p => (p.direction, p.portType)).ToHashSet();
+		private IEnumerable<(Direction direction, Type portType)> GetPortTypes() => graphView.ports.Select(p => (p.direction, p.portType)).ToHashSet();
 
 		private void UpdateParameterList()
 		{

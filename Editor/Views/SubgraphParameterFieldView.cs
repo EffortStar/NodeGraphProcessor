@@ -9,7 +9,7 @@ namespace GraphProcessor
 		private readonly BaseGraphView _graphView;
 		private static readonly CustomStyleProperty<Color> s_portColor = new("--port-color");
 
-		public SubgraphParameter Parameter { get; private set; }
+		public SubgraphParameter Parameter { get; }
 
 		public SubgraphParameterFieldView(BaseGraphView graphView, SubgraphParameter param) : base(null, param.Name, param.ShortType)
 		{

@@ -1,6 +1,11 @@
 #graphRootView
 {
     background-color: #101010;
+    flex-direction: column-reverse;
+}
+
+.graphView {
+    flex-grow: 1;
 }
 
 .icon-badge {
@@ -23,4 +28,12 @@ Label.icon-badge__text.icon-badge__text--warning,
 .icon-badge__icon.icon-badge__icon--warning {
     --unity-image: resource("graphview/badge/exclamationmark.png");
     background-color: #F4BC02;
+}
+
+.unity-toolbar {
+    -unity-text-align: middle-center;
+}
+
+.toolbar__wide-spacer {
+    flex-grow: 1;
 }

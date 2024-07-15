@@ -1,45 +1,43 @@
-﻿using System.Linq;
-using System;
+﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
 using UnityEngine.UIElements;
 using UnityEngine.SceneManagement;
 using UnityEditor.SceneManagement;
+using UnityEditor.UIElements;
 
 namespace GraphProcessor
 {
 	[Serializable]
 	public abstract class BaseGraphWindow : EditorWindow
 	{
-		protected VisualElement rootView;
 		protected BaseGraphView graphView;
+		private ToolbarToggle _subgraphIoToggle;
 
 		[SerializeField]
-		protected BaseGraph graph;
+		private BaseGraph _graph;
 
-		readonly string graphWindowStyle = "GraphProcessorStyles/BaseGraphView";
+		[SerializeField]
+		private List<BaseGraph> _graphBreadcrumbs;
 
-		public bool isGraphLoaded
-		{
-			get { return graphView != null && graphView.graph != null; }
-		}
 
-		bool reloadWorkaround = false;
-
-		public event Action<BaseGraph> graphLoaded;
-		public event Action<BaseGraph> graphUnloaded;
+		private const string GraphWindowStyle = "GraphProcessorStyles/BaseGraphView";
+		private bool _reloadWorkaround;
 
 		/// <summary>
 		/// Called by Unity when the window is enabled / opened
 		/// </summary>
 		protected virtual void OnEnable()
 		{
-			InitializeRootView();
+			rootVisualElement.name = "graphRootView";
 
-			if (graph != null)
+			rootVisualElement.styleSheets.Add(Resources.Load<StyleSheet>(GraphWindowStyle));
+
+			if (_graph != null)
 				LoadGraph();
 			else
-				reloadWorkaround = true;
+				_reloadWorkaround = true;
 		}
 
 		protected virtual void Update()
@@ -47,30 +45,30 @@ namespace GraphProcessor
 			// Workaround for the Refresh option of the editor window:
 			// When Refresh is clicked, OnEnable is called before the serialized data in the
 			// editor window is deserialized, causing the graph view to not be loaded
-			if (reloadWorkaround && graph != null)
+			if (_reloadWorkaround && _graph != null)
 			{
 				LoadGraph();
-				reloadWorkaround = false;
+				_reloadWorkaround = false;
 			}
 		}
 
 		void LoadGraph()
 		{
 			// We wait for the graph to be initialized
-			if (graph.isEnabled)
-				InitializeGraph(graph);
+			if (_graph.isEnabled)
+				InitializeGraph(_graph);
 			else
-				graph.onEnabled += OnGraphEnabled;
+				_graph.onEnabled += OnGraphEnabled;
 		}
 
-		private void OnGraphEnabled() => InitializeGraph(graph);
+		private void OnGraphEnabled() => InitializeGraph(_graph);
 
 		/// <summary>
 		/// Called by Unity when the window is disabled (happens on domain reload)
 		/// </summary>
 		protected virtual void OnDisable()
 		{
-			if (graph != null && graphView != null)
+			if (_graph != null && graphView != null)
 				graphView.SaveGraphToDisk();
 		}
 
@@ -79,57 +77,76 @@ namespace GraphProcessor
 		/// </summary>
 		protected virtual void OnDestroy()
 		{
-			if (graph != null)
-				graph.onEnabled -= OnGraphEnabled;
-		}
-
-		void InitializeRootView()
-		{
-			rootView = base.rootVisualElement;
-
-			rootView.name = "graphRootView";
-
-			rootView.styleSheets.Add(Resources.Load<StyleSheet>(graphWindowStyle));
+			if (_graph != null)
+				_graph.onEnabled -= OnGraphEnabled;
 		}
 
 		public void InitializeGraph(BaseGraph graph)
 		{
-			if (this.graph != null && graph != this.graph)
+			if (this._graph != null && graph != this._graph)
 			{
 				// Save the graph to the disk
-				EditorUtility.SetDirty(this.graph);
+				EditorUtility.SetDirty(this._graph);
 				AssetDatabase.SaveAssets();
-				// Unload the graph
-				graphUnloaded?.Invoke(this.graph);
 			}
 
-			graphLoaded?.Invoke(graph);
-			this.graph = graph;
+			_graph = graph;
 
 			graphView?.RemoveFromHierarchy();
 
-			//Initialize will provide the BaseGraphView
-			InitializeWindow(graph);
-
-			graphView = rootView.Children().FirstOrDefault(e => e is BaseGraphView) as BaseGraphView;
-
 			if (graphView == null)
 			{
-				Debug.LogError("GraphView has not been added to the BaseGraph root view !");
-				return;
+				graphView = CreateView();
+				Toolbar toolbar = new();
+				rootVisualElement.Add(toolbar);
+				AppendToToolbar(toolbar);
 			}
 
-			reloadWorkaround = false;
+			rootVisualElement.Insert(0, graphView);
+			_reloadWorkaround = false;
 			graphView.Initialize(graph);
 			if (graph.IsLinkedToScene())
 				LinkGraphWindowToScene(graph.GetLinkedScene());
 			else
 				graph.onSceneLinked += LinkGraphWindowToScene;
+
+			GraphInitialized(graph);
+		}
+
+		protected abstract BaseGraphView CreateView();
+
+		protected virtual void AppendToToolbar(Toolbar toolbar)
+		{
+			toolbar.Add(new ToolbarButton(() => graphView.ResetPositionAndZoom())
+			{
+				text = "Center",
+				tooltip = "Frame the graph contents"
+			});
+			_subgraphIoToggle = new ToolbarToggle { text = "Subgraph IO" };
+			_subgraphIoToggle.RegisterValueChangedCallback(
+				_ => _subgraphIoToggle.SetValueWithoutNotify(graphView.ToggleView<SubgraphParameterView>())
+			);
+			toolbar.Add(_subgraphIoToggle);
+
+			var toolbarSpacer = new ToolbarSpacer();
+			toolbarSpacer.AddToClassList("toolbar__wide-spacer");
+			toolbar.Add(toolbarSpacer);
+
+			toolbar.Add(new ToolbarButton(() => EditorGUIUtility.PingObject(graphView.graph))
+			{
+				text = "Show In Project"
+			});
+		}
+
+		protected virtual void GraphInitialized(BaseGraph graph)
+		{
+			_subgraphIoToggle.SetValueWithoutNotify((graphView.GetPinnedElementStatus<SubgraphParameterView>() & DropdownMenuAction.Status.Normal) != 0);
 		}
 
 		void LinkGraphWindowToScene(Scene scene)
 		{
 			EditorSceneManager.sceneClosed += CloseWindowWhenSceneIsClosed;
+			return;
 
 			void CloseWindowWhenSceneIsClosed(Scene closedScene)
 			{
@@ -143,12 +160,10 @@ namespace GraphProcessor
 
 		public virtual void OnGraphDeleted()
 		{
-			if (graph != null && graphView != null)
-				rootView.Remove(graphView);
+			if (_graph != null && graphView != null)
+				rootVisualElement.Remove(graphView);
 
 			graphView = null;
 		}
-
-		protected abstract void InitializeWindow(BaseGraph graph);
 	}
 }
