@@ -170,6 +170,7 @@ namespace GraphProcessor
 			for (int i = edges.Count - 1; i >= 0; i--)
 			{
 				SerializableEdge edge = edges[i];
+				edge.Owner = this;
 				requiresReserialization |= edge.Deserialize() == SerializableEdge.DeserializationResult.Changed;
 
 				// Sanity check for the edge:
@@ -797,6 +798,7 @@ namespace GraphProcessor
 				// Insert the normal edge into this graph.
 				edges.Add(edge);
 				edgesPerGUID[edge.GUID] = edge;
+				edge.Owner = this;
 			}
 
 			// We don't actually need that subgraph instance though,

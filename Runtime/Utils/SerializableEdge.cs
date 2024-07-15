@@ -9,8 +9,9 @@ namespace GraphProcessor
 	{
 		public string GUID;
 
+		internal BaseGraph Owner { private get => owner; set => owner = value; }
+		
 		[SerializeField] BaseGraph owner;
-
 		[SerializeField] string inputNodeGUID;
 		[SerializeField] string outputNodeGUID;
 
@@ -47,7 +48,7 @@ namespace GraphProcessor
 		{
 			return new SerializableEdge
 			{
-				owner = graph,
+				Owner = graph,
 				GUID = Guid.NewGuid().ToString(),
 				ToNode = toPort.owner,
 				inputFieldName = toPort.fieldName,
@@ -79,14 +80,14 @@ namespace GraphProcessor
 		//here our owner have been deserialized
 		public DeserializationResult Deserialize()
 		{
-			if (!owner.nodesPerGUID.ContainsKey(outputNodeGUID) || !owner.nodesPerGUID.ContainsKey(inputNodeGUID))
+			if (!Owner.nodesPerGUID.ContainsKey(outputNodeGUID) || !Owner.nodesPerGUID.ContainsKey(inputNodeGUID))
 			{
 				Debug.LogWarning($"Edge {GUID} failed to deserialize due to invalid node GUIDs ({inputNodeGUID} -> {outputNodeGUID})");
 				return DeserializationResult.NoChanges;
 			}
 
-			FromNode = owner.nodesPerGUID[outputNodeGUID];
-			ToNode = owner.nodesPerGUID[inputNodeGUID];
+			FromNode = Owner.nodesPerGUID[outputNodeGUID];
+			ToNode = Owner.nodesPerGUID[inputNodeGUID];
 			ToPort = ToNode.GetPort(inputFieldName, inputPortIdentifier);
 			FromPort = FromNode.GetPort(outputFieldName, outputPortIdentifier);
 

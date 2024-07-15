@@ -265,6 +265,9 @@ namespace GraphProcessor
 
 				edge.Deserialize();
 
+				if (edge.ToNode == null || edge.FromNode == null)
+					continue;
+
 				// Find port of new nodes:
 				copiedNodesMap.TryGetValue(edge.ToNode.GUID, out BaseNode oldInputNode);
 				copiedNodesMap.TryGetValue(edge.FromNode.GUID, out BaseNode oldOutputNode);
@@ -655,7 +658,7 @@ namespace GraphProcessor
 						AddNode(node);
 						break;
 					}
-					
+
 					Type objectType = obj.GetType();
 
 					foreach (KeyValuePair<Type, (Type nodeType, MethodInfo initalizeNodeFromObject)> kp in nodeTypePerCreateAssetType)
@@ -1577,7 +1580,7 @@ namespace GraphProcessor
 			foreach (BaseNode node in inSubgraph)
 				RemoveNode(node);
 		}
-		
+
 		private void UnpackSubgraph()
 		{
 			var subgraphNode = (SubgraphNode)selection.OfType<SubgraphNodeView>().First().nodeTarget;
