@@ -5,7 +5,7 @@ using UnityEngine;
 namespace GraphProcessor
 {
 	[Serializable]
-	public class ParameterNode : BaseNode
+	public sealed class ParameterNode : BaseNode
 	{
 		[Input]
 		public object input;
@@ -19,41 +19,35 @@ namespace GraphProcessor
 		[SerializeField, HideInInspector]
 		public string parameterGUID;
 
-		public ExposedParameter parameter { get; private set; }
+		public SubgraphParameter Parameter { get; private set; }
 
 		public event Action onParameterChanged;
-
-		public ParameterAccessor accessor;
-
+		
 		protected override void Enable()
 		{
 			// load the parameter
 			LoadExposedParameter();
 
-			graph.onExposedParameterModified += OnParamChanged;
-			if (onParameterChanged != null)
-				onParameterChanged?.Invoke();
+			graph.onSubgraphParameterModified += OnParamChanged;
+			onParameterChanged?.Invoke();
 		}
 
-		void LoadExposedParameter()
+		private void LoadExposedParameter()
 		{
-			parameter = graph.GetExposedParameterFromGUID(parameterGUID);
+			Parameter = graph.GetSubgraphParameterFromGUID(parameterGUID);
 
-			if (parameter == null)
+			if (Parameter == null)
 			{
 				Debug.Log("Property \"" + parameterGUID + "\" Can't be found !");
 
 				// Delete this node as the property can't be found
 				graph.RemoveNode(this);
-				return;
 			}
-
-			output = parameter.value;
 		}
 
-		void OnParamChanged(ExposedParameter modifiedParam)
+		void OnParamChanged(SubgraphParameter modifiedParam)
 		{
-			if (parameter == modifiedParam)
+			if (Parameter == modifiedParam)
 			{
 				onParameterChanged?.Invoke();
 			}
@@ -62,14 +56,18 @@ namespace GraphProcessor
 		[CustomPortBehavior(nameof(output))]
 		IEnumerable<PortData> GetOutputPort(List<SerializableEdge> edges)
 		{
-			if (accessor == ParameterAccessor.Get)
+			if (Parameter == null)
+				yield break;  // No port info is provided during any time when the graph isn't provided.
+			
+			if (Parameter!.Direction == ParameterDirection.Input)
 			{
 				yield return new PortData
 				{
 					identifier = "output",
 					displayName = "Value",
-					displayType = (parameter == null) ? typeof(object) : parameter.GetValueType(),
-					acceptMultipleEdges = true
+					displayType = Parameter.GetValueType(),
+					acceptMultipleEdges = true,
+					required = true
 				};
 			}
 		}
@@ -77,40 +75,21 @@ namespace GraphProcessor
 		[CustomPortBehavior(nameof(input))]
 		IEnumerable<PortData> GetInputPort(List<SerializableEdge> edges)
 		{
-			if (accessor == ParameterAccessor.Set)
+			if (Parameter == null)
+				yield break; // No port info is provided during any time when the graph isn't provided.
+			
+			if (Parameter!.Direction == ParameterDirection.Output)
 			{
 				yield return new PortData
 				{
 					identifier = "input",
 					displayName = "Value",
-					displayType = (parameter == null) ? typeof(object) : parameter.GetValueType(),
+					displayType = Parameter.GetValueType(),
+					required = true
 				};
 			}
 		}
 
-		protected override void Process()
-		{
-#if UNITY_EDITOR // In the editor, an undo/redo can change the parameter instance in the graph, in this case the field in this class will point to the wrong parameter
-			parameter = graph.GetExposedParameterFromGUID(parameterGUID);
-#endif
-
-			ClearMessages();
-			if (parameter == null)
-			{
-				AddMessage($"Parameter not found: {parameterGUID}", BadgeMessageType.Error);
-				return;
-			}
-
-			if (accessor == ParameterAccessor.Get)
-				output = parameter.value;
-			else
-				graph.UpdateExposedParameter(parameter.guid, input);
-		}
-	}
-
-	public enum ParameterAccessor
-	{
-		Get,
-		Set
+		protected override void Process() => throw new NotImplementedException("Parameters should be expanded when a SubGraph is instanced.");
 	}
 }

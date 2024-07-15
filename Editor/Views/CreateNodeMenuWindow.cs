@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using UnityEngine;
@@ -13,34 +14,34 @@ namespace GraphProcessor
 	// TODO: replace this by the new UnityEditor.Searcher package
 	internal class CreateNodeMenuWindow : ScriptableObject, ISearchWindowProvider
 	{
-		private BaseGraphView graphView;
-		private EditorWindow window;
-		private Texture2D icon;
-		private EdgeView edgeFilter;
-		private PortView inputPortView;
-		private PortView outputPortView;
+		private BaseGraphView _graphView;
+		private EditorWindow _window;
+		private Texture2D _icon;
+		private EdgeView _edgeFilter;
+		private PortView _inputPortView;
+		private PortView _outputPortView;
 
 		public void Initialize(BaseGraphView graphView, EditorWindow window, EdgeView edgeFilter = null)
 		{
-			this.graphView = graphView;
-			this.window = window;
-			this.edgeFilter = edgeFilter;
-			this.inputPortView = edgeFilter?.input as PortView;
-			this.outputPortView = edgeFilter?.output as PortView;
+			_graphView = graphView;
+			_window = window;
+			_edgeFilter = edgeFilter;
+			_inputPortView = (PortView)edgeFilter?.input;
+			_outputPortView = (PortView)edgeFilter?.output;
 
 			// Transparent icon to trick search window into indenting items
-			if (icon == null)
-				icon = new Texture2D(1, 1);
-			icon.SetPixel(0, 0, new Color(0, 0, 0, 0));
-			icon.Apply();
+			if (_icon == null)
+				_icon = new Texture2D(1, 1);
+			_icon.SetPixel(0, 0, new Color(0, 0, 0, 0));
+			_icon.Apply();
 		}
 
 		private void OnDestroy()
 		{
-			if (icon != null)
+			if (_icon != null)
 			{
-				DestroyImmediate(icon);
-				icon = null;
+				DestroyImmediate(_icon);
+				_icon = null;
 			}
 		}
 
@@ -51,7 +52,7 @@ namespace GraphProcessor
 				new SearchTreeGroupEntry(new GUIContent("Create Node"), 0),
 			};
 
-			if (edgeFilter == null)
+			if (_edgeFilter == null)
 				CreateStandardNodeMenu(tree);
 			else
 				CreateEdgeNodeMenu(tree);
@@ -62,12 +63,31 @@ namespace GraphProcessor
 		private void CreateStandardNodeMenu(List<SearchTreeEntry> tree)
 		{
 			// Sort menu by alphabetical order and submenus
-			IOrderedEnumerable<(string path, Type type)> nodeEntries = graphView.FilterCreateNodeMenuEntries().OrderBy(k => k.path);
+			IOrderedEnumerable<(string path, Type type)> nodeEntries = _graphView.FilterCreateNodeMenuEntries().OrderBy(k => k.path);
 			var titlePaths = new HashSet<string>();
+			AddNodeEntries(tree, nodeEntries, titlePaths);
+			IEnumerable<(string, BaseGraph)> subgraphEntries = GetSubgraphEntries();
+			AddNodeEntries(tree, subgraphEntries, titlePaths);
+		}
 
-			foreach ((string path, Type type) nodeMenuItem in nodeEntries)
+		private IEnumerable<(string path, BaseGraph subgraph)> GetSubgraphEntries()
+		{
+			Type type = _graphView.graph.GetType();
+			foreach (BaseGraph subgraph in AssetDatabase.FindAssets($"t:{nameof(BaseGraph)}")
+				         .Select(path => AssetDatabase.LoadAssetAtPath<BaseGraph>(AssetDatabase.GUIDToAssetPath(path)))
+				         .Where(g => g != null && g.IsSubgraph))
 			{
-				string nodePath = nodeMenuItem.path;
+				if (!subgraph.GetType().IsAssignableFrom(type))
+					continue;
+
+				yield return ($"Subgraph/{SubgraphNode.GetNameFromSubgraph(subgraph)}", subgraph);
+			}
+		}
+
+		private void AddNodeEntries<T>(List<SearchTreeEntry> tree, IEnumerable<(string path, T type)> nodeEntries, HashSet<string> titlePaths)
+		{
+			foreach ((string nodePath, T type) in nodeEntries)
+			{
 				string nodeName = nodePath;
 				var level = 0;
 				string[] parts = nodePath.Split('/');
@@ -75,7 +95,7 @@ namespace GraphProcessor
 				if (parts.Length > 1)
 				{
 					level++;
-					nodeName = parts[parts.Length - 1];
+					nodeName = parts[^1];
 					var fullTitleAsPath = "";
 
 					for (var i = 0; i < parts.Length - 1; i++)
@@ -96,39 +116,77 @@ namespace GraphProcessor
 					}
 				}
 
-				tree.Add(new SearchTreeEntry(new GUIContent(nodeName, icon))
+				tree.Add(new SearchTreeEntry(new GUIContent(nodeName, _icon))
 				{
 					level = level + 1,
-					userData = nodeMenuItem.type
+					userData = type
 				});
 			}
 		}
 
 		private void CreateEdgeNodeMenu(List<SearchTreeEntry> tree)
 		{
-			IEnumerable<NodeProvider.PortDescription> entries = NodeProvider.GetEdgeCreationNodeMenuEntry((edgeFilter.input ?? edgeFilter.output) as PortView, graphView.graph);
+			PortView originPortView = _inputPortView ?? _outputPortView;
+			IEnumerable<NodeProvider.PortDescription> entries = NodeProvider.GetEdgeCreationNodeMenuEntry(originPortView, _graphView.graph);
 
 			var titlePaths = new HashSet<string>();
 
-			(string path, Type type)[] nodePaths = NodeProvider.GetNodeMenuEntries(graphView.graph).ToArray();
+			(string path, Type type)[] nodePaths = NodeProvider.GetNodeMenuEntries(_graphView.graph).ToArray();
 
-			tree.Add(new SearchTreeEntry(new GUIContent("Relay", icon))
+			tree.Add(new SearchTreeEntry(new GUIContent("Relay", _icon))
 			{
 				level = 1,
 				userData = new NodeProvider.PortDescription
 				{
-					portType = typeof(object),
-					isInput = inputPortView != null,
-					portFieldName = inputPortView != null ? nameof(SimplifiedRelayNode.Out) : nameof(SimplifiedRelayNode.In),
-					portDisplayName = inputPortView != null ? "Out" : "In",
-					nodeType = typeof(SimplifiedRelayNode)
+					PortType = typeof(object),
+					IsInput = _inputPortView != null,
+					PortFieldName = _inputPortView != null ? nameof(SimplifiedRelayNode.Out) : nameof(SimplifiedRelayNode.In),
+					PortDisplayName = _inputPortView != null ? "Out" : "In",
+					NodeType = typeof(SimplifiedRelayNode)
 				}
 			});
 
-			IOrderedEnumerable<(NodeProvider.PortDescription port, string path)> sortedMenuItems = 
-				entries.Select(port => (port, nodePaths.FirstOrDefault(kp => kp.type == port.nodeType).path))
+			IOrderedEnumerable<(NodeProvider.PortDescription port, string path)> sortedMenuItems =
+				entries.Select(port => (port, nodePaths.FirstOrDefault(kp => kp.type == port.NodeType).path))
 					.OrderBy(e => e.path);
 
+			AddPortEntries(tree, sortedMenuItems, titlePaths);
+
+			bool isInput = _inputPortView != null;
+			var subgraphEntries = GetSubgraphEntries().SelectMany(e => GetParametersFromSubgraph(e.subgraph, e.path));
+			AddPortEntries(tree, subgraphEntries, titlePaths);
+			return;
+
+			IEnumerable<(NodeProvider.PortDescription port, string path)> GetParametersFromSubgraph(BaseGraph graph, string path)
+			{
+				foreach (SubgraphParameter parameter in graph.SubgraphParameters)
+				{
+					if (parameter.Direction != (isInput ? ParameterDirection.Output : ParameterDirection.Input))
+						continue;
+					
+					if (!BaseGraph.TypesAreConnectable(parameter.GetValueType(), originPortView.portType))
+						continue;
+					
+					yield return (new NodeProvider.PortDescription
+					{
+						IsInput = isInput,
+						PortType = parameter.GetValueType(),
+						PortFieldName = isInput ? nameof(SubgraphNode.Outputs) : nameof(SubgraphNode.Inputs),
+						PortIdentifier = parameter.Guid,
+						PortDisplayName = parameter.Name,
+						SubgraphContext = graph,
+						NodeType = typeof(SubgraphNode)
+					}, path);
+				}
+			}
+		}
+
+		private void AddPortEntries(
+			List<SearchTreeEntry> tree,
+			IEnumerable<(NodeProvider.PortDescription port, string path)> sortedMenuItems,
+			HashSet<string> titlePaths
+		)
+		{
 			// Sort menu by alphabetical order and submenus
 			foreach ((NodeProvider.PortDescription port, string path) in sortedMenuItems)
 			{
@@ -164,7 +222,7 @@ namespace GraphProcessor
 					}
 				}
 
-				tree.Add(new SearchTreeEntry(new GUIContent($"{nodeName}:  {port.portDisplayName}", icon))
+				tree.Add(new SearchTreeEntry(new GUIContent($"{nodeName}:  {port.PortDisplayName}", _icon))
 				{
 					level = level + 1,
 					userData = port
@@ -176,22 +234,47 @@ namespace GraphProcessor
 		public bool OnSelectEntry(SearchTreeEntry searchTreeEntry, SearchWindowContext context)
 		{
 			// window to graph position
-			VisualElement windowRoot = window.rootVisualElement;
-			Vector2 windowMousePosition = windowRoot.ChangeCoordinatesTo(windowRoot.parent, context.screenMousePosition - window.position.position);
-			Vector2 graphMousePosition = graphView.contentViewContainer.WorldToLocal(windowMousePosition);
+			VisualElement windowRoot = _window.rootVisualElement;
+			Vector2 windowMousePosition = windowRoot.ChangeCoordinatesTo(windowRoot.parent, context.screenMousePosition - _window.position.position);
+			Vector2 graphMousePosition = _graphView.contentViewContainer.WorldToLocal(windowMousePosition);
 
-			Type nodeType = searchTreeEntry.userData is Type ? (Type)searchTreeEntry.userData : ((NodeProvider.PortDescription)searchTreeEntry.userData).nodeType;
+			BaseNode node;
+			switch (searchTreeEntry.userData)
+			{
+				case Type t:
+					node = BaseNode.CreateFromType(t, graphMousePosition);
+					break;
+				case NodeProvider.PortDescription description when description.SubgraphContext != null:
+				{
+					var subgraphNode = BaseNode.CreateFromType<SubgraphNode>(graphMousePosition);
+					subgraphNode.Subgraph = description.SubgraphContext;
+					node = subgraphNode;
+					break;
+				}
+				case NodeProvider.PortDescription description:
+					node = BaseNode.CreateFromType(description.NodeType, graphMousePosition);
+					break;
+				case BaseGraph graph:
+				{
+					var subgraphNode = BaseNode.CreateFromType<SubgraphNode>(graphMousePosition);
+					subgraphNode.Subgraph = graph;
+					node = subgraphNode;
+					break;
+				}
+				default:
+					throw new NotImplementedException();
+			}
 
-			graphView.RegisterCompleteObjectUndo("Added " + nodeType);
-			BaseNodeView view = graphView.AddNode(BaseNode.CreateFromType(nodeType, graphMousePosition));
+			_graphView.RegisterCompleteObjectUndo("Added " + node.GetType().Name);
+			BaseNodeView view = _graphView.AddNode(node);
 
 			if (searchTreeEntry.userData is NodeProvider.PortDescription desc)
 			{
-				PortView targetPort = view.GetPortViewFromFieldName(desc.portFieldName, desc.portIdentifier);
-				if (inputPortView == null)
-					graphView.Connect(targetPort, outputPortView);
+				PortView targetPort = view.GetPortViewFromFieldName(desc.PortFieldName, desc.PortIdentifier);
+				if (_inputPortView == null)
+					_graphView.Connect(_outputPortView, targetPort);
 				else
-					graphView.Connect(inputPortView, targetPort);
+					_graphView.Connect(targetPort, _inputPortView);
 			}
 
 			return true;

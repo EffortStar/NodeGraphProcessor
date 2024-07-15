@@ -1,36 +1,19 @@
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
-using UnityEditor;
-using UnityEditor.UIElements;
-using UnityEditor.Experimental.GraphView;
 using UnityEngine.UIElements;
-using System.Linq;
+using JetBrains.Annotations;
 
 namespace GraphProcessor
 {
-	[NodeCustomEditor(typeof(ParameterNode))]
-	public class ParameterNodeView : BaseNodeView
+	[NodeCustomEditor(typeof(ParameterNode)), UsedImplicitly]
+	public sealed class ParameterNodeView : BaseNodeView
 	{
-		ParameterNode parameterNode;
+		private ParameterNode _parameterNode;
 
 		public override void Enable(bool fromInspector = false)
 		{
-			parameterNode = nodeTarget as ParameterNode;
-
-			EnumField accessorSelector = new EnumField(parameterNode.accessor);
-			accessorSelector.SetValueWithoutNotify(parameterNode.accessor);
-			accessorSelector.RegisterValueChangedCallback(evt =>
-			{
-				parameterNode.accessor = (ParameterAccessor)evt.newValue;
-				UpdatePort();
-				controlsContainer.MarkDirtyRepaint();
-				ForceUpdatePorts();
-			});
+			_parameterNode = (ParameterNode)nodeTarget;
         
 			UpdatePort();
-			controlsContainer.Add(accessorSelector);
-        
+			
 			//    Find and remove expand/collapse button
 			titleContainer.Remove(titleContainer.Q("title-button-container"));
 			//    Remove Port from the #content
@@ -38,18 +21,18 @@ namespace GraphProcessor
 			//    Add Port to the #title
 			titleContainer.Add(topContainer);
 
-			parameterNode.onParameterChanged += UpdateView;
+			_parameterNode.onParameterChanged += UpdateView;
 			UpdateView();
 		}
 
-		void UpdateView()
+		private void UpdateView()
 		{
-			title = parameterNode.parameter?.name;
+			title = _parameterNode.Parameter?.Name;
 		}
-    
-		void UpdatePort()
+
+		private void UpdatePort()
 		{
-			if(parameterNode.accessor == ParameterAccessor.Set)
+			if(_parameterNode.Parameter.Direction == ParameterDirection.Output)
 			{
 				titleContainer.AddToClassList("input");
 			}

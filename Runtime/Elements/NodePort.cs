@@ -163,19 +163,19 @@ namespace GraphProcessor
 			if (!edges.Contains(edge))
 				edges.Add(edge);
 
-			if (edge.inputNode == owner)
+			if (edge.ToNode == owner)
 			{
-				if (edge.outputPort.customPortIOMethod != null)
+				if (edge.FromPort.customPortIOMethod != null)
 					edgeWithRemoteCustomIO.Add(edge);
 			}
 			else
 			{
-				if (edge.inputPort.customPortIOMethod != null)
+				if (edge.ToPort.customPortIOMethod != null)
 					edgeWithRemoteCustomIO.Add(edge);
 			}
 
 			//if we have a custom io implementation, we don't need to genereate the defaut one
-			if (edge.inputPort.customPortIOMethod != null || edge.outputPort.customPortIOMethod != null)
+			if (edge.ToPort.customPortIOMethod != null || edge.FromPort.customPortIOMethod != null)
 				return;
 
 			PushDataDelegate edgeDelegate = CreatePushDataDelegateForEdge(edge);
@@ -189,8 +189,8 @@ namespace GraphProcessor
 			try
 			{
 				//Creation of the delegate to move the data from the input node to the output node:
-				FieldInfo inputField = edge.inputNode.GetType().GetField(edge.inputFieldName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)!;
-				FieldInfo outputField = edge.outputNode.GetType().GetField(edge.outputFieldName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)!;
+				FieldInfo inputField = edge.ToNode.GetType().GetField(edge.inputFieldName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)!;
+				FieldInfo outputField = edge.FromNode.GetType().GetField(edge.outputFieldName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)!;
 
 				// ReSharper disable JoinDeclarationAndInitializer
 				Type inType, outType;
@@ -221,16 +221,16 @@ namespace GraphProcessor
 				{
 					Debug.LogError($"Can't convert from {outputField.FieldType} to {inputField.FieldType}, " +
 					               "you must specify a custom port function (i.e CustomPortInput or CustomPortOutput) for non-implicit conversions. " +
-					               $" {edge.outputNode} -> {edge.inputNode}");
+					               $" {edge.FromNode} -> {edge.ToNode}");
 					return null;
 				}
 #endif
 
-				Expression inputParamField = Expression.Field(Expression.Constant(edge.inputNode), inputField);
-				Expression outputParamField = Expression.Field(Expression.Constant(edge.outputNode), outputField);
+				Expression inputParamField = Expression.Field(Expression.Constant(edge.ToNode), inputField);
+				Expression outputParamField = Expression.Field(Expression.Constant(edge.FromNode), outputField);
 
-				inType = edge.inputPort.portData.displayType ?? inputField.FieldType;
-				outType = edge.outputPort.portData.displayType ?? outputField.FieldType;
+				inType = edge.ToPort.portData.displayType ?? inputField.FieldType;
+				outType = edge.FromPort.portData.displayType ?? outputField.FieldType;
 
 				// If there is a user defined conversion function, then we call it
 				if (TypeAdapter.AreAssignable(outType, inType))
@@ -381,8 +381,8 @@ namespace GraphProcessor
 		/// <param name="edge"></param>
 		public void Add(SerializableEdge edge)
 		{
-			string portFieldName = edge.inputNode == node ? edge.inputFieldName : edge.outputFieldName;
-			string portIdentifier = edge.inputNode == node ? edge.inputPortIdentifier : edge.outputPortIdentifier;
+			string portFieldName = edge.ToNode == node ? edge.inputFieldName : edge.outputFieldName;
+			string portIdentifier = edge.ToNode == node ? edge.inputPortIdentifier : edge.outputPortIdentifier;
 
 			// Force empty string to null since portIdentifier is a serialized value
 			if (string.IsNullOrEmpty(portIdentifier))

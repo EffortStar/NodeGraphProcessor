@@ -22,7 +22,7 @@ namespace GraphProcessor
 		protected FieldInfo fieldInfo;
 		protected BaseEdgeConnectorListener listener;
 
-		private const string UserPortStyleFile = "PortViewTypes";
+		public const string UserPortStyleFile = "PortViewTypes";
 
 		private readonly List<EdgeView> edges = new List<EdgeView>();
 

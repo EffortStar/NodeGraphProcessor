@@ -30,12 +30,6 @@ namespace GraphProcessor
 		//id
 		public string GUID;
 
-		/// <summary>Tell wether or not the node can be processed. Do not check anything from inputs because this step happens before inputs are sent to the node</summary>
-		public virtual bool canProcess => true;
-
-		/// <summary>Show the node controlContainer only when the mouse is over the node</summary>
-		public virtual bool showControlsOnHover => false;
-
 		/// <summary>True if the node can be deleted, false otherwise</summary>
 		public virtual bool deletable => true;
 
@@ -57,43 +51,27 @@ namespace GraphProcessor
 		/// <summary>
 		/// Is the node expanded
 		/// </summary>
+		// ReSharper disable once NotAccessedField.Global -- serialized
 		public bool expanded;
 
 		/// <summary>
 		/// Is debug visible
 		/// </summary>
 		public bool debug;
-		public delegate void ProcessDelegate();
-
-		/// <summary>
-		/// Triggered when the node is processes
-		/// </summary>
-		public event ProcessDelegate onProcessed;
 
 		public event Action<string, BadgeMessageType> onMessageAdded;
 		public event Action<string> onMessageRemoved;
 
-		/// <summary>
-		/// Triggered after an edge was connected on the node
-		/// </summary>
-		public event Action<SerializableEdge> onAfterEdgeConnected;
-
-		/// <summary>
-		/// Triggered after an edge was disconnected on the node
-		/// </summary>
-		public event Action<SerializableEdge> onAfterEdgeDisconnected;
 
 		/// <summary>
 		/// Triggered after a single/list of port(s) is updated, the parameter is the field name
 		/// </summary>
 		public event Action<string> onPortsUpdated;
 
-		[NonSerialized] private bool _needsInspector;
-
 		/// <summary>
 		/// Does the node needs to be visible in the inspector (when selected).
 		/// </summary>
-		public virtual bool needsInspector => _needsInspector;
+		public virtual bool needsInspector => false;
 
 		/// <summary>
 		/// Can the node be renamed in the UI. By default a node can be renamed by double clicking it's name.
@@ -202,6 +180,12 @@ namespace GraphProcessor
 
 		#region Initialization
 
+		public BaseGraph Graph
+		{
+			get => graph;
+			set => graph = value;
+		}
+
 		// called by the BaseGraph when the node is added to the graph
 		public void Initialize(BaseGraph graph)
 		{
@@ -217,6 +201,9 @@ namespace GraphProcessor
 		/// </summary>
 		public virtual void InitializePorts()
 		{
+			inputPorts.Clear();
+			outputPorts.Clear();
+
 			foreach (FieldInfo key in OverrideFieldOrder(nodeFields.Values.Select(k => k.info)))
 			{
 				NodeFieldInformation nodeField = nodeFields[key.Name];
@@ -359,8 +346,11 @@ namespace GraphProcessor
 					// in case the port type have changed for an incompatible type, we disconnect all the edges attached to this port
 					if (!BaseGraph.TypesAreConnectable(port.portData.displayType, portData.displayType))
 					{
-						foreach (SerializableEdge edge in port.GetEdges().ToList())
-							graph.Disconnect(edge.GUID);
+						if (this is not SimplifiedRelayNode)
+						{
+							foreach (SerializableEdge edge in port.GetEdges().ToList())
+								graph.Disconnect(edge.GUID);
+						}
 					}
 
 					// patch the port data
@@ -454,7 +444,7 @@ namespace GraphProcessor
 
 						foreach (SerializableEdge edge in port.GetEdges())
 						{
-							BaseNode edgeNode = node.IsFieldInput(field) ? edge.outputNode : edge.inputNode;
+							BaseNode edgeNode = node.IsFieldInput(field) ? edge.FromNode : edge.ToNode;
 							List<string> fieldsWithBehavior = edgeNode.nodeFields.Values.Where(HasCustomBehavior).Select(f => f.fieldName).ToList();
 							fieldsToUpdate.Push(new PortUpdate { fieldNames = fieldsWithBehavior, node = edgeNode });
 						}
@@ -465,15 +455,6 @@ namespace GraphProcessor
 			}
 
 			return changed;
-		}
-		
-		internal void DisableInternal()
-		{
-			// port containers are initialized in the OnEnable
-			inputPorts.Clear();
-			outputPorts.Clear();
-
-			ExceptionToLog.Call(Disable);
 		}
 
 		internal void DestroyInternal() => ExceptionToLog.Call(Destroy);
@@ -501,7 +482,7 @@ namespace GraphProcessor
 				var isVertical = Attribute.IsDefined(field, typeof(VerticalAttribute));
 				var isRequired = Attribute.IsDefined(field, typeof(RequiredPortAttribute));
 				var tooltipAttribute = field.GetCustomAttribute<TooltipAttribute>();
-				
+
 
 				// check if field is a collection type
 				bool isMultiple = inputAttribute?.allowMultiple ?? outputAttribute.allowMultiple;
@@ -513,9 +494,9 @@ namespace GraphProcessor
 				}
 
 				string name = field.Name;
-				if (!string.IsNullOrEmpty(inputAttribute?.name))
+				if (inputAttribute is { name: not null })
 					name = inputAttribute.name;
-				if (!string.IsNullOrEmpty(outputAttribute?.name))
+				if (outputAttribute is { name: not null })
 					name = outputAttribute.name;
 
 				// By default, we set the behavior to null, if the field have a custom behavior, it will be set in the loop just below
@@ -555,14 +536,12 @@ namespace GraphProcessor
 
 		public void OnEdgeConnected(SerializableEdge edge)
 		{
-			bool input = edge.inputNode == this;
+			bool input = edge.ToNode == this;
 			NodePortContainer portCollection = input ? inputPorts : outputPorts;
 
 			portCollection.Add(edge);
 
 			UpdateAllPorts();
-
-			onAfterEdgeConnected?.Invoke(edge);
 		}
 
 		protected virtual bool CanResetPort(NodePort port) => true;
@@ -572,19 +551,20 @@ namespace GraphProcessor
 			if (edge == null)
 				return;
 
-			bool input = edge.inputNode == this;
+			bool input = edge.ToNode == this;
 			NodePortContainer portCollection = input ? inputPorts : outputPorts;
 
 			portCollection.Remove(edge);
 
 			// Reset default values of input port:
-			bool haveConnectedEdges = edge.inputNode.inputPorts.Where(p => p.fieldName == edge.inputFieldName).Any(p => p.GetEdges().Count != 0);
-			if (edge.inputNode == this && !haveConnectedEdges && CanResetPort(edge.inputPort))
-				edge.inputPort?.ResetToDefault();
+			if (edge.ToNode != null)
+			{
+				bool haveConnectedEdges = edge.ToNode.inputPorts.Where(p => p.fieldName == edge.inputFieldName).Any(p => p.GetEdges().Count != 0);
+				if (edge.ToNode == this && !haveConnectedEdges && CanResetPort(edge.ToPort))
+					edge.ToPort?.ResetToDefault();
+			}
 
 			UpdateAllPorts();
-
-			onAfterEdgeDisconnected?.Invoke(edge);
 		}
 
 		public void OnProcess()
@@ -593,24 +573,13 @@ namespace GraphProcessor
 
 			ExceptionToLog.Call(Process);
 
-			InvokeOnProcessed();
-
 			outputPorts.PushDatas();
 		}
-
-		public void InvokeOnProcessed() => onProcessed?.Invoke();
 
 		/// <summary>
 		/// Called when the node is enabled
 		/// </summary>
 		protected virtual void Enable()
-		{
-		}
-
-		/// <summary>
-		/// Called when the node is disabled
-		/// </summary>
-		protected virtual void Disable()
 		{
 		}
 
@@ -683,7 +652,7 @@ namespace GraphProcessor
 		{
 			foreach (NodePort port in inputPorts)
 			foreach (SerializableEdge edge in port.GetEdges())
-				yield return edge.outputNode;
+				yield return edge.FromNode;
 		}
 
 		/// <summary>
@@ -694,7 +663,7 @@ namespace GraphProcessor
 		{
 			foreach (NodePort port in outputPorts)
 			foreach (SerializableEdge edge in port.GetEdges())
-				yield return edge.inputNode;
+				yield return edge.ToNode;
 		}
 
 		/// <summary>
@@ -742,7 +711,7 @@ namespace GraphProcessor
 				return p.fieldName == fieldName && (bothNull || identifier == p.portData.identifier);
 			});
 		}
-		
+
 		/// <summary>
 		/// Get the port from field name and identifier ONLY using FormerlySerializedAsAttribute.<br/>
 		/// To be called sparingly when <see cref="GetPort"/> fails, in cases where deserializing and unexpectedly ports are missing.
@@ -762,7 +731,7 @@ namespace GraphProcessor
 					return true;
 				}
 			}
-			
+
 			value = null;
 			return false;
 		}

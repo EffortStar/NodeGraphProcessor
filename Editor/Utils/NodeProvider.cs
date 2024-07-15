@@ -205,12 +205,13 @@ namespace GraphProcessor
 
 		public struct PortDescription
 		{
-			public Type nodeType;
-			public Type portType;
-			public bool isInput;
-			public string portFieldName;
-			public string portIdentifier;
-			public string portDisplayName;
+			public Type NodeType;
+			public Type PortType;
+			public BaseGraph SubgraphContext;
+			public bool IsInput;
+			public string PortFieldName;
+			public string PortIdentifier;
+			public string PortDisplayName;
 		}
 
 		static NodeProvider() => BuildNodeCache();
@@ -234,12 +235,12 @@ namespace GraphProcessor
 			{
 				descriptions.Add(new PortDescription
 				{
-					nodeType = nodeType,
-					portType = p.portData.displayType ?? p.fieldInfo.FieldType,
-					isInput = input,
-					portFieldName = p.fieldName,
-					portDisplayName = p.portData.displayName ?? p.fieldName,
-					portIdentifier = p.portData.identifier,
+					NodeType = nodeType,
+					PortType = p.portData.displayType ?? p.fieldInfo.FieldType,
+					IsInput = input,
+					PortFieldName = p.fieldName,
+					PortDisplayName = p.portData.displayName ?? p.fieldName,
+					PortIdentifier = p.portData.identifier,
 				});
 			}
 		}
@@ -325,10 +326,10 @@ namespace GraphProcessor
 
 			bool IsPortCompatible(PortDescription description)
 			{
-				if ((portView.direction == Direction.Input && description.isInput) || (portView.direction == Direction.Output && !description.isInput))
+				if ((portView.direction == Direction.Input && description.IsInput) || (portView.direction == Direction.Output && !description.IsInput))
 					return false;
 
-				if (!BaseGraph.TypesAreConnectable(description.portType, portView.portType))
+				if (!BaseGraph.TypesAreConnectable(description.PortType, portView.portType))
 					return false;
 
 				return true;

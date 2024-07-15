@@ -9,6 +9,7 @@ using System.Linq;
 using System;
 using UnityEditor.SceneManagement;
 using System.Reflection;
+using DG.Tweening.Plugins.Core.PathCore;
 using Status = UnityEngine.UIElements.DropdownMenuAction.Status;
 using Object = UnityEngine.Object;
 
@@ -19,10 +20,6 @@ namespace GraphProcessor
 	/// </summary>
 	public class BaseGraphView : GraphView, IDisposable
 	{
-		public delegate void ComputeOrderUpdatedDelegate();
-
-		public delegate void NodeDuplicatedDelegate(BaseNode duplicatedNode, BaseNode newNode);
-
 		/// <summary>
 		/// Graph that owns of the node
 		/// </summary>
@@ -46,21 +43,21 @@ namespace GraphProcessor
 		/// <typeparam name="BaseNode"></typeparam>
 		/// <typeparam name="BaseNodeView"></typeparam>
 		/// <returns></returns>
-		public Dictionary<BaseNode, BaseNodeView> nodeViewsPerNode = new();
+		public readonly Dictionary<BaseNode, BaseNodeView> nodeViewsPerNode = new();
 
 		/// <summary>
 		/// List of all edge views in the graph
 		/// </summary>
 		/// <typeparam name="EdgeView"></typeparam>
 		/// <returns></returns>
-		public List<EdgeView> edgeViews = new();
+		public readonly List<EdgeView> edgeViews = new();
 
 		/// <summary>
 		/// List of all group views in the graph
 		/// </summary>
 		/// <typeparam name="GroupView"></typeparam>
 		/// <returns></returns>
-		public List<GroupView> groupViews = new();
+		public readonly List<GroupView> groupViews = new();
 
 #if UNITY_2020_1_OR_NEWER
 		/// <summary>
@@ -68,7 +65,7 @@ namespace GraphProcessor
 		/// </summary>
 		/// <typeparam name="StickyNoteView"></typeparam>
 		/// <returns></returns>
-		public List<StickyNoteView> stickyNoteViews = new();
+		public readonly List<StickyNoteView> stickyNoteViews = new();
 #endif
 
 		/// <summary>
@@ -76,11 +73,11 @@ namespace GraphProcessor
 		/// </summary>
 		/// <typeparam name="BaseStackNodeView"></typeparam>
 		/// <returns></returns>
-		public List<BaseStackNodeView> stackNodeViews = new();
+		public readonly List<BaseStackNodeView> stackNodeViews = new();
 
-		private Dictionary<Type, PinnedElementView> pinnedElements = new();
+		private readonly Dictionary<Type, PinnedElementView> pinnedElements = new();
 
-		private CreateNodeMenuWindow createNodeMenu;
+		private readonly CreateNodeMenuWindow createNodeMenu;
 
 		/// <summary>
 		/// Triggered just after the graph is initialized
@@ -90,21 +87,10 @@ namespace GraphProcessor
 		// Safe event relay from BaseGraph (safe because you are sure to always point on a valid BaseGraph
 		// when one of these events is called), a graph switch can occur between two call tho
 		/// <summary>
-		/// Same event than BaseGraph.onExposedParameterListChanged
+		/// Same event than BaseGraph.onSubgraphParameterListChanged
 		/// Safe event (not triggered in case the graph is null).
 		/// </summary>
-		public event Action onExposedParameterListChanged;
-
-		/// <summary>
-		/// Same event than BaseGraph.onExposedParameterModified
-		/// Safe event (not triggered in case the graph is null).
-		/// </summary>
-		public event Action<ExposedParameter> onExposedParameterModified;
-
-		/// <summary>
-		/// Triggered when a node is duplicated (crt-d) or copy-pasted (crtl-c/crtl-v)
-		/// </summary>
-		public event NodeDuplicatedDelegate nodeDuplicated;
+		public event Action onSubgraphParameterListChanged;
 
 		/// <summary>
 		/// Object to handle nodes that shows their UI in the inspector.
@@ -120,18 +106,16 @@ namespace GraphProcessor
 			}
 		}
 
-		/// <summary>
-		/// Workaround object for creating exposed parameter property fields.
-		/// </summary>
-		public ExposedParameterFieldFactory exposedParameterFactory { get; private set; }
-
 		public SerializedObject serializedGraph { get; private set; }
 
 		private Dictionary<Type, (Type nodeType, MethodInfo initalizeNodeFromObject)> nodeTypePerCreateAssetType = new();
 		private NodeGraphState.StateValue _viewState;
+		private readonly BaseGraphWindow _window;
+		private Dictionary<string, BaseNode> _lastCopiedNodesMap;
 
-		public BaseGraphView(EditorWindow window)
+		public BaseGraphView(BaseGraphWindow window)
 		{
+			_window = window;
 			serializeGraphElements = SerializeGraphElementsCallback;
 			canPasteSerializedData = CanPasteSerializedDataCallback;
 			unserializeAndPaste = UnserializeAndPasteCallback;
@@ -153,8 +137,6 @@ namespace GraphProcessor
 
 			createNodeMenu = ScriptableObject.CreateInstance<CreateNodeMenuWindow>();
 			createNodeMenu.Initialize(this, window);
-
-			this.StretchToParentSize();
 		}
 
 		protected virtual NodeInspectorObject CreateNodeInspectorObject()
@@ -169,14 +151,10 @@ namespace GraphProcessor
 		#region Callbacks
 
 		protected override bool canCopySelection
-		{
-			get { return selection.Any(e => e is BaseNodeView || e is GroupView); }
-		}
+			=> selection.Any(e => e is BaseNodeView or GroupView);
 
 		protected override bool canCutSelection
-		{
-			get { return selection.Any(e => e is BaseNodeView || e is GroupView); }
-		}
+			=> selection.Any(e => e is BaseNodeView or GroupView);
 
 		private string SerializeGraphElementsCallback(IEnumerable<GraphElement> elements)
 		{
@@ -220,11 +198,11 @@ namespace GraphProcessor
 
 		private void UnserializeAndPasteCallback(string operationName, string serializedData)
 		{
-			var data = JsonUtility.FromJson<CopyPasteHelper>(serializedData);
-
 			RegisterCompleteObjectUndo(operationName);
 
-			Dictionary<string, BaseNode> copiedNodesMap = new Dictionary<string, BaseNode>();
+			var data = JsonUtility.FromJson<CopyPasteHelper>(serializedData);
+
+			Dictionary<string, BaseNode> copiedNodesMap = _lastCopiedNodesMap = new Dictionary<string, BaseNode>();
 
 			List<Group> unserializedGroups = data.copiedGroups.Select(g => JsonSerializer.Deserialize<Group>(g)).ToList();
 
@@ -244,14 +222,11 @@ namespace GraphProcessor
 				//And move a bit the new node
 				node.position += new Vector2(20, 20);
 
-				BaseNodeView newNodeView = AddNode(node);
+				AddNode(node);
 
-				// If the nodes were copied from another graph, then the source is null
-				if (sourceNode != null)
-					nodeDuplicated?.Invoke(sourceNode, node);
 				copiedNodesMap[sourceGUID] = node;
 
-				//Select the new node
+				// Select the new node
 				AddToSelection(nodeViewsPerNode[node]);
 			}
 
@@ -263,9 +238,9 @@ namespace GraphProcessor
 				// try to centre the created node in the screen
 				group.position.position += new Vector2(20, 20);
 
-				List<string> oldGUIDList = group.innerNodeGUIDs.ToList();
+				List<string> oldGuidList = group.innerNodeGUIDs.ToList();
 				group.innerNodeGUIDs.Clear();
-				foreach (string guid in oldGUIDList)
+				foreach (string guid in oldGuidList)
 				{
 					graph.nodesPerGUID.TryGetValue(guid, out BaseNode node);
 
@@ -290,21 +265,24 @@ namespace GraphProcessor
 
 				edge.Deserialize();
 
-				// Find port of new nodes:
-				copiedNodesMap.TryGetValue(edge.inputNode.GUID, out BaseNode oldInputNode);
-				copiedNodesMap.TryGetValue(edge.outputNode.GUID, out BaseNode oldOutputNode);
-
-				// We avoid to break the graph by replacing unique connections:
-				if (oldInputNode == null && !edge.inputPort.portData.acceptMultipleEdges || !edge.outputPort.portData.acceptMultipleEdges)
+				if (edge.ToNode == null || edge.FromNode == null)
 					continue;
 
-				oldInputNode = oldInputNode ?? edge.inputNode;
-				oldOutputNode = oldOutputNode ?? edge.outputNode;
+				// Find port of new nodes:
+				copiedNodesMap.TryGetValue(edge.ToNode.GUID, out BaseNode oldInputNode);
+				copiedNodesMap.TryGetValue(edge.FromNode.GUID, out BaseNode oldOutputNode);
 
-				NodePort inputPort = oldInputNode.GetPort(edge.inputPort.fieldName, edge.inputPortIdentifier);
-				NodePort outputPort = oldOutputNode.GetPort(edge.outputPort.fieldName, edge.outputPortIdentifier);
+				// We avoid to break the graph by replacing unique connections:
+				if (oldInputNode == null && !edge.ToPort.portData.acceptMultipleEdges || !edge.FromPort.portData.acceptMultipleEdges)
+					continue;
 
-				var newEdge = SerializableEdge.CreateNewEdge(graph, inputPort, outputPort);
+				oldInputNode ??= edge.ToNode;
+				oldOutputNode ??= edge.FromNode;
+
+				NodePort inputPort = oldInputNode.GetPort(edge.ToPort.fieldName, edge.inputPortIdentifier);
+				NodePort outputPort = oldOutputNode.GetPort(edge.FromPort.fieldName, edge.outputPortIdentifier);
+
+				var newEdge = SerializableEdge.CreateNewEdge(graph, outputPort, inputPort);
 
 				if (nodeViewsPerNode.ContainsKey(oldInputNode) && nodeViewsPerNode.ContainsKey(oldOutputNode))
 				{
@@ -333,15 +311,9 @@ namespace GraphProcessor
 				// We need nodes to be destroyed first because we can have a destroy operation that uses node connections
 				changes.elementsToRemove.Sort((e1, e2) =>
 				{
-					int GetPriority(GraphElement e)
-					{
-						if (e is BaseNodeView)
-							return 0;
-						else
-							return 1;
-					}
-
 					return GetPriority(e1).CompareTo(GetPriority(e2));
+
+					int GetPriority(GraphElement e) => e is BaseNodeView ? 0 : 1;
 				});
 
 				//Handle ourselves the edge and node remove
@@ -374,8 +346,8 @@ namespace GraphProcessor
 							UpdateSerializedProperties();
 							RemoveElement(group);
 							return true;
-						case ExposedParameterFieldView blackboardField:
-							graph.RemoveExposedParameter(blackboardField.parameter);
+						case SubgraphParameterFieldView blackboardField:
+							graph.RemoveSubgraphParameter(blackboardField.Parameter);
 							UpdateSerializedProperties();
 							return true;
 						case BaseStackNodeView stackNodeView:
@@ -407,8 +379,8 @@ namespace GraphProcessor
 
 				DisconnectView(edge);
 
-				RemoveRelayIfRequiredAfterDelay(changes.removedEdge.outputNode);
-				RemoveRelayIfRequiredAfterDelay(changes.removedEdge.inputNode);
+				RemoveRelayIfRequiredAfterDelay(changes.removedEdge.FromNode);
+				RemoveRelayIfRequiredAfterDelay(changes.removedEdge.ToNode);
 			}
 
 			return;
@@ -419,13 +391,13 @@ namespace GraphProcessor
 					return;
 				schedule.Execute(() => RemoveRelayIfRequired(relay));
 			}
-			
+
 			// Deletes redirect nodes if they're found to have no connected edges.
 			void RemoveRelayIfRequired(SimplifiedRelayNode relay)
 			{
 				if (!nodeViewsPerNode.ContainsKey(relay))
 					return;
-				
+
 				if (
 					relay.inputPorts[0].GetEdges().Count != 0 ||
 					relay.outputPorts[0].GetEdges().Count != 0
@@ -492,6 +464,7 @@ namespace GraphProcessor
 			BuildGroupContextualMenu(evt, 1);
 			BuildStickyNoteContextualMenu(evt, 2);
 			BuildViewContextualMenu(evt);
+			BuildSubgraphContextualMenu(evt);
 			BuildSelectAssetContextualMenu(evt);
 			BuildSaveAssetContextualMenu(evt);
 			BuildHelpContextualMenu(evt);
@@ -521,6 +494,20 @@ namespace GraphProcessor
 			Vector2 position = (evt.currentTarget as VisualElement).ChangeCoordinatesTo(contentViewContainer, evt.localMousePosition);
 			evt.menu.InsertAction(menuPosition, "Create Sticky Note", e => AddStickyNote(new StickyNote("Create Note", position)), DropdownMenuAction.AlwaysEnabled);
 #endif
+		}
+
+		/// <summary>
+		/// Add the Save Asset entry to the context menu
+		/// </summary>
+		/// <param name="evt"></param>
+		protected virtual void BuildSubgraphContextualMenu(ContextualMenuPopulateEvent evt)
+		{
+			evt.menu.AppendAction("Subgraph/Create", e => CreateSubgraph(), CanCreateSubgraphFromElements() ? Status.Normal : Status.Disabled);
+			evt.menu.AppendAction("Subgraph/Unpack", e => UnpackSubgraph(), CanUnpackSubgraphFromElements() ? Status.Normal : Status.Disabled);
+			return;
+
+			bool CanCreateSubgraphFromElements() => selection.OfType<BaseNodeView>().Any();
+			bool CanUnpackSubgraphFromElements() => selection.OfType<SubgraphNodeView>().Any();
 		}
 
 		/// <summary>
@@ -640,19 +627,18 @@ namespace GraphProcessor
 		private void DragPerformedCallback(DragPerformEvent e)
 		{
 			Vector2 mousePos = (e.currentTarget as VisualElement).ChangeCoordinatesTo(contentViewContainer, e.localMousePosition);
-			var dragData = DragAndDrop.GetGenericData("DragSelection") as List<ISelectable>;
 
 			// Drag and Drop for elements inside the graph
-			if (dragData != null)
+			if (DragAndDrop.GetGenericData("DragSelection") is List<ISelectable> dragData)
 			{
-				IEnumerable<ExposedParameterFieldView> exposedParameterFieldViews = dragData.OfType<ExposedParameterFieldView>();
+				IEnumerable<SubgraphParameterFieldView> exposedParameterFieldViews = dragData.OfType<SubgraphParameterFieldView>();
 				if (exposedParameterFieldViews.Any())
 				{
-					foreach (ExposedParameterFieldView paramFieldView in exposedParameterFieldViews)
+					foreach (SubgraphParameterFieldView paramFieldView in exposedParameterFieldViews)
 					{
 						RegisterCompleteObjectUndo("Create Parameter Node");
 						var paramNode = BaseNode.CreateFromType<ParameterNode>(mousePos);
-						paramNode.parameterGUID = paramFieldView.parameter.guid;
+						paramNode.parameterGUID = paramFieldView.Parameter.Guid;
 						AddNode(paramNode);
 					}
 				}
@@ -664,25 +650,33 @@ namespace GraphProcessor
 				RegisterCompleteObjectUndo("Create Node From Object(s)");
 				foreach (Object obj in DragAndDrop.objectReferences)
 				{
+					// ReSharper disable once Unity.NoNullPatternMatching
+					if (obj is BaseGraph draggedGraph)
+					{
+						var node = BaseNode.CreateFromType<SubgraphNode>(mousePos);
+						node.Subgraph = draggedGraph;
+						AddNode(node);
+						break;
+					}
+
 					Type objectType = obj.GetType();
 
 					foreach (KeyValuePair<Type, (Type nodeType, MethodInfo initalizeNodeFromObject)> kp in nodeTypePerCreateAssetType)
 					{
-						if (kp.Key.IsAssignableFrom(objectType))
+						if (!kp.Key.IsAssignableFrom(objectType))
+							continue;
+						try
 						{
-							try
+							var node = BaseNode.CreateFromType(kp.Value.nodeType, mousePos);
+							if ((bool)kp.Value.initalizeNodeFromObject.Invoke(node, new[] { obj }))
 							{
-								var node = BaseNode.CreateFromType(kp.Value.nodeType, mousePos);
-								if ((bool)kp.Value.initalizeNodeFromObject.Invoke(node, new[] { obj }))
-								{
-									AddNode(node);
-									break;
-								}
+								AddNode(node);
+								break;
 							}
-							catch (Exception exception)
-							{
-								Debug.LogException(exception);
-							}
+						}
+						catch (Exception exception)
+						{
+							Debug.LogException(exception);
 						}
 					}
 				}
@@ -693,12 +687,12 @@ namespace GraphProcessor
 		{
 			var dragData = DragAndDrop.GetGenericData("DragSelection") as List<ISelectable>;
 			Object[] dragObjects = DragAndDrop.objectReferences;
-			bool dragging = false;
+			var dragging = false;
 
 			if (dragData != null)
 			{
 				// Handle drag from exposed parameter view
-				if (dragData.OfType<ExposedParameterFieldView>().Any())
+				if (dragData.OfType<SubgraphParameterFieldView>().Any())
 				{
 					dragging = true;
 				}
@@ -736,7 +730,7 @@ namespace GraphProcessor
 			RemoveEdges();
 			RemoveGroups();
 #if UNITY_2020_1_OR_NEWER
-			RemoveStrickyNotes();
+			RemoveStickyNotes();
 #endif
 			RemoveStackNodeViews();
 
@@ -771,8 +765,6 @@ namespace GraphProcessor
 			}
 
 			this.graph = graph;
-
-			exposedParameterFactory = new ExposedParameterFieldFactory(graph);
 
 			UpdateSerializedProperties();
 
@@ -832,7 +824,7 @@ namespace GraphProcessor
 			RemoveStackNodeViews();
 			RemovePinnedElementViews();
 #if UNITY_2020_1_OR_NEWER
-			RemoveStrickyNotes();
+			RemoveStickyNotes();
 #endif
 		}
 
@@ -850,8 +842,7 @@ namespace GraphProcessor
 
 		private void InitializeGraphView()
 		{
-			graph.onExposedParameterListChanged += OnExposedParameterListChanged;
-			graph.onExposedParameterModified += s => onExposedParameterModified?.Invoke(s);
+			graph.onSubgraphParameterListChanged += OnSubgraphParameterListChanged;
 			graph.onGraphChanges += GraphChangesCallback;
 			if (NodeGraphState.TryGetStateValue(graph, out _viewState, out string guid))
 			{
@@ -868,13 +859,14 @@ namespace GraphProcessor
 				};
 				schedule.Execute(ResetPositionAndZoom);
 			}
+
 			nodeCreationRequest = c => SearchWindow.Open(new SearchWindowContext(c.screenMousePosition), createNodeMenu);
 		}
 
-		private void OnExposedParameterListChanged()
+		private void OnSubgraphParameterListChanged()
 		{
 			UpdateSerializedProperties();
-			onExposedParameterListChanged?.Invoke();
+			onSubgraphParameterListChanged?.Invoke();
 		}
 
 		private void InitializeNodeViews()
@@ -890,12 +882,12 @@ namespace GraphProcessor
 		private void InitializeEdgeViews()
 		{
 			// Sanitize edges in case a node broke something while loading
-			graph.edges.RemoveAll(edge => edge == null || edge.inputNode == null || edge.outputNode == null);
+			graph.edges.RemoveAll(edge => edge == null || edge.ToNode == null || edge.FromNode == null);
 
 			foreach (SerializableEdge serializedEdge in graph.edges)
 			{
-				nodeViewsPerNode.TryGetValue(serializedEdge.inputNode, out BaseNodeView inputNodeView);
-				nodeViewsPerNode.TryGetValue(serializedEdge.outputNode, out BaseNodeView outputNodeView);
+				nodeViewsPerNode.TryGetValue(serializedEdge.ToNode, out BaseNodeView inputNodeView);
+				nodeViewsPerNode.TryGetValue(serializedEdge.FromNode, out BaseNodeView outputNodeView);
 				if (inputNodeView == null || outputNodeView == null)
 					continue;
 
@@ -914,7 +906,7 @@ namespace GraphProcessor
 			foreach (PinnedElement pinnedElement in graph.pinnedElements)
 			{
 				if (pinnedElement.opened)
-					OpenPinned(pinnedElement.editorType.type);
+					OpenPinned(pinnedElement.editorType.Type);
 			}
 		}
 
@@ -1108,7 +1100,7 @@ namespace GraphProcessor
 			RemoveElement(view);
 		}
 
-		public void RemoveStrickyNotes()
+		public void RemoveStickyNotes()
 		{
 			foreach (StickyNoteView stickyNodeView in stickyNoteViews)
 				RemoveElement(stickyNodeView);
@@ -1139,12 +1131,10 @@ namespace GraphProcessor
 			if (e.input == null || e.output == null)
 				return false;
 
-			var inputPortView = e.input as PortView;
-			var outputPortView = e.output as PortView;
-			var inputNodeView = inputPortView.node as BaseNodeView;
-			var outputNodeView = outputPortView.node as BaseNodeView;
+			var inputPortView = (PortView)e.input;
+			var outputPortView = (PortView)e.output;
 
-			if (inputNodeView == null || outputNodeView == null)
+			if (inputPortView.node is not BaseNodeView || outputPortView.node is not BaseNodeView)
 			{
 				Debug.LogError("Connect aborted !");
 				return false;
@@ -1206,23 +1196,21 @@ namespace GraphProcessor
 			return true;
 		}
 
-		public bool Connect(PortView inputPortView, PortView outputPortView, bool autoDisconnectInputs = true)
+		public bool Connect(PortView fromPortView, PortView toPortView, bool autoDisconnectInputs = true)
 		{
-			NodePort inputPort = inputPortView.owner.nodeTarget.GetPort(inputPortView.fieldName, inputPortView.portData.identifier);
-			NodePort outputPort = outputPortView.owner.nodeTarget.GetPort(outputPortView.fieldName, outputPortView.portData.identifier);
+			NodePort toPort = toPortView.owner.nodeTarget.GetPort(toPortView.fieldName, toPortView.portData.identifier);
+			NodePort fromPort = fromPortView.owner.nodeTarget.GetPort(fromPortView.fieldName, fromPortView.portData.identifier);
 
 			// Checks that the node we are connecting still exists
-			if (inputPortView.owner.parent == null || outputPortView.owner.parent == null)
+			if (toPortView.owner.parent == null || fromPortView.owner.parent == null)
 				return false;
 
-			var newEdge = SerializableEdge.CreateNewEdge(graph, inputPort, outputPort);
+			var newEdge = SerializableEdge.CreateNewEdge(graph, fromPort, toPort);
 
 			EdgeView edgeView = CreateEdgeView();
 			edgeView.userData = newEdge;
-			edgeView.input = inputPortView;
-			edgeView.output = outputPortView;
-
-
+			edgeView.output = fromPortView;
+			edgeView.input = toPortView;
 			return Connect(edgeView);
 		}
 
@@ -1231,14 +1219,14 @@ namespace GraphProcessor
 			if (!CanConnectEdge(e))
 				return false;
 
-			var inputPortView = e.input as PortView;
-			var outputPortView = e.output as PortView;
-			var inputNodeView = inputPortView.node as BaseNodeView;
-			var outputNodeView = outputPortView.node as BaseNodeView;
+			var inputPortView = (PortView)e.input;
+			var outputPortView = (PortView)e.output;
+			var inputNodeView = (BaseNodeView)inputPortView.node;
+			var outputNodeView = (BaseNodeView)outputPortView.node;
 			NodePort inputPort = inputNodeView.nodeTarget.GetPort(inputPortView.fieldName, inputPortView.portData.identifier);
 			NodePort outputPort = outputNodeView.nodeTarget.GetPort(outputPortView.fieldName, outputPortView.portData.identifier);
 
-			e.userData = graph.Connect(inputPort, outputPort, autoDisconnectInputs);
+			e.userData = graph.Connect(outputPort, inputPort, autoDisconnectInputs);
 
 			ConnectView(e, autoDisconnectInputs);
 			return true;
@@ -1295,20 +1283,21 @@ namespace GraphProcessor
 			NodeGraphState.SaveToDisk();
 		}
 
-		public void ToggleView<T>() where T : PinnedElementView
-		{
-			ToggleView(typeof(T));
-		}
+		public bool ToggleView<T>() where T : PinnedElementView => ToggleView(typeof(T));
 
-		public void ToggleView(Type type)
+		public bool ToggleView(Type type)
 		{
 			PinnedElementView view;
 			pinnedElements.TryGetValue(type, out view);
 
 			if (view == null)
+			{
 				OpenPinned(type);
-			else
-				ClosePinned(type, view);
+				return true;
+			}
+
+			ClosePinned(type, view);
+			return false;
 		}
 
 		public void OpenPinned<T>() where T : PinnedElementView => OpenPinned(typeof(T));
@@ -1342,7 +1331,7 @@ namespace GraphProcessor
 		public void ClosePinned(Type type, PinnedElementView elem)
 		{
 			pinnedElements.Remove(type);
-			Remove(elem);
+			elem.RemoveFromHierarchy();
 			graph.ClosePinned(type);
 		}
 
@@ -1350,7 +1339,10 @@ namespace GraphProcessor
 
 		public Status GetPinnedElementStatus(Type type)
 		{
-			PinnedElement pinned = graph.pinnedElements.Find(p => p.editorType.type == type);
+			if (graph == null)
+				return Status.Hidden;
+
+			PinnedElement pinned = graph.pinnedElements.Find(p => p.editorType.Type == type);
 			return pinned is { opened: true } ? Status.Normal : Status.Hidden;
 		}
 
@@ -1360,7 +1352,7 @@ namespace GraphProcessor
 			Vector2 max = graph.nodes.Aggregate(Vector2.zero, (current, node) => new Vector2(Mathf.Max(current.x, node.position.x), Mathf.Max(current.y, node.position.y)));
 			max += new Vector2(100f, 200f); // Expand by a normal size for a node.
 			Vector2 position = (min + max) * 0.5f;
-			
+
 			UpdateViewTransform(-position + localBound.size * 0.5f, Vector3.one);
 		}
 
@@ -1388,9 +1380,9 @@ namespace GraphProcessor
 			var view = (SimplifiedRelayNodeView)AddNode(relayNode);
 
 			if (outputPort != null)
-				Connect(view.inputPortViews[0], outputPort);
+				Connect(outputPort, view.inputPortViews[0]);
 			if (inputPort != null)
-				Connect(inputPort, view.outputPortViews[0]);
+				Connect(view.outputPortViews[0], inputPort);
 
 			return view;
 		}
@@ -1414,14 +1406,187 @@ namespace GraphProcessor
 			RemoveFromHierarchy();
 			Undo.undoRedoPerformed -= ReloadView;
 			Object.DestroyImmediate(nodeInspector);
-			exposedParameterFactory.Dispose();
-			exposedParameterFactory = null;
 
-			graph.onExposedParameterListChanged -= OnExposedParameterListChanged;
-			graph.onExposedParameterModified += s => onExposedParameterModified?.Invoke(s);
+			graph.onSubgraphParameterListChanged -= OnSubgraphParameterListChanged;
 			graph.onGraphChanges -= GraphChangesCallback;
 		}
 
 		#endregion
+
+		/// <summary>
+		/// Opens a graph as a subgraph, appending the currently opened graph to the breadcrumbs.
+		/// </summary>
+		public void OpenSubgraph(BaseGraph subgraph) => _window.OpenSubgraph(subgraph);
+
+		private void CreateSubgraph()
+		{
+			HashSet<BaseNodeView> viewsInSubgraph = selection.OfType<BaseNodeView>().ToHashSet();
+			HashSet<BaseNode> inSubgraph = viewsInSubgraph.Select(v => v.nodeTarget).ToHashSet();
+
+			string assetPath = AssetDatabase.GetAssetPath(graph);
+			string directory = System.IO.Path.GetDirectoryName(assetPath)!;
+			string subgraphPath = EditorUtility.SaveFilePanelInProject(
+				"Create Subgraph",
+				"New Subgraph",
+				"asset",
+				$"Creating a subgraph out of {inSubgraph.Count} nodes.",
+				directory
+			);
+
+			if (string.IsNullOrEmpty(subgraphPath))
+				return;
+
+			// Gather the edges that make up the border of the subgraph.
+			Dictionary<(PortView port, bool isInput), List<EdgeView>> borderEdges = new();
+			foreach (BaseNodeView node in viewsInSubgraph)
+			{
+				foreach (PortView port in node.AllPortViews)
+				{
+					foreach (EdgeView edgeView in port.GetEdges())
+					{
+						SerializableEdge edge = edgeView.serializedEdge;
+						if (!inSubgraph.Contains(edge.FromNode))
+						{
+							var key = (port, true);
+							if (!borderEdges.TryGetValue(key, out var list))
+								borderEdges.Add(key, list = new());
+							list.Add(edgeView);
+							RemoveFromSelection(edgeView);
+							continue;
+						}
+
+						if (!inSubgraph.Contains(edge.ToNode))
+						{
+							var key = (port, false);
+							if (!borderEdges.TryGetValue(key, out var list))
+								borderEdges.Add(key, list = new());
+							list.Add(edgeView);
+							RemoveFromSelection(edgeView);
+							continue;
+						}
+
+						// Add any edges that are entirely within the subgraph to our selection.
+						AddToSelection(edgeView);
+					}
+				}
+			}
+
+			// Copy the current selection (i.e. the subgraph nodes and edges).
+			HashSet<GraphElement> graphElementSet = new();
+			CollectCopyableGraphElements(selection.OfType<GraphElement>(), graphElementSet);
+			string copy = SerializeGraphElements(graphElementSet);
+			if (string.IsNullOrEmpty(copy))
+			{
+				Debug.LogWarning("Copy of elements was empty, subgraph creation was cancelled.");
+				return;
+			}
+
+
+			Vector2 center = inSubgraph.Aggregate(Vector2.zero, (vector2, node) => vector2 + node.position) / inSubgraph.Count;
+
+			// Create the subgraph asset.
+			var subgraph = (BaseGraph)ScriptableObject.CreateInstance(graph.GetType());
+			var subgraphNodeView = new BaseGraphView(_window); // We create a view so we can paste into it.
+			subgraphNodeView.Initialize(subgraph);
+
+			// Paste the subgraph into the asset.
+			subgraphNodeView.UnserializeAndPasteOperation("create subgraph", copy);
+
+			Dictionary<PortView, string> parameterLookup = new();
+			Dictionary<PortView, Vector2> positionLookup = new();
+
+			// Cache the positions of the ports so we can sort the parameters by coordinate.
+			foreach ((PortView port, _) in borderEdges.Keys)
+			{
+				positionLookup.Add(port, port.ChangeCoordinatesTo(contentViewContainer, Vector2.zero));
+			}
+
+			// For every port connected to a border edge.
+			// Hook-up edges to parameter nodes.
+			foreach (
+				((PortView port, bool isInputParameter), var list) in borderEdges
+					// Sort parameters by coordinate.
+					.OrderBy(kvp => positionLookup[kvp.Key.port].x)
+					.ThenBy(kvp => positionLookup[kvp.Key.port].y)
+			)
+			{
+				// Create a matching parameter.
+				string parameterGuid = subgraph.AddSubgraphParameter(port.portData.displayName, port.portType, isInputParameter ? ParameterDirection.Input : ParameterDirection.Output);
+
+				parameterLookup.Add(port, parameterGuid);
+
+				// For each border edge.
+				foreach (EdgeView edge in list)
+				{
+					// Create a parameter node using the parameter guid.
+					var source = (PortView)(isInputParameter ? edge.output : edge.input);
+					var parameterNode = BaseNode.CreateFromType<ParameterNode>(source.ChangeCoordinatesTo(contentViewContainer, Vector2.zero));
+					parameterNode.parameterGUID = parameterGuid;
+					subgraph.AddNode(parameterNode);
+
+					// Find the nodes to connect edges to.
+					BaseNode copiedNode = subgraphNodeView._lastCopiedNodesMap[port.owner.nodeTarget.GUID];
+					NodePort originPortInSubgraph = copiedNode.GetPort(port.fieldName, port.portData.identifier);
+
+					// Connect the parameter nodes to their matching ports.
+					if (isInputParameter)
+					{
+						NodePort from = parameterNode.outputPorts.First();
+						subgraph.Connect(from, originPortInSubgraph);
+					}
+					else
+					{
+						NodePort to = parameterNode.inputPorts.First();
+						subgraph.Connect(originPortInSubgraph, to);
+					}
+				}
+			}
+
+			AssetDatabase.CreateAsset(subgraph, subgraphPath);
+
+			var subgraphNode = BaseNode.CreateFromType<SubgraphNode>(center);
+			subgraphNode.Subgraph = subgraph;
+			BaseNodeView view = AddNode(subgraphNode);
+
+			// Hookup border edges to the subgraph node's ports.
+			foreach (((PortView port, bool isInputParameter), var list) in borderEdges)
+			{
+				string parameter = parameterLookup[port];
+				if (isInputParameter)
+				{
+					PortView to = view.GetPortViewFromFieldName(
+						nameof(SubgraphNode.Inputs),
+						parameter
+					);
+					foreach (EdgeView edge in list)
+					{
+						Connect((PortView)edge.output, to);
+					}
+				}
+				else
+				{
+					PortView from = view.GetPortViewFromFieldName(
+						nameof(SubgraphNode.Outputs),
+						parameter
+					);
+					foreach (EdgeView edge in list)
+					{
+						Connect(from, (PortView)edge.input);
+					}
+				}
+			}
+
+			// Delete and disconnect all the nodes that have become a part of the subgraph.
+			foreach (BaseNode node in inSubgraph)
+				RemoveNode(node);
+		}
+
+		private void UnpackSubgraph()
+		{
+			var subgraphNode = (SubgraphNode)selection.OfType<SubgraphNodeView>().First().nodeTarget;
+			graph.InlineSubgraphNode(subgraphNode);
+			graph.RemoveNode(subgraphNode);
+			Initialize(graph); // Reload this completely.
+		}
 	}
 }

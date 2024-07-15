@@ -7,42 +7,31 @@ namespace GraphProcessor
 	[Serializable]
 	public class SerializableType : ISerializationCallbackReceiver
 	{
-		static Dictionary<string, Type> typeCache = new Dictionary<string, Type>();
-		static Dictionary<Type, string> typeNameCache = new Dictionary<Type, string>();
+		private static Dictionary<string, Type> s_typeCache = new();
+		private static Dictionary<Type, string> s_typeNameCache = new();
 
 		[SerializeField]
-		public string	serializedType;
+		private string serializedType;
 
 		[NonSerialized]
-		public Type		type;
+		public Type Type;
 
-		public SerializableType(Type t)
+		public SerializableType(Type t) => Type = t;
+
+		public void OnAfterDeserialize()
 		{
-			type = t;
+			if (string.IsNullOrEmpty(serializedType)) return;
+			if (s_typeCache.TryGetValue(serializedType, out Type)) return;
+			Type = Type.GetType(serializedType);
+			s_typeCache[serializedType] = Type;
 		}
 
-        public void OnAfterDeserialize()
-        {
-			if (!string.IsNullOrEmpty(serializedType))
-			{
-				if (!typeCache.TryGetValue(serializedType, out type))
-				{
-					type = Type.GetType(serializedType);
-					typeCache[serializedType] = type;
-				}
-			}
-        }
-
-        public void OnBeforeSerialize()
-        {
-			if (type != null)
-			{
-				if (!typeNameCache.TryGetValue(type, out serializedType))
-				{
-					serializedType = type.AssemblyQualifiedName;
-					typeNameCache[type] = serializedType;
-				}
-			}
-        }
-    }
+		public void OnBeforeSerialize()
+		{
+			if (Type == null) return;
+			if (s_typeNameCache.TryGetValue(Type, out serializedType)) return;
+			serializedType = Type.AssemblyQualifiedName;
+			s_typeNameCache[Type] = serializedType;
+		}
+	}
 }
