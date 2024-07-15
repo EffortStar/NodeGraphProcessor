@@ -109,9 +109,11 @@ namespace GraphProcessor
 
 		private Dictionary<Type, (Type nodeType, MethodInfo initalizeNodeFromObject)> nodeTypePerCreateAssetType = new();
 		private NodeGraphState.StateValue _viewState;
+		private readonly BaseGraphWindow _window;
 
-		public BaseGraphView(EditorWindow window)
+		public BaseGraphView(BaseGraphWindow window)
 		{
+			_window = window;
 			serializeGraphElements = SerializeGraphElementsCallback;
 			canPasteSerializedData = CanPasteSerializedDataCallback;
 			unserializeAndPaste = UnserializeAndPasteCallback;
@@ -1380,5 +1382,10 @@ namespace GraphProcessor
 		}
 
 		#endregion
+
+		/// <summary>
+		/// Opens a graph as a subgraph, appending the currently opened graph to the breadcrumbs.
+		/// </summary>
+		public void OpenSubgraph(BaseGraph subgraph) => _window.OpenSubgraph(subgraph);
 	}
 }

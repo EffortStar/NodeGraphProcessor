@@ -9,7 +9,6 @@ using UnityEditor.UIElements;
 
 namespace GraphProcessor
 {
-	[Serializable]
 	public abstract class BaseGraphWindow : EditorWindow
 	{
 		protected BaseGraphView graphView;
@@ -24,6 +23,7 @@ namespace GraphProcessor
 
 		private const string GraphWindowStyle = "GraphProcessorStyles/BaseGraphView";
 		private bool _reloadWorkaround;
+		private ToolbarBreadcrumbs _breadcrumbs;
 
 		/// <summary>
 		/// Called by Unity when the window is enabled / opened
@@ -81,14 +81,17 @@ namespace GraphProcessor
 				_graph.onEnabled -= OnGraphEnabled;
 		}
 
-		public void InitializeGraph(BaseGraph graph)
+		public void InitializeGraph(BaseGraph graph, bool isSubgraph = false)
 		{
-			if (this._graph != null && graph != this._graph)
+			if (_graph != null && graph != _graph)
 			{
 				// Save the graph to the disk
-				EditorUtility.SetDirty(this._graph);
+				EditorUtility.SetDirty(_graph);
 				AssetDatabase.SaveAssets();
 			}
+			
+			if (!isSubgraph)
+				_graphBreadcrumbs?.Clear();
 
 			_graph = graph;
 
@@ -101,6 +104,8 @@ namespace GraphProcessor
 				rootVisualElement.Add(toolbar);
 				AppendToToolbar(toolbar);
 			}
+			
+			UpdateBreadcrumbs();
 
 			rootVisualElement.Insert(0, graphView);
 			_reloadWorkaround = false;
@@ -128,14 +133,30 @@ namespace GraphProcessor
 			);
 			toolbar.Add(_subgraphIoToggle);
 
+			_breadcrumbs = new ToolbarBreadcrumbs();
+			toolbar.Add(_breadcrumbs);
+
 			var toolbarSpacer = new ToolbarSpacer();
 			toolbarSpacer.AddToClassList("toolbar__wide-spacer");
 			toolbar.Add(toolbarSpacer);
+		}
 
-			toolbar.Add(new ToolbarButton(() => EditorGUIUtility.PingObject(graphView.graph))
+		private void UpdateBreadcrumbs()
+		{
+			_breadcrumbs.Clear();
+			if (_graph == null)
+				return;
+
+			if (_graphBreadcrumbs != null)
 			{
-				text = "Show In Project"
-			});
+				foreach (BaseGraph graph in _graphBreadcrumbs)
+				{
+					if (graph == null) continue;
+					_breadcrumbs.PushItem(ObjectNames.NicifyVariableName(graph.name), () => InitializeGraph(graph));
+				}
+			}
+
+			_breadcrumbs.PushItem(ObjectNames.NicifyVariableName(_graph.name), () => EditorGUIUtility.PingObject(graphView.graph));
 		}
 
 		protected virtual void GraphInitialized(BaseGraph graph)
@@ -164,6 +185,16 @@ namespace GraphProcessor
 				rootVisualElement.Remove(graphView);
 
 			graphView = null;
+		}
+
+		/// <summary>
+		/// Opens a graph as a subgraph, appending the currently opened graph to the breadcrumbs.
+		/// </summary>
+		public void OpenSubgraph(BaseGraph subgraph)
+		{
+			_graphBreadcrumbs ??= new List<BaseGraph>();
+			_graphBreadcrumbs.Add(_graph);
+			InitializeGraph(subgraph, true);
 		}
 	}
 }

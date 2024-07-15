@@ -25,7 +25,8 @@ namespace GraphProcessor
 				BaseGraph subgraph = ((SubgraphNode)nodeTarget).Subgraph;
 				if (subgraph == null)
 					return;
-				AssetDatabase.OpenAsset(subgraph);
+
+				GetFirstAncestorOfType<BaseGraphView>().OpenSubgraph(subgraph);
 				evt.StopPropagation();
 			});
 
