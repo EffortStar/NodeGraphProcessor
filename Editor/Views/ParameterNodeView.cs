@@ -11,14 +11,14 @@ namespace GraphProcessor
 		public override void Enable(bool fromInspector = false)
 		{
 			_parameterNode = (ParameterNode)nodeTarget;
-        
+
 			UpdatePort();
-			
-			//    Find and remove expand/collapse button
+
+			// Find and remove expand/collapse button
 			titleContainer.Remove(titleContainer.Q("title-button-container"));
-			//    Remove Port from the #content
+			// Remove Port from the #content
 			topContainer.parent.Remove(topContainer);
-			//    Add Port to the #title
+			// Add Port to the #title
 			titleContainer.Add(topContainer);
 
 			_parameterNode.onParameterChanged += UpdateView;
@@ -36,7 +36,7 @@ namespace GraphProcessor
 
 		private void UpdatePort()
 		{
-			if(_parameterNode.Parameter.Direction == ParameterDirection.Output)
+			if (_parameterNode.Parameter.Direction == ParameterDirection.Output)
 			{
 				titleContainer.AddToClassList("input");
 			}
