@@ -23,6 +23,10 @@ namespace GraphProcessor
 
 			_parameterNode.onParameterChanged += UpdateView;
 			UpdateView();
+
+			BaseGraph graph = GetFirstAncestorOfType<BaseGraphView>()?.graph;
+			if (graph != null && graph.GetSubgraphParameter(_parameterNode.parameterGUID) == null)
+				AddBadge("No matching parameter found by GUID in graph. Please replace this node with a new one.", BadgeMessageType.Error);
 		}
 
 		private void UpdateView()
