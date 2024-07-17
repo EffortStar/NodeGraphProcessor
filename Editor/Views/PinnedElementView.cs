@@ -27,6 +27,7 @@ namespace GraphProcessor
 			VisualElement resizerIcon = this.Q<Resizer>()[0];
 			resizerIcon.style.backgroundRepeat = StyleKeyword.Null;
 			resizerIcon.style.backgroundSize = StyleKeyword.Null;
+			resizerIcon.pickingMode = PickingMode.Ignore;
 		}
 
 		public void InitializeGraphView(PinnedElement pinnedElement, BaseGraphView graphView)

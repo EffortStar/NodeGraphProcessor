@@ -74,12 +74,12 @@ namespace GraphProcessor
 			foreach (SubgraphParameter parameter in Subgraph.SubgraphParameters)
 			{
 				if (parameter.Direction != ParameterDirection.Input) continue;
-				(bool required, bool acceptMultipleEdges) = GetParameterPortInfoFromInner(parametersToNodes, parameter);
+				(bool _, bool acceptMultipleEdges) = GetParameterPortInfoFromInner(parametersToNodes, parameter);
 				yield return new PortData
 				{
 					displayType = parameter.GetValueType(),
 					acceptMultipleEdges = acceptMultipleEdges,
-					required = required,
+					required = true, // input ports for subgraphs are always required because their edges are connected.
 					displayName = parameter.Name,
 					identifier = parameter.Guid
 				};

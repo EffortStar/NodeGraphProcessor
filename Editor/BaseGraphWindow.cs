@@ -97,6 +97,7 @@ namespace GraphProcessor
 
 			graphView?.RemoveFromHierarchy();
 
+			TryAgain:
 			if (graphView == null)
 			{
 				graphView = CreateView();
@@ -113,7 +114,20 @@ namespace GraphProcessor
 			
 			UpdateBreadcrumbs();
 
-			rootVisualElement.Insert(0, graphView);
+			try
+			{
+				
+				rootVisualElement.Insert(0, graphView);
+			}
+			catch (Exception)
+			{
+				// I don't think this actually catches what is an error Unity prints and doesn't throw.
+				// But if it does, this will fix it.
+				graphView?.RemoveFromHierarchy();
+				graphView = null;
+				goto TryAgain;
+			}
+
 			_reloadWorkaround = false;
 			graphView.Initialize(graph);
 			if (graph.IsLinkedToScene())
@@ -162,7 +176,7 @@ namespace GraphProcessor
 				}
 			}
 
-			_breadcrumbs.PushItem(ObjectNames.NicifyVariableName(_graph.name), () => EditorGUIUtility.PingObject(graphView.graph));
+			_breadcrumbs.PushItem(ObjectNames.NicifyVariableName(_graph.name), () => EditorGUIUtility.PingObject(_graph));
 		}
 
 		protected virtual void GraphInitialized(BaseGraph graph)

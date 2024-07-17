@@ -9,7 +9,7 @@ namespace GraphProcessor
 	[Serializable]
 	public class PinnedElement
 	{
-		public static readonly Vector2 defaultSize = new(200, 250);
+		public static readonly Vector2 defaultSize = new(220, 250);
 
 		public Rect position = new(Vector2.zero, defaultSize);
 		public bool opened = true;

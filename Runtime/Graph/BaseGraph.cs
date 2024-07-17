@@ -26,7 +26,7 @@ namespace GraphProcessor
 	}
 
 	[Serializable]
-	public class BaseGraph : ScriptableObject, ISerializationCallbackReceiver
+	public abstract class BaseGraph : ScriptableObject, ISerializationCallbackReceiver
 	{
 		/// <summary>
 		/// List of all the nodes in the graph.

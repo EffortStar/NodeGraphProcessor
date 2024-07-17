@@ -1,15 +1,13 @@
-﻿using System.Collections;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
-using UnityEditor.UIElements;
 using UnityEngine.UIElements;
 using UnityEditor.Experimental.GraphView;
 using System.Linq;
 using System;
 using UnityEditor.SceneManagement;
 using System.Reflection;
-using DG.Tweening.Plugins.Core.PathCore;
+using JetBrains.Annotations;
 using Status = UnityEngine.UIElements.DropdownMenuAction.Status;
 using Object = UnityEngine.Object;
 
@@ -1494,8 +1492,47 @@ namespace GraphProcessor
 
 			Vector2 center = inSubgraph.Aggregate(Vector2.zero, (vector2, node) => vector2 + node.position) / inSubgraph.Count;
 
+			// Get the most specific graph required by the nodes.
+			Type thisType = graph.GetType();
+			Type graphType = thisType;
+			while (!graphType.BaseType?.IsAbstract ?? false)
+				graphType = graphType.BaseType; // the default graph type is the highest non-abstract superclass
+			HashSet<Type> nodeTypes = viewsInSubgraph.Select(v => v.nodeTarget.GetType()).ToHashSet();
+			foreach (Type nodeType in nodeTypes)
+			{
+				// Get the least specific graph requirement from a node.
+				Type requirement = null;
+				foreach (Type type in NodeProvider.GetGraphTypeRequirementFromType(nodeType))
+				{
+					requirement = GetLeastSpecific(requirement, type);
+					if (thisType == requirement)
+						goto Create;
+					if (!thisType.IsSubclassOf(requirement))
+						requirement = null; // Ignore any types which are not superclasses of this graph.
+				}
+				
+				graphType = GetMostSpecific(requirement, graphType);
+
+				continue;
+
+				Type GetLeastSpecific([CanBeNull] Type a, Type b)
+				{
+					if (a == null) return b;
+					if (a == b) return a;
+					return a.IsSubclassOf(b) ? b : a;
+				}
+				
+				Type GetMostSpecific([CanBeNull] Type a, Type b)
+				{
+					if (a == null) return b;
+					if (a == b) return a;
+					return a.IsSubclassOf(b) ? a : b;
+				}
+			}
+
+			Create:
 			// Create the subgraph asset.
-			var subgraph = (BaseGraph)ScriptableObject.CreateInstance(graph.GetType());
+			var subgraph = (BaseGraph)ScriptableObject.CreateInstance(graphType);
 			var subgraphNodeView = new BaseGraphView(_window); // We create a view so we can paste into it.
 			subgraphNodeView.Initialize(subgraph);
 

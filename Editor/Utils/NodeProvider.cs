@@ -72,6 +72,8 @@ namespace GraphProcessor
 					return _viewScript;
 				}
 			}
+			
+			public IReadOnlyCollection<Type> CompatibleGraphTypes => _compatibleGraphTypes;
 
 			public readonly Type NodeType;
 			public readonly bool Obsolete;
@@ -115,12 +117,12 @@ namespace GraphProcessor
 			{
 				while (true)
 				{
-					if (graphType == null || _compatibleGraphTypes == null)
+					if (graphType == null || CompatibleGraphTypes == null)
 					{
 						return true;
 					}
 
-					if (_compatibleGraphTypes.Contains(graphType))
+					if (CompatibleGraphTypes.Contains(graphType))
 					{
 						return true;
 					}
@@ -297,6 +299,16 @@ namespace GraphProcessor
 				foreach (string menuPath in details.MenuPaths)
 					yield return (menuPath, nodeType);
 			}
+		}
+
+		public static IEnumerable<Type> GetGraphTypeRequirementFromType(Type nodeType)
+		{
+			if (!NodeCache.NodesByType.TryGetValue(nodeType, out CachedNodeDetails details))
+			{
+				Debug.LogWarning($"{nodeType} was not present in cache");
+				return Enumerable.Empty<Type>();
+			}
+			return details.CompatibleGraphTypes ?? Enumerable.Empty<Type>();
 		}
 
 		public static MonoScript GetNodeViewScript(Type type)
