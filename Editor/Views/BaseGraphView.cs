@@ -172,7 +172,7 @@ namespace GraphProcessor
 			}
 
 			foreach (GroupView groupView in elements.Where(e => e is GroupView))
-				data.copiedGroups.Add(JsonSerializer.Serialize(groupView.group));
+				data.copiedGroups.Add(JsonSerializer.Serialize(groupView.Group));
 
 			foreach (EdgeView edgeView in elements.Where(e => e is EdgeView))
 				data.copiedEdges.Add(JsonSerializer.Serialize(edgeView.serializedEdge));
@@ -215,7 +215,6 @@ namespace GraphProcessor
 				graph.nodesPerGUID.TryGetValue(sourceGUID, out BaseNode sourceNode);
 				//Call OnNodeCreated on the new fresh copied node
 				node.createdFromDuplication = true;
-				node.createdWithinGroup = unserializedGroups.Any(g => g.innerNodeGUIDs.Contains(sourceGUID));
 				node.OnNodeCreated();
 				//And move a bit the new node
 				node.position += new Vector2(20, 20);
@@ -230,30 +229,7 @@ namespace GraphProcessor
 
 			foreach (Group group in unserializedGroups)
 			{
-				//Same than for node
-				group.OnCreated();
-
-				// try to centre the created node in the screen
-				group.position.position += new Vector2(20, 20);
-
-				List<string> oldGuidList = group.innerNodeGUIDs.ToList();
-				group.innerNodeGUIDs.Clear();
-				foreach (string guid in oldGuidList)
-				{
-					graph.nodesPerGUID.TryGetValue(guid, out BaseNode node);
-
-					// In case group was copied from another graph
-					if (node == null)
-					{
-						copiedNodesMap.TryGetValue(guid, out node);
-						group.innerNodeGUIDs.Add(node.GUID);
-					}
-					else
-					{
-						group.innerNodeGUIDs.Add(copiedNodesMap[guid].GUID);
-					}
-				}
-
+				// Same than for node
 				AddGroup(group);
 			}
 
@@ -367,7 +343,7 @@ namespace GraphProcessor
 							SyncSerializedPropertyPaths();
 							return true;
 						case GroupView group:
-							graph.RemoveGroup(group.group);
+							graph.RemoveGroup(group.Group);
 							UpdateSerializedProperties();
 							RemoveElement(group);
 							return true;
@@ -408,6 +384,16 @@ namespace GraphProcessor
 				RemoveRelayIfRequiredAfterDelay(changes.removedEdge.ToNode);
 			}
 
+			if (changes.removedGroups != null)
+			{
+				GroupView view = groupViews.FirstOrDefault(g => g.Group == changes.removedGroups);
+				if (view != null)
+				{
+					RemoveElement(view);
+					groupViews.Remove(view);
+				}
+			}
+
 			return;
 
 			void RemoveRelayIfRequiredAfterDelay(BaseNode node)
@@ -445,10 +431,8 @@ namespace GraphProcessor
 
 		private void ElementResizedCallback(VisualElement elem)
 		{
-			var groupView = elem as GroupView;
-
-			if (groupView != null)
-				groupView.group.size = groupView.GetPosition().size;
+			if (elem is GroupView groupView)
+				groupView.Group.position.size = groupView.GetPosition().size;
 		}
 
 		public override List<Port> GetCompatiblePorts(Port startPort, NodeAdapter nodeAdapter)
@@ -504,7 +488,7 @@ namespace GraphProcessor
 			if (menuPosition == -1)
 				menuPosition = evt.menu.MenuItems().Count;
 			Vector2 position = (evt.currentTarget as VisualElement).ChangeCoordinatesTo(contentViewContainer, evt.localMousePosition);
-			evt.menu.InsertAction(menuPosition, "Create Group", e => AddSelectionsToGroup(AddGroup(new Group("Create Group", position))), DropdownMenuAction.AlwaysEnabled);
+			evt.menu.InsertAction(menuPosition, "Create Group", e => AddSelectionsToGroup(AddGroup(new Group("New Group", position))), DropdownMenuAction.AlwaysEnabled);
 		}
 
 		/// <summary>
@@ -580,12 +564,20 @@ namespace GraphProcessor
 
 		protected virtual void KeyDownCallback(KeyDownEvent e)
 		{
-			if (e.keyCode == KeyCode.S && e.commandKey)
+			if (e.keyCode == KeyCode.LeftControl)
+				return;
+			
+			if (e.keyCode == KeyCode.S && (e.commandKey || e.ctrlKey))
 			{
 				SaveGraphToDisk();
 				e.StopPropagation();
 			}
-			else if (nodeViews.Count > 0 && e.commandKey && e.altKey)
+			if (e.keyCode == KeyCode.G && (e.commandKey || e.ctrlKey))
+			{
+				AddSelectionsToGroup(AddGroup(new Group("New Group")));
+				e.StopPropagation();
+			}
+			else if (nodeViews.Count > 0 && (e.commandKey || e.ctrlKey) && e.altKey)
 			{
 				//	Node Aligning shortcuts
 				switch (e.keyCode)
@@ -1070,17 +1062,14 @@ namespace GraphProcessor
 		public GroupView AddGroup(Group block)
 		{
 			graph.AddGroup(block);
-			block.OnCreated();
 			return AddGroupView(block);
 		}
 
 		public GroupView AddGroupView(Group block)
 		{
 			var c = new GroupView();
-
-			c.Initialize(this, block);
-
 			AddElement(c);
+			c.Initialize(this, block);
 
 			groupViews.Add(c);
 			return c;
@@ -1148,11 +1137,11 @@ namespace GraphProcessor
 		{
 			foreach (ISelectable selectedNode in selection)
 			{
-				if (selectedNode is not BaseNodeView node) continue;
-				if (groupViews.Exists(x => x.ContainsElement(selectedNode as BaseNodeView))) continue;
-
-				view.AddElement(node);
+				if (selectedNode is not GraphElement node) continue;
+				view.EncapsulateElement(node);
 			}
+
+			view.EnsureMinSize();
 		}
 
 		public void RemoveGroups()
