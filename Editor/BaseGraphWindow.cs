@@ -16,6 +16,8 @@ namespace GraphProcessor
 
 		[SerializeField]
 		private BaseGraph _graph;
+		
+		internal BaseGraph Graph => _graph;
 
 		[SerializeField]
 		private List<BaseGraph> _graphBreadcrumbs;

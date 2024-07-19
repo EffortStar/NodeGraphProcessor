@@ -292,6 +292,8 @@ namespace GraphProcessor
 					Connect(edgeView);
 				}
 			}
+			
+			contentViewContainer.AddManipulator(new PostPasteNodesManipulator(this, copiedNodesMap));
 		}
 
 		public virtual EdgeView CreateEdgeView()
@@ -828,7 +830,10 @@ namespace GraphProcessor
 
 		private void UpdateSerializedProperties()
 		{
-			serializedGraph = new SerializedObject(graph);
+			if (graph == null)
+				graph = _window.Graph;
+			if (graph != null)
+				serializedGraph = new SerializedObject(graph);
 		}
 
 		/// <summary>
