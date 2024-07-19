@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
@@ -9,11 +10,18 @@ namespace GraphProcessor
 	{
 		public string GUID;
 
-		internal BaseGraph Owner { private get => owner; set => owner = value; }
-		
+		internal BaseGraph Owner
+		{
+			private get => owner;
+			set => owner = value;
+		}
+
 		[SerializeField] BaseGraph owner;
 		[SerializeField] string inputNodeGUID;
 		[SerializeField] string outputNodeGUID;
+
+		public string FromNodeGuid => inputNodeGUID;
+		public string ToNodeGuid => outputNodeGUID;
 
 		/// <summary>
 		/// Formerly InputNode
@@ -24,6 +32,7 @@ namespace GraphProcessor
 		/// Formerly InputPort
 		/// </summary>
 		[NonSerialized] public NodePort ToPort; // edge goes from output to input
+
 		/// <summary>
 		/// Formerly OutputPort
 		/// </summary>
@@ -43,7 +52,7 @@ namespace GraphProcessor
 		// Use to store the id of the field that generate multiple ports
 		public string inputPortIdentifier;
 		public string outputPortIdentifier;
-
+		
 		public static SerializableEdge CreateNewEdge(BaseGraph graph, NodePort fromPort, NodePort toPort)
 		{
 			return new SerializableEdge
@@ -78,11 +87,13 @@ namespace GraphProcessor
 		}
 
 		//here our owner have been deserialized
-		public DeserializationResult Deserialize()
+		public DeserializationResult Deserialize(bool logWarnings = true)
 		{
 			if (!Owner.nodesPerGUID.ContainsKey(outputNodeGUID) || !Owner.nodesPerGUID.ContainsKey(inputNodeGUID))
 			{
-				Debug.LogWarning($"Edge {GUID} failed to deserialize due to invalid node GUIDs ({inputNodeGUID} -> {outputNodeGUID})");
+				if (logWarnings)
+					Debug.LogWarning($"Edge {GUID} failed to deserialize due to invalid node GUIDs ({inputNodeGUID} -> {outputNodeGUID})");
+
 				return DeserializationResult.NoChanges;
 			}
 
@@ -100,7 +111,8 @@ namespace GraphProcessor
 				}
 				else
 				{
-					Debug.LogWarning($"Edge {GUID} failed to deserialize due to invalid input port (fieldName: {inputFieldName}, id: {inputPortIdentifier})");
+					if (logWarnings)
+						Debug.LogWarning($"Edge {GUID} failed to deserialize due to invalid input port (fieldName: {inputFieldName}, id: {inputPortIdentifier})");
 				}
 			}
 
@@ -112,7 +124,8 @@ namespace GraphProcessor
 				}
 				else
 				{
-					Debug.LogWarning($"Edge {GUID} failed to deserialize due to invalid output port (fieldName: {outputFieldName}, id: {outputPortIdentifier})");
+					if (logWarnings)
+						Debug.LogWarning($"Edge {GUID} failed to deserialize due to invalid output port (fieldName: {outputFieldName}, id: {outputPortIdentifier})");
 				}
 			}
 

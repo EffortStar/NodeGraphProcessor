@@ -176,9 +176,7 @@ namespace GraphProcessor
 
 			foreach (EdgeView edgeView in elements.Where(e => e is EdgeView))
 				data.copiedEdges.Add(JsonSerializer.Serialize(edgeView.serializedEdge));
-
-			ClearSelection();
-
+			
 			return JsonUtility.ToJson(data, true);
 		}
 
@@ -196,6 +194,8 @@ namespace GraphProcessor
 
 		private void UnserializeAndPasteCallback(string operationName, string serializedData)
 		{
+			ClearSelection();
+			
 			RegisterCompleteObjectUndo(operationName);
 
 			var data = JsonUtility.FromJson<CopyPasteHelper>(serializedData);
@@ -260,11 +260,36 @@ namespace GraphProcessor
 			foreach (JsonElement serializedEdge in data.copiedEdges)
 			{
 				var edge = JsonSerializer.Deserialize<SerializableEdge>(serializedEdge);
+				
+				edge.Deserialize(false);
 
-				edge.Deserialize();
-
+				var retry = false;
+				if (edge.ToNode == null)
+				{
+					if (!copiedNodesMap.TryGetValue(edge.ToNodeGuid, out BaseNode node))
+						continue;
+					edge.ToNode = node;
+					retry = true;
+				}
+				
+				if (edge.FromNode == null)
+				{
+					if (!copiedNodesMap.TryGetValue(edge.FromNodeGuid, out BaseNode node))
+						continue;
+					edge.FromNode = node;
+					retry = true;
+				}
+				
+				if (retry)
+				{
+					edge.OnBeforeSerialize();
+					edge.Deserialize();
+				}
+				
 				if (edge.ToNode == null || edge.FromNode == null)
+				{
 					continue;
+				}
 
 				// Find port of new nodes:
 				copiedNodesMap.TryGetValue(edge.ToNode.GUID, out BaseNode oldInputNode);
