@@ -20,8 +20,8 @@ namespace GraphProcessor
 		[SerializeField] string inputNodeGUID;
 		[SerializeField] string outputNodeGUID;
 
-		public string FromNodeGuid => inputNodeGUID;
-		public string ToNodeGuid => outputNodeGUID;
+		public string FromNodeGuid => outputNodeGUID;
+		public string ToNodeGuid => inputNodeGUID;
 
 		/// <summary>
 		/// Formerly InputNode
@@ -52,7 +52,7 @@ namespace GraphProcessor
 		// Use to store the id of the field that generate multiple ports
 		public string inputPortIdentifier;
 		public string outputPortIdentifier;
-		
+
 		public static SerializableEdge CreateNewEdge(BaseGraph graph, NodePort fromPort, NodePort toPort)
 		{
 			return new SerializableEdge
@@ -130,6 +130,28 @@ namespace GraphProcessor
 			}
 
 			return result;
+		}
+
+		public void RemapNodes(BaseGraph graph, Dictionary<string, BaseNode> map)
+		{
+			owner = graph;
+			
+			var reserialize = false;
+			if (map.TryGetValue(ToNodeGuid, out BaseNode toNode))
+			{
+				inputNodeGUID = toNode.GUID;
+				reserialize = true;
+			}
+
+			if (map.TryGetValue(FromNodeGuid, out BaseNode fromNode))
+			{
+				outputNodeGUID = fromNode.GUID;
+				reserialize = true;
+			}
+
+			if (!reserialize)
+				return;
+			Deserialize(false);
 		}
 
 		public override string ToString() => $"{FromNode.name}:{FromPort.fieldName} -> {ToNode.name}:{ToPort.fieldName}";

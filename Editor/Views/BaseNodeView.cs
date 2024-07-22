@@ -15,7 +15,7 @@ using NodeView = UnityEditor.Experimental.GraphView.Node;
 namespace GraphProcessor
 {
 	[NodeCustomEditor(typeof(BaseNode))]
-	public class BaseNodeView : NodeView
+	public class BaseNodeView : NodeView, IPositionableView
 	{
 		public const string UssClassName = "node";
 		public const string IconUssClassName = UssClassName + "__icon";
@@ -1021,6 +1021,8 @@ namespace GraphProcessor
 			nodeTarget.position = newPos.position;
 			initializing = false;
 		}
+
+		public Vector2 GetElementPosition() => nodeTarget.position;
 
 		public override bool expanded
 		{

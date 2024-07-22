@@ -10,7 +10,7 @@ using UnityEditor;
 
 namespace GraphProcessor
 {
-	public class GroupView : GraphElement
+	public class GroupView : GraphElement, IPositionableView
 	{
 		public BaseGraphView Owner;
 		public Group Group;
@@ -25,12 +25,22 @@ namespace GraphProcessor
 		private bool _initializing;
 
 		private const string GroupStyle = "GraphProcessorStyles/GroupView";
+		private const float Padding = 12;
 
 		private static readonly Action<VisualElement, string> AddStyleSheetPath =
 			(Action<VisualElement, string>)Delegate.CreateDelegate(typeof(Action<VisualElement, string>),
 				typeof(VisualElement)
 					.GetMethod("AddStyleSheetPath", BindingFlags.NonPublic | BindingFlags.Instance)!
 			)!;
+
+		private float TitleHeight
+		{
+			get
+			{
+				float titleHeight = _titleEditor.parent.layout.height;
+				return float.IsNaN(titleHeight) ? 30 : titleHeight;
+			}
+		}
 
 		public override bool IsResizable() => panel != null;
 
@@ -50,6 +60,8 @@ namespace GraphProcessor
 
 		public GroupView()
 		{
+			// Set in code in addition to via style sheet to avoid this element re-parenting itself and becoming deselected when first added to graph.
+			layer = -500;
 			VisualElement mainContainer = ((VisualTreeAsset)EditorGUIUtility.Load("UXML/GraphView/Scope.uxml")).Instantiate();
 			mainContainer.AddToClassList("mainContainer");
 			AddStyleSheetPath.Invoke(this, "StyleSheets/GraphView/Scope.uss");
@@ -153,7 +165,13 @@ namespace GraphProcessor
 		private void BuildContextualMenu(ContextualMenuPopulateEvent evt)
 		{
 			evt.menu.ClearItems();
-			evt.menu.AppendAction("Delete Group", _ => Owner.RemoveElement(this));
+			evt.menu.AppendAction("Delete Group", _ => Owner.RemoveGroup(this));
+			evt.menu.AppendAction("Delete Group and Children", _ =>
+			{
+				foreach (BaseNodeView node in GetOverlappingNodes().ToArray())
+					Owner.RemoveNode(node.nodeTarget);
+				Owner.RemoveGroup(this);
+			});
 		}
 
 		public void Initialize(BaseGraphView graphView, Group block)
@@ -170,6 +188,27 @@ namespace GraphProcessor
 			_colorField.RegisterValueChangedCallback(e => UpdateGroupColor(e.newValue));
 			UpdateGroupColor(Group.color);
 			_headerContainer.Add(_colorField);
+		}
+
+		public override void Select(VisualElement selectionContainer, bool additive)
+		{
+			base.Select(selectionContainer, additive);
+
+			if (selectionContainer is not BaseGraphView view || !view.selection.Contains(this))
+				return;
+
+			foreach (BaseNodeView node in GetOverlappingNodes())
+				node.Select(selectionContainer, true);
+		}
+
+		private IEnumerable<BaseNodeView> GetOverlappingNodes()
+		{
+			Rect thisRect = RectUtils.Inflate(layout, -Padding, -(Padding + TitleHeight), -Padding, -Padding);
+			foreach (BaseNodeView node in Owner.nodeViews)
+			{
+				if (thisRect.Overlaps(node.layout))
+					yield return node;
+			}
 		}
 
 		public void UpdateGroupColor(Color newColor)
@@ -207,25 +246,24 @@ namespace GraphProcessor
 			Group.position = newPos;
 		}
 
+		public Vector2 GetElementPosition() => Group.position.position;
+
 		public void EncapsulateElement(VisualElement element)
 		{
 			Rect rect = element.layout;
-			float titleHeight = _titleEditor.parent.layout.height;
-			titleHeight = float.IsNaN(titleHeight) ? 10 : titleHeight;
-
 			if (Group.position == default)
 			{
-				Group.position.xMin = rect.xMin - 12;
-				Group.position.yMin = rect.yMin - 12 - titleHeight;
-				Group.position.xMax = rect.xMax + 12;
-				Group.position.yMax = rect.yMax + 12;
+				Group.position.xMin = rect.xMin - Padding;
+				Group.position.yMin = rect.yMin - Padding - TitleHeight;
+				Group.position.xMax = rect.xMax + Padding;
+				Group.position.yMax = rect.yMax + Padding;
 			}
 			else
 			{
-				Group.position.xMin = Mathf.Min(Group.position.x, rect.xMin - 12);
-				Group.position.yMin = Mathf.Min(Group.position.y, rect.yMin - 12 - titleHeight);
-				Group.position.xMax = Mathf.Max(Group.position.xMax, rect.xMax + 12);
-				Group.position.yMax = Mathf.Max(Group.position.yMax, rect.yMax + 12);
+				Group.position.xMin = Mathf.Min(Group.position.x, rect.xMin - Padding);
+				Group.position.yMin = Mathf.Min(Group.position.y, rect.yMin - Padding - TitleHeight);
+				Group.position.xMax = Mathf.Max(Group.position.xMax, rect.xMax + Padding);
+				Group.position.yMax = Mathf.Max(Group.position.yMax, rect.yMax + Padding);
 			}
 
 			SetPosition(Group.position);
@@ -244,7 +282,7 @@ namespace GraphProcessor
 
 				return !selection.Cast<GraphElement>().Any(ge => ge is not Edge && (ge == null || ge is GroupView || !ge.IsGroupable()));
 			}
-			
+
 			private bool CanAcceptDrop(IEnumerable<ISelectable> selection) => !selection.Cast<GraphElement>().Any(ge => ge is not Edge && (ge == null || ge is GroupView || !ge.IsGroupable()));
 
 			public bool DragLeave(DragLeaveEvent evt, IEnumerable<ISelectable> selection, IDropTarget leftTarget, ISelection dragSource)
@@ -265,7 +303,7 @@ namespace GraphProcessor
 			{
 				if (!_validDragging)
 					return false;
-				
+
 				RemoveFromClassList("dragEntered");
 				var group = GetFirstAncestorOfType<GroupView>();
 				group._initializing = true; // avoid undo
@@ -277,7 +315,7 @@ namespace GraphProcessor
 			{
 				if (!_validDragging)
 					return false;
-				
+
 				var group = parent.GetFirstAncestorOfType<GroupView>();
 
 				foreach (ISelectable selectable in selection)
@@ -299,7 +337,7 @@ namespace GraphProcessor
 			{
 				if (!_validDragging)
 					return false;
-				
+
 				var group = parent.GetFirstAncestorOfType<GroupView>();
 				var canDrop = false;
 
@@ -360,7 +398,6 @@ namespace GraphProcessor
 
 			internal void OnStartDragging(IMouseEvent evt, IEnumerable<GraphElement> elements)
 			{
-				
 			}
 		}
 

@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
+using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -11,8 +12,8 @@ namespace GraphProcessor
 	/// </summary>
 	internal sealed class PostPasteNodesManipulator : MouseManipulator
 	{
-		private readonly Dictionary<BaseNode, Vector2> _nodesOffsets;
-		private readonly BaseGraphView _view;
+		private readonly Dictionary<IPositionableView, Vector2> _elementOffsets;
+		private readonly BaseGraphView _graphView;
 		private readonly int _currentUndoGroup;
 
 		// Taken from SelectionDragger
@@ -25,40 +26,47 @@ namespace GraphProcessor
 		private Vector3 m_PanDiff = Vector3.zero;
 		private Vector3 m_ItemPanDiff = Vector3.zero;
 
-		public PostPasteNodesManipulator(BaseGraphView view, Dictionary<string, BaseNode> copiedNodes)
+		public PostPasteNodesManipulator(BaseGraphView graphView)
 		{
-			if (view.panel == null)
+			if (graphView.panel == null)
 				return;
 
-			_view = view;
-			_nodesOffsets = new Dictionary<BaseNode, Vector2>();
-			Vector2 min = copiedNodes.Select(kvp => kvp.Value).Aggregate(new Vector2(float.PositiveInfinity, float.PositiveInfinity), (vector2, node) =>
-				new Vector2(Mathf.Min(vector2.x, node.position.x), Mathf.Min(vector2.y, node.position.y))
-			);
-			foreach ((_, BaseNode value) in copiedNodes)
+			_graphView = graphView;
+			_elementOffsets = new Dictionary<IPositionableView, Vector2>();
+			Vector2 min = graphView.selection
+				.OfType<IPositionableView>()
+				.Aggregate(new Vector2(float.PositiveInfinity, float.PositiveInfinity),
+					(vector2, view) =>
+					{
+						Vector2 position = view.GetElementPosition();
+						return new Vector2(Mathf.Min(vector2.x, position.x), Mathf.Min(vector2.y, position.y));
+					});
+			
+			foreach (IPositionableView view in graphView.selection
+				         .OfType<IPositionableView>())
 			{
-				_nodesOffsets.Add(value, value.position - min);
+				_elementOffsets.Add(view, view.GetElementPosition() - min);
 			}
 
 			_currentUndoGroup = Undo.GetCurrentGroup();
 
-			_panSchedule = view.schedule.Execute(Pan).Every(k_PanInterval).StartingIn(k_PanInterval);
+			_panSchedule = graphView.schedule.Execute(Pan).Every(k_PanInterval).StartingIn(k_PanInterval);
 			_panSchedule.Pause();
 		}
-		
+
 		internal Vector2 GetEffectivePanSpeed(Vector2 mousePos)
 		{
 			Vector2 effectiveSpeed = Vector2.zero;
 
 			if (mousePos.x <= k_PanAreaWidth)
 				effectiveSpeed.x = -((k_PanAreaWidth - mousePos.x) / k_PanAreaWidth + 0.5f) * k_PanSpeed;
-			else if (mousePos.x >= _view.contentContainer.layout.width - k_PanAreaWidth)
-				effectiveSpeed.x = ((mousePos.x - (_view.contentContainer.layout.width - k_PanAreaWidth)) / k_PanAreaWidth + 0.5f) * k_PanSpeed;
+			else if (mousePos.x >= _graphView.contentContainer.layout.width - k_PanAreaWidth)
+				effectiveSpeed.x = ((mousePos.x - (_graphView.contentContainer.layout.width - k_PanAreaWidth)) / k_PanAreaWidth + 0.5f) * k_PanSpeed;
 
 			if (mousePos.y <= k_PanAreaWidth)
 				effectiveSpeed.y = -((k_PanAreaWidth - mousePos.y) / k_PanAreaWidth + 0.5f) * k_PanSpeed;
-			else if (mousePos.y >= _view.contentContainer.layout.height - k_PanAreaWidth)
-				effectiveSpeed.y = ((mousePos.y - (_view.contentContainer.layout.height - k_PanAreaWidth)) / k_PanAreaWidth + 0.5f) * k_PanSpeed;
+			else if (mousePos.y >= _graphView.contentContainer.layout.height - k_PanAreaWidth)
+				effectiveSpeed.y = ((mousePos.y - (_graphView.contentContainer.layout.height - k_PanAreaWidth)) / k_PanAreaWidth + 0.5f) * k_PanSpeed;
 
 			effectiveSpeed = Vector2.ClampMagnitude(effectiveSpeed, k_MaxPanSpeed);
 
@@ -73,7 +81,7 @@ namespace GraphProcessor
 				return;
 			}
 
-			_view.RegisterCallback<MouseLeaveEvent>(RemoveManipulator);
+			_graphView.RegisterCallback<MouseLeaveEvent>(RemoveManipulator);
 			target.RegisterCallback<MouseUpEvent>(RemoveManipulator);
 			target.RegisterCallback<DetachFromPanelEvent>(RemoveManipulator);
 			target.RegisterCallback<MouseMoveEvent>(OnMouseMove);
@@ -86,7 +94,7 @@ namespace GraphProcessor
 
 		private void OnMouseMove(MouseMoveEvent evt)
 		{
-			Vector2 gvMousePos = target.ChangeCoordinatesTo(_view.contentContainer, evt.localMousePosition);
+			Vector2 gvMousePos = target.ChangeCoordinatesTo(_graphView.contentContainer, evt.localMousePosition);
 
 			m_PanDiff = GetEffectivePanSpeed(gvMousePos);
 			if (m_PanDiff != Vector3.zero)
@@ -97,19 +105,21 @@ namespace GraphProcessor
 			{
 				_panSchedule.Pause();
 			}
-			
-			foreach ((BaseNode key, Vector2 value) in _nodesOffsets)
+
+			foreach ((IPositionableView key, Vector2 value) in _elementOffsets)
 			{
-				_view.nodeViewsPerNode[key].SetPosition(evt.localMousePosition + value);
+				Rect position = key.GetPosition();
+				position.position = evt.localMousePosition + value;
+				key.SetPosition(position);
 			}
 
 			Undo.CollapseUndoOperations(_currentUndoGroup);
 			evt.StopImmediatePropagation();
 		}
-		
+
 		private void Pan(TimerState ts)
 		{
-			_view.viewTransform.position -= m_PanDiff;
+			_graphView.viewTransform.position -= m_PanDiff;
 			m_ItemPanDiff += m_PanDiff;
 		}
 
@@ -153,14 +163,14 @@ namespace GraphProcessor
 
 				if (m_ItemPanDiff != Vector3.zero)
 				{
-					Vector3 p = _view.contentViewContainer.transform.position;
-					Vector3 s = _view.contentViewContainer.transform.scale;
-					_view.UpdateViewTransform(p, s);
+					Vector3 p = _graphView.contentViewContainer.transform.position;
+					Vector3 s = _graphView.contentViewContainer.transform.scale;
+					_graphView?.UpdateViewTransform(p, s);
 				}
 			}
-			
+
 			target.ReleaseMouse();
-			_view.UnregisterCallback<MouseLeaveEvent>(RemoveManipulator);
+			_graphView?.UnregisterCallback<MouseLeaveEvent>(RemoveManipulator);
 			target.UnregisterCallback<MouseUpEvent>(RemoveManipulator);
 			target.UnregisterCallback<DetachFromPanelEvent>(RemoveManipulator);
 			target.UnregisterCallback<MouseMoveEvent>(OnMouseMove);

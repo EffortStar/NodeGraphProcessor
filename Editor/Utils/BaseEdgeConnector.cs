@@ -85,7 +85,7 @@ namespace GraphProcessor
 
             mouseDownPosition = e.localMousePosition;
 
-            edgeCandidate = graphView != null ? graphView.CreateEdgeView() : new EdgeView();
+            edgeCandidate = new EdgeView();
             edgeDragHelper.draggedPort = graphElement;
             edgeDragHelper.edgeCandidate = edgeCandidate;
 
