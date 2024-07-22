@@ -8,6 +8,7 @@ using System;
 using UnityEditor.SceneManagement;
 using System.Reflection;
 using JetBrains.Annotations;
+using UnityEditor.UIElements;
 using Status = UnityEngine.UIElements.DropdownMenuAction.Status;
 using Object = UnityEngine.Object;
 
@@ -18,6 +19,8 @@ namespace GraphProcessor
 	/// </summary>
 	public class BaseGraphView : GraphView, IDisposable
 	{
+		private const string CreateSubgraphKey = "create subgraph";
+
 		/// <summary>
 		/// Graph that owns of the node
 		/// </summary>
@@ -135,6 +138,8 @@ namespace GraphProcessor
 
 			createNodeMenu = ScriptableObject.CreateInstance<CreateNodeMenuWindow>();
 			createNodeMenu.Initialize(this, window);
+			
+			hierarchy.Add(new Toolbar { name = "graph-view-toolbar" });
 		}
 
 		protected virtual NodeInspectorObject CreateNodeInspectorObject()
@@ -158,7 +163,7 @@ namespace GraphProcessor
 		{
 			var data = new CopyPasteHelper();
 
-			foreach (BaseNodeView nodeView in elements.Where(e => e is BaseNodeView))
+			foreach (BaseNodeView nodeView in elements.OfType<BaseNodeView>())
 			{
 				data.copiedNodes.Add(JsonSerializer.SerializeNode(nodeView.nodeTarget));
 				foreach (NodePort port in nodeView.nodeTarget.AllPorts)
@@ -171,12 +176,12 @@ namespace GraphProcessor
 				}
 			}
 
-			foreach (GroupView groupView in elements.Where(e => e is GroupView))
-				data.copiedGroups.Add(JsonSerializer.Serialize(groupView.group));
+			foreach (GroupView groupView in elements.OfType<GroupView>())
+				data.copiedGroups.Add(JsonSerializer.Serialize(groupView.Group));
 
-			foreach (EdgeView edgeView in elements.Where(e => e is EdgeView))
+			foreach (EdgeView edgeView in elements.OfType<EdgeView>())
 				data.copiedEdges.Add(JsonSerializer.Serialize(edgeView.serializedEdge));
-			
+
 			return JsonUtility.ToJson(data, true);
 		}
 
@@ -194,15 +199,15 @@ namespace GraphProcessor
 
 		private void UnserializeAndPasteCallback(string operationName, string serializedData)
 		{
+			bool offset = operationName != CreateSubgraphKey;
+
 			ClearSelection();
-			
+
 			RegisterCompleteObjectUndo(operationName);
 
 			var data = JsonUtility.FromJson<CopyPasteHelper>(serializedData);
 
 			Dictionary<string, BaseNode> copiedNodesMap = _lastCopiedNodesMap = new Dictionary<string, BaseNode>();
-
-			List<Group> unserializedGroups = data.copiedGroups.Select(g => JsonSerializer.Deserialize<Group>(g)).ToList();
 
 			foreach (JsonElement serializedNode in data.copiedNodes)
 			{
@@ -215,10 +220,10 @@ namespace GraphProcessor
 				graph.nodesPerGUID.TryGetValue(sourceGUID, out BaseNode sourceNode);
 				//Call OnNodeCreated on the new fresh copied node
 				node.createdFromDuplication = true;
-				node.createdWithinGroup = unserializedGroups.Any(g => g.innerNodeGUIDs.Contains(sourceGUID));
 				node.OnNodeCreated();
-				//And move a bit the new node
-				node.position += new Vector2(20, 20);
+
+				if (offset)
+					node.position += new Vector2(20, 20);
 
 				AddNode(node);
 
@@ -228,102 +233,45 @@ namespace GraphProcessor
 				AddToSelection(nodeViewsPerNode[node]);
 			}
 
-			foreach (Group group in unserializedGroups)
+			foreach (Group group in data.copiedGroups.Select(JsonSerializer.Deserialize<Group>))
 			{
-				//Same than for node
-				group.OnCreated();
-
-				// try to centre the created node in the screen
-				group.position.position += new Vector2(20, 20);
-
-				List<string> oldGuidList = group.innerNodeGUIDs.ToList();
-				group.innerNodeGUIDs.Clear();
-				foreach (string guid in oldGuidList)
-				{
-					graph.nodesPerGUID.TryGetValue(guid, out BaseNode node);
-
-					// In case group was copied from another graph
-					if (node == null)
-					{
-						copiedNodesMap.TryGetValue(guid, out node);
-						group.innerNodeGUIDs.Add(node.GUID);
-					}
-					else
-					{
-						group.innerNodeGUIDs.Add(copiedNodesMap[guid].GUID);
-					}
-				}
-
-				AddGroup(group);
+				if (offset)
+					group.position.position += new Vector2(20, 20);
+				GroupView groupView = AddGroup(group);
+				AddToSelection(groupView);
 			}
 
 			foreach (JsonElement serializedEdge in data.copiedEdges)
 			{
 				var edge = JsonSerializer.Deserialize<SerializableEdge>(serializedEdge);
-				
-				edge.Deserialize(false);
 
-				var retry = false;
-				if (edge.ToNode == null)
-				{
-					if (!copiedNodesMap.TryGetValue(edge.ToNodeGuid, out BaseNode node))
-						continue;
-					edge.ToNode = node;
-					retry = true;
-				}
-				
-				if (edge.FromNode == null)
-				{
-					if (!copiedNodesMap.TryGetValue(edge.FromNodeGuid, out BaseNode node))
-						continue;
-					edge.FromNode = node;
-					retry = true;
-				}
-				
-				if (retry)
-				{
-					edge.OnBeforeSerialize();
-					edge.Deserialize();
-				}
-				
-				if (edge.ToNode == null || edge.FromNode == null)
+				edge.Deserialize(false);
+				edge.RemapNodes(graph, copiedNodesMap);
+				if (edge.ToNode == null || edge.FromNode == null ||
+				    // Logic to protect SubGraphs.
+				    !graph.nodesPerGUID.ContainsKey(edge.ToNode.GUID) || !graph.nodesPerGUID.ContainsKey(edge.FromNode.GUID))
 				{
 					continue;
 				}
-
-				// Find port of new nodes:
-				copiedNodesMap.TryGetValue(edge.ToNode.GUID, out BaseNode oldInputNode);
-				copiedNodesMap.TryGetValue(edge.FromNode.GUID, out BaseNode oldOutputNode);
 
 				// We avoid to break the graph by replacing unique connections:
-				if (oldInputNode == null && !edge.ToPort.portData.acceptMultipleEdges || !edge.FromPort.portData.acceptMultipleEdges)
-					continue;
-
-				oldInputNode ??= edge.ToNode;
-				oldOutputNode ??= edge.FromNode;
-
-				NodePort inputPort = oldInputNode.GetPort(edge.ToPort.fieldName, edge.inputPortIdentifier);
-				NodePort outputPort = oldOutputNode.GetPort(edge.FromPort.fieldName, edge.outputPortIdentifier);
-
-				var newEdge = SerializableEdge.CreateNewEdge(graph, outputPort, inputPort);
-
-				if (nodeViewsPerNode.ContainsKey(oldInputNode) && nodeViewsPerNode.ContainsKey(oldOutputNode))
+				if (edge.ToPort.GetEdges().Count > 0 && !edge.ToPort.portData.acceptMultipleEdges ||
+				    edge.FromPort.GetEdges().Count > 0 && !edge.FromPort.portData.acceptMultipleEdges)
 				{
-					EdgeView edgeView = CreateEdgeView();
-					edgeView.userData = newEdge;
-					edgeView.input = nodeViewsPerNode[oldInputNode].GetPortViewFromFieldName(newEdge.inputFieldName, newEdge.inputPortIdentifier);
-					edgeView.output = nodeViewsPerNode[oldOutputNode].GetPortViewFromFieldName(newEdge.outputFieldName, newEdge.outputPortIdentifier);
-
-					Connect(edgeView);
+					continue;
 				}
-			}
-			
-			contentViewContainer.AddManipulator(new PostPasteNodesManipulator(this, copiedNodesMap));
-		}
 
-		public virtual EdgeView CreateEdgeView()
-		{
-			return new EdgeView();
+				EdgeView edgeView = new()
+				{
+					userData = edge,
+					input = nodeViewsPerNode[edge.ToNode].GetPortViewFromFieldName(edge.inputFieldName, edge.inputPortIdentifier),
+					output = nodeViewsPerNode[edge.FromNode].GetPortViewFromFieldName(edge.outputFieldName, edge.outputPortIdentifier)
+				};
+
+				Connect(edgeView);
+			}
+
+			contentViewContainer.AddManipulator(new PostPasteNodesManipulator(this));
 		}
 
 		private GraphViewChange GraphViewChangedCallback(GraphViewChange changes)
@@ -367,7 +315,7 @@ namespace GraphProcessor
 							SyncSerializedPropertyPaths();
 							return true;
 						case GroupView group:
-							graph.RemoveGroup(group.group);
+							graph.RemoveGroup(group.Group);
 							UpdateSerializedProperties();
 							RemoveElement(group);
 							return true;
@@ -408,6 +356,16 @@ namespace GraphProcessor
 				RemoveRelayIfRequiredAfterDelay(changes.removedEdge.ToNode);
 			}
 
+			if (changes.removedGroups != null)
+			{
+				GroupView view = groupViews.FirstOrDefault(g => g.Group == changes.removedGroups);
+				if (view != null)
+				{
+					RemoveElement(view);
+					groupViews.Remove(view);
+				}
+			}
+
 			return;
 
 			void RemoveRelayIfRequiredAfterDelay(BaseNode node)
@@ -445,10 +403,8 @@ namespace GraphProcessor
 
 		private void ElementResizedCallback(VisualElement elem)
 		{
-			var groupView = elem as GroupView;
-
-			if (groupView != null)
-				groupView.group.size = groupView.GetPosition().size;
+			if (elem is GroupView groupView)
+				groupView.Group.position.size = groupView.GetPosition().size;
 		}
 
 		public override List<Port> GetCompatiblePorts(Port startPort, NodeAdapter nodeAdapter)
@@ -504,7 +460,7 @@ namespace GraphProcessor
 			if (menuPosition == -1)
 				menuPosition = evt.menu.MenuItems().Count;
 			Vector2 position = (evt.currentTarget as VisualElement).ChangeCoordinatesTo(contentViewContainer, evt.localMousePosition);
-			evt.menu.InsertAction(menuPosition, "Create Group", e => AddSelectionsToGroup(AddGroup(new Group("Create Group", position))), DropdownMenuAction.AlwaysEnabled);
+			evt.menu.InsertAction(menuPosition, "Create Group", e => AddSelectionsToGroup(AddGroup(new Group("New Group", position))), DropdownMenuAction.AlwaysEnabled);
 		}
 
 		/// <summary>
@@ -580,12 +536,21 @@ namespace GraphProcessor
 
 		protected virtual void KeyDownCallback(KeyDownEvent e)
 		{
-			if (e.keyCode == KeyCode.S && e.commandKey)
+			if (e.keyCode == KeyCode.LeftControl)
+				return;
+
+			if (e.keyCode == KeyCode.S && (e.commandKey || e.ctrlKey))
 			{
 				SaveGraphToDisk();
 				e.StopPropagation();
 			}
-			else if (nodeViews.Count > 0 && e.commandKey && e.altKey)
+
+			if (e.keyCode == KeyCode.G && (e.commandKey || e.ctrlKey))
+			{
+				AddSelectionsToGroup(AddGroup(new Group("New Group")));
+				e.StopPropagation();
+			}
+			else if (nodeViews.Count > 0 && (e.commandKey || e.ctrlKey) && e.altKey)
 			{
 				//	Node Aligning shortcuts
 				switch (e.keyCode)
@@ -900,7 +865,7 @@ namespace GraphProcessor
 				if (graph.GetSubgraphParameterFromGUID(parameter.parameterGUID) == null)
 					RemoveNode(node);
 			}
-			
+
 			UpdateSerializedProperties();
 			onSubgraphParameterListChanged?.Invoke();
 		}
@@ -927,10 +892,12 @@ namespace GraphProcessor
 				if (inputNodeView == null || outputNodeView == null)
 					continue;
 
-				EdgeView edgeView = CreateEdgeView();
-				edgeView.userData = serializedEdge;
-				edgeView.input = inputNodeView.GetPortViewFromFieldName(serializedEdge.inputFieldName, serializedEdge.inputPortIdentifier);
-				edgeView.output = outputNodeView.GetPortViewFromFieldName(serializedEdge.outputFieldName, serializedEdge.outputPortIdentifier);
+				EdgeView edgeView = new()
+				{
+					userData = serializedEdge,
+					input = inputNodeView.GetPortViewFromFieldName(serializedEdge.inputFieldName, serializedEdge.inputPortIdentifier),
+					output = outputNodeView.GetPortViewFromFieldName(serializedEdge.outputFieldName, serializedEdge.outputPortIdentifier)
+				};
 
 
 				ConnectView(edgeView);
@@ -1067,23 +1034,25 @@ namespace GraphProcessor
 			pinnedElements.Clear();
 		}
 
-		public GroupView AddGroup(Group block)
+		public GroupView AddGroup(Group group)
 		{
-			graph.AddGroup(block);
-			block.OnCreated();
-			return AddGroupView(block);
+			graph.AddGroup(group);
+			return AddGroupView(group);
 		}
 
-		public GroupView AddGroupView(Group block)
+		public GroupView AddGroupView(Group group)
 		{
-			var c = new GroupView();
+			var groupView = new GroupView();
+			AddElement(groupView);
+			groupView.Initialize(this, group);
+			groupViews.Add(groupView);
+			return groupView;
+		}
 
-			c.Initialize(this, block);
-
-			AddElement(c);
-
-			groupViews.Add(c);
-			return c;
+		public void RemoveGroup(GroupView group)
+		{
+			RemoveElement(group);
+			graph.RemoveGroup(group.Group);
 		}
 
 		public BaseStackNodeView AddStackNode(BaseStackNode stackNode)
@@ -1149,10 +1118,10 @@ namespace GraphProcessor
 			foreach (ISelectable selectedNode in selection)
 			{
 				if (selectedNode is not BaseNodeView node) continue;
-				if (groupViews.Exists(x => x.ContainsElement(selectedNode as BaseNodeView))) continue;
-
-				view.AddElement(node);
+				view.EncapsulateElement(node);
 			}
+
+			view.EnsureMinSize();
 		}
 
 		public void RemoveGroups()
@@ -1174,6 +1143,14 @@ namespace GraphProcessor
 			{
 				Debug.LogError("Connect aborted !");
 				return false;
+			}
+			
+			foreach (EdgeView edgeView in inputPortView.GetEdges())
+			{
+				if (edgeView.output == outputPortView)
+				{
+					return false;
+				}
 			}
 
 			return true;
@@ -1243,10 +1220,12 @@ namespace GraphProcessor
 
 			var newEdge = SerializableEdge.CreateNewEdge(graph, fromPort, toPort);
 
-			EdgeView edgeView = CreateEdgeView();
-			edgeView.userData = newEdge;
-			edgeView.output = fromPortView;
-			edgeView.input = toPortView;
+			EdgeView edgeView = new()
+			{
+				userData = newEdge,
+				output = fromPortView,
+				input = toPortView
+			};
 			return Connect(edgeView);
 		}
 
@@ -1457,6 +1436,7 @@ namespace GraphProcessor
 		private void CreateSubgraph()
 		{
 			HashSet<BaseNodeView> viewsInSubgraph = selection.OfType<BaseNodeView>().ToHashSet();
+			List<GroupView> groupsInSubgraph = selection.OfType<GroupView>().ToList();
 			HashSet<BaseNode> inSubgraph = viewsInSubgraph.Select(v => v.nodeTarget).ToHashSet();
 
 			string assetPath = AssetDatabase.GetAssetPath(graph);
@@ -1540,7 +1520,7 @@ namespace GraphProcessor
 					if (!thisType.IsSubclassOf(requirement))
 						requirement = null; // Ignore any types which are not superclasses of this graph.
 				}
-				
+
 				graphType = GetMostSpecific(requirement, graphType);
 
 				continue;
@@ -1551,7 +1531,7 @@ namespace GraphProcessor
 					if (a == b) return a;
 					return a.IsSubclassOf(b) ? b : a;
 				}
-				
+
 				Type GetMostSpecific([CanBeNull] Type a, Type b)
 				{
 					if (a == null) return b;
@@ -1567,7 +1547,7 @@ namespace GraphProcessor
 			subgraphNodeView.Initialize(subgraph);
 
 			// Paste the subgraph into the asset.
-			subgraphNodeView.UnserializeAndPasteOperation("create subgraph", copy);
+			subgraphNodeView.UnserializeAndPasteOperation(CreateSubgraphKey, copy);
 
 			Dictionary<PortView, string> parameterLookup = new();
 			Dictionary<PortView, Vector2> positionLookup = new();
@@ -1656,6 +1636,9 @@ namespace GraphProcessor
 			// Delete and disconnect all the nodes that have become a part of the subgraph.
 			foreach (BaseNode node in inSubgraph)
 				RemoveNode(node);
+
+			foreach (GroupView groupView in groupsInSubgraph)
+				RemoveGroup(groupView);
 		}
 
 		private void UnpackSubgraph()

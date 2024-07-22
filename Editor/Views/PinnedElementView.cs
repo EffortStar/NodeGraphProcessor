@@ -1,7 +1,6 @@
 using UnityEditor.Experimental.GraphView;
 using UnityEngine.UIElements;
 using UnityEngine;
-using System;
 
 namespace GraphProcessor
 {

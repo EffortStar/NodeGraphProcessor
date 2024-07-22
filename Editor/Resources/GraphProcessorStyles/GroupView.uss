@@ -1,9 +1,32 @@
 #headerColorPicker {
     position: absolute;
-    margin: 8px;
+    margin: 6px 4px;
     width: 50px;
 }
 
-#titleContainer > #titleLabel, #titleContainer > #titleField {
+.group > .mainContainer > #headerContainer > #titleContainer {
     margin-left: 55px;
+}
+
+.resizer {
+    cursor: resize-up-left;
+}
+
+.resizer > * {
+    visibility: hidden;
+}
+
+.mainContainer,
+#centralContainer,
+#contentContainerPlaceholder {
+    flex-grow: 1;
+}
+
+.scope > .mainContainer > #centralContainer > #contentContainerPlaceholder {
+    padding: 12px;
+}
+
+.group.group--dark-title > .mainContainer > #headerContainer > #titleContainer > #titleField,
+.group.group--dark-title > .mainContainer > #headerContainer > #titleContainer > #titleLabel {
+    color: black;
 }

@@ -1,11 +1,17 @@
 #graphRootView
 {
     background-color: #101010;
-    flex-direction: column-reverse;
 }
 
 .graphView {
     flex-grow: 1;
+}
+
+#graph-view-toolbar {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
 }
 
 .icon-badge {
