@@ -9,11 +9,73 @@
 }
 
 .resizer {
-    cursor: resize-up-left;
+    position: absolute;
+    padding: 0;
+    width: 10px;
+    height: 10px;
 }
 
-.resizer > * {
-    visibility: hidden;
+.resizer.resizer--right,
+.resizer.resizer--left {
+    cursor: resize-horizontal;
+    top: 10px;
+    bottom: 10px;
+    height: auto;
+}
+
+.resizer.resizer--bottom,
+.resizer.resizer--top {
+    cursor: resize-vertical;
+    right: 10px;
+    left: 10px;
+    width: auto;
+}
+
+.resizer.resizer--right {
+    right: 0;
+    left: auto;
+}
+
+.resizer.resizer--left {
+    left: 0;
+    right: auto;
+}
+
+.resizer.resizer--bottom-right {
+    cursor: resize-up-left;
+    right: 0;
+    left: auto;
+}
+
+.resizer.resizer--bottom-left {
+    cursor: resize-up-right;
+    left: 0;
+    right: auto;
+}
+
+.resizer.resizer--top-right {
+    cursor: resize-up-right;
+    right: 0;
+    top: 0;
+    left: auto;
+}
+
+.resizer.resizer--top-left {
+    cursor: resize-up-left;
+    left: 0;
+    top: 0;
+    right: auto;
+}
+
+.resizer.resizer--top {
+    top: 0;
+    bottom: auto;
+    height: 5px;
+}
+
+.resizer.resizer--bottom {
+    bottom: 0;
+    top: auto;
 }
 
 .mainContainer,

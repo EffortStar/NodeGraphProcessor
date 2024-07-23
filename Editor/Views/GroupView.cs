@@ -64,14 +64,18 @@ namespace GraphProcessor
 			layer = -500;
 			VisualElement mainContainer = ((VisualTreeAsset)EditorGUIUtility.Load("UXML/GraphView/Scope.uxml")).Instantiate();
 			mainContainer.AddToClassList("mainContainer");
+			mainContainer.pickingMode = PickingMode.Ignore;
 			AddStyleSheetPath.Invoke(this, "StyleSheets/GraphView/Scope.uss");
 
 			VisualElement titleContainer = ((VisualTreeAsset)EditorGUIUtility.Load("UXML/GraphView/GroupTitle.uxml")).Instantiate();
 			AddStyleSheetPath.Invoke(this, "StyleSheets/GraphView/Group.uss");
 
-			_dropArea = new GroupDropArea();
+			_dropArea = new GroupDropArea
+			{
+				pickingMode = PickingMode.Ignore,
+				name = "dropArea"
+			};
 			_dropArea.ClearClassList();
-			_dropArea.name = "dropArea";
 
 			titleContainer.name = "titleContainer";
 			_headerContainer = mainContainer.Q(name: "headerContainer");
@@ -102,14 +106,20 @@ namespace GraphProcessor
 			RegisterCallback<MouseDownEvent>(OnMouseDownEvent);
 
 			styleSheets.Add(Resources.Load<StyleSheet>(GroupStyle));
-			var resizer = new Resizer(new Vector2(200, 100), OnResizedCallback);
-			hierarchy.Add(resizer);
-			VisualElement resizerIcon = resizer[0];
-			resizerIcon.pickingMode = PickingMode.Ignore;
+			AddResizer(BetterResizer.Direction.BottomRight);
+			AddResizer(BetterResizer.Direction.TopRight);
+			AddResizer(BetterResizer.Direction.BottomLeft);
+			AddResizer(BetterResizer.Direction.TopLeft);
+			AddResizer(BetterResizer.Direction.Top);
+			AddResizer(BetterResizer.Direction.Right);
+			AddResizer(BetterResizer.Direction.Left);
+			AddResizer(BetterResizer.Direction.Bottom);
 
 			style.overflow = Overflow.Hidden;
 			style.position = Position.Absolute;
 		}
+
+		private void AddResizer(BetterResizer.Direction direction) => hierarchy.Add(new BetterResizer(new Vector2(200, 100), direction));
 
 		private void TitleEditorOnKeyDown(KeyDownEvent e)
 		{
@@ -190,15 +200,10 @@ namespace GraphProcessor
 			_headerContainer.Add(_colorField);
 		}
 
-		public override void Select(VisualElement selectionContainer, bool additive)
+		public override void OnSelected()
 		{
-			base.Select(selectionContainer, additive);
-
-			if (selectionContainer is not BaseGraphView view || !view.selection.Contains(this))
-				return;
-
 			foreach (BaseNodeView node in GetOverlappingNodes())
-				node.Select(selectionContainer, true);
+				Owner.AddToSelection(node);
 		}
 
 		private IEnumerable<BaseNodeView> GetOverlappingNodes()
@@ -232,9 +237,7 @@ namespace GraphProcessor
 				return Mathf.Pow(y, 1 / 3f) * 116 - 16;
 			}
 		}
-
-		private void OnResizedCallback() => Group.position = GetPosition();
-
+		
 		public override void SetPosition(Rect newPos)
 		{
 			base.SetPosition(newPos);
@@ -269,7 +272,38 @@ namespace GraphProcessor
 			SetPosition(Group.position);
 		}
 
-		internal class GroupDropArea : VisualElement, IDropTarget
+		public void EnsureMinSize()
+		{
+			Rect position = GetPosition();
+			if (position.width < 150 || position.height < 100)
+			{
+				position.width = Mathf.Max(150, position.width);
+				position.height = Mathf.Max(100, position.height);
+				SetPosition(position);
+			}
+		}
+		
+		/// <summary>
+		/// Overrides picking behaviour to only allow selection within the title.
+		/// </summary>
+		public override bool HitTest(Vector2 localPoint)
+		{
+			if (!base.ContainsPoint(localPoint))
+				return false;
+			return localPoint.y <= TitleHeight;
+		}
+
+		/// <summary>
+		/// Overrides picking behaviour to only allow selection within the title.
+		/// </summary>
+		public override bool Overlaps(Rect rectangle)
+		{
+			if (!base.Overlaps(rectangle))
+				return false;
+			return rectangle.y <= TitleHeight;
+		}
+
+		private class GroupDropArea : VisualElement, IDropTarget
 		{
 			private Rect _startRect;
 			private Rect? _expandedOnceRect;
@@ -398,17 +432,6 @@ namespace GraphProcessor
 
 			internal void OnStartDragging(IMouseEvent evt, IEnumerable<GraphElement> elements)
 			{
-			}
-		}
-
-		public void EnsureMinSize()
-		{
-			Rect position = GetPosition();
-			if (position.width < 150 || position.height < 100)
-			{
-				position.width = Mathf.Max(150, position.width);
-				position.height = Mathf.Max(100, position.height);
-				SetPosition(position);
 			}
 		}
 	}

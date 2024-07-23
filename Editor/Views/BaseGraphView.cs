@@ -916,7 +916,10 @@ namespace GraphProcessor
 		private void InitializeGroups()
 		{
 			foreach (Group group in graph.groups)
-				AddGroupView(group);
+			{
+				GroupView view = AddGroupView(group);
+				view.EnsureMinSize();
+			}
 		}
 
 		private void InitializeStickyNotes()
