@@ -72,7 +72,6 @@ namespace GraphProcessor
 
 			_dropArea = new GroupDropArea
 			{
-				pickingMode = PickingMode.Ignore,
 				name = "dropArea"
 			};
 			_dropArea.ClearClassList();
