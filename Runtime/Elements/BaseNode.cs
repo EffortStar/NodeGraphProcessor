@@ -167,9 +167,14 @@ namespace GraphProcessor
 			var node = (BaseNode)Activator.CreateInstance(nodeType);
 
 			node.position = position;
-
-			ExceptionToLog.Call(() => node.OnNodeCreated());
-
+			try
+			{
+				node.OnNodeCreated();
+			}
+			catch (Exception e)
+			{
+				Debug.LogException(e);
+			}
 			return node;
 		}
 
@@ -184,10 +189,17 @@ namespace GraphProcessor
 		// called by the BaseGraph when the node is added to the graph
 		public void Initialize(BaseGraph graph)
 		{
-			this.graph = graph;
-			ExceptionToLog.Call(Enable);
-
-			InitializePorts();
+			try
+			{
+				this.graph = graph;
+				Enable();
+				InitializePorts();
+			}
+			catch (Exception e)
+			{
+				Debug.LogError($"Error while processing \"{this}\".");
+				Debug.LogException(e);
+			}
 		}
 
 		/// <summary>
@@ -452,7 +464,17 @@ namespace GraphProcessor
 			return changed;
 		}
 
-		internal void DestroyInternal() => ExceptionToLog.Call(Destroy);
+		internal void DestroyInternal()
+		{
+			try
+			{
+				Destroy();
+			}
+			catch (Exception e)
+			{
+				Debug.LogException(e);
+			}
+		}
 
 		/// <summary>
 		/// Called only when the node is created, not when instantiated
@@ -566,7 +588,15 @@ namespace GraphProcessor
 		{
 			inputPorts.PullDatas();
 
-			ExceptionToLog.Call(Process);
+			try
+			{
+				Process();
+			}
+			catch (Exception e)
+			{
+				Debug.LogError($"Error while processing \"{this}\".");
+				Debug.LogException(e);
+			}
 
 			outputPorts.PushDatas();
 		}

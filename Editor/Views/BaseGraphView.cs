@@ -305,7 +305,15 @@ namespace GraphProcessor
 										Disconnect(edge);
 
 							nodeInspector.NodeViewRemoved(nodeView);
-							ExceptionToLog.Call(() => nodeView.OnRemoved());
+							try
+							{
+								nodeView.OnRemoved();
+							}
+							catch (Exception ex)
+							{
+								Debug.LogException(ex);
+							}
+
 							graph.RemoveNode(nodeView.nodeTarget);
 							UpdateSerializedProperties();
 							RemoveElement(nodeView);
@@ -978,7 +986,15 @@ namespace GraphProcessor
 			BaseNodeView view = AddNodeView(node);
 
 			// Call create after the node have been initialized
-			ExceptionToLog.Call(() => view.OnCreated());
+			try
+			{
+				view.OnCreated();
+			}
+			catch (Exception e)
+			{
+				Debug.LogException(e);
+			}
+
 			return view;
 		}
 

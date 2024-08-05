@@ -128,11 +128,18 @@ namespace GraphProcessor
 			InitializePorts();
 			InitializeDebug();
 
-			// If the standard Enable method is still overwritten, we call it
-			if (GetType().GetMethod(nameof(Enable), new Type[] { })?.DeclaringType != typeof(BaseNodeView))
-				ExceptionToLog.Call(() => Enable());
-			else
-				ExceptionToLog.Call(() => Enable(false));
+			try
+			{
+				// If the standard Enable method is still overwritten, we call it
+				if (GetType().GetMethod(nameof(Enable), new Type[] { })?.DeclaringType != typeof(BaseNodeView))
+					Enable();
+				else
+					Enable(false);
+			}
+			catch (Exception e)
+			{
+				Debug.LogException(e);
+			}
 
 			InitializeSettings();
 
@@ -141,7 +148,17 @@ namespace GraphProcessor
 			RefreshPorts();
 
 			RegisterCallback<GeometryChangedEvent>(OnGeometryChanged);
-			RegisterCallback<DetachFromPanelEvent>(e => ExceptionToLog.Call(Disable));
+			RegisterCallback<DetachFromPanelEvent>(_ =>
+			{
+				try
+				{
+					Disable();
+				}
+				catch (Exception e)
+				{
+					Debug.LogException(e);
+				}
+			});
 			OnGeometryChanged(null);
 		}
 
