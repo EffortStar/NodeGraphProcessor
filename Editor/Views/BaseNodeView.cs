@@ -620,6 +620,12 @@ namespace GraphProcessor
 
 			if (script != null)
 				AssetDatabase.OpenAsset(script.GetInstanceID(), 0, 0);
+			
+			foreach (MethodInfo method in GetType().GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static))
+			{
+				if (SourceUtility.OpenAtMethod(method))
+					return;
+			}
 		}
 
 		public void OpenNodeScript()
@@ -628,6 +634,12 @@ namespace GraphProcessor
 
 			if (script != null)
 				AssetDatabase.OpenAsset(script.GetInstanceID(), 0, 0);
+			
+			foreach (MethodInfo method in nodeTarget.GetType().GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static))
+			{
+				if (SourceUtility.OpenAtMethod(method))
+					return;
+			}
 		}
 
 		public void ToggleDebug()
@@ -1054,8 +1066,8 @@ namespace GraphProcessor
 		public override void BuildContextualMenu(ContextualMenuPopulateEvent evt)
 		{
 			BuildAlignMenu(evt);
-			evt.menu.AppendAction("Open Node Script", (e) => OpenNodeScript(), OpenNodeScriptStatus);
-			evt.menu.AppendAction("Open Node View Script", (e) => OpenNodeViewScript(), OpenNodeViewScriptStatus);
+			evt.menu.AppendAction("Open Node Script", (e) => OpenNodeScript());
+			evt.menu.AppendAction("Open Node View Script", (e) => OpenNodeViewScript());
 			evt.menu.AppendAction("Debug", (e) => ToggleDebug(), DebugStatus);
 		}
 
@@ -1081,20 +1093,6 @@ namespace GraphProcessor
 			if (nodeTarget.debug)
 				return Status.Checked;
 			return Status.Normal;
-		}
-
-		private Status OpenNodeScriptStatus(DropdownMenuAction action)
-		{
-			if (NodeProvider.GetNodeScript(nodeTarget.GetType()) != null)
-				return Status.Normal;
-			return Status.Disabled;
-		}
-
-		private Status OpenNodeViewScriptStatus(DropdownMenuAction action)
-		{
-			if (NodeProvider.GetNodeViewScript(GetType()) != null)
-				return Status.Normal;
-			return Status.Disabled;
 		}
 
 		private IEnumerable<PortView> SyncPortCounts(IEnumerable<NodePort> ports, IEnumerable<PortView> portViews)
