@@ -254,7 +254,9 @@ namespace GraphProcessor
 		/// Removes a node from the graph
 		/// </summary>
 		/// <param name="node"></param>
-		public void RemoveNode(BaseNode node)
+		public void RemoveNode(BaseNode node) => RemoveNode(node, false);
+
+		private void RemoveNode(BaseNode node, bool skipPortUpdate)
 		{
 			// Disconnect all edges:
 			foreach (NodePort port in node.inputPorts)
@@ -263,7 +265,7 @@ namespace GraphProcessor
 				{
 					edge.ToNode = null;
 					edge.ToPort = null;
-					Disconnect(edge);
+					Disconnect(edge, !skipPortUpdate);
 				}
 			}
 
@@ -273,7 +275,7 @@ namespace GraphProcessor
 				{
 					edge.FromNode = null;
 					edge.FromPort = null;
-					Disconnect(edge);
+					Disconnect(edge, !skipPortUpdate);
 				}
 			}
 
@@ -401,12 +403,11 @@ namespace GraphProcessor
 		/// <summary>
 		/// Disconnect an edge
 		/// </summary>
-		/// <param name="edge"></param>
-		public void Disconnect(SerializableEdge edge)
+		public void Disconnect(SerializableEdge edge, bool updatePorts = true)
 		{
 			edges.Remove(edge); // Don't exit early, because we can have edges taken from other graphs during Realization/Inlining.
-			edge.ToNode?.OnEdgeDisconnected(edge);
-			edge.FromNode?.OnEdgeDisconnected(edge);
+			edge.ToNode?.OnEdgeDisconnected(edge, updatePorts);
+			edge.FromNode?.OnEdgeDisconnected(edge, updatePorts);
 			onGraphChanges?.Invoke(new GraphChanges { removedEdge = edge });
 		}
 
@@ -749,7 +750,7 @@ namespace GraphProcessor
 			// Remove the subgraph nodes, this disconnects them from the graph too.
 			foreach (SubgraphNode subgraphNode in subgraphNodes)
 			{
-				RemoveNode(subgraphNode);
+				RemoveNode(subgraphNode, true);
 			}
 
 			return true;

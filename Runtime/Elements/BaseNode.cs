@@ -563,7 +563,7 @@ namespace GraphProcessor
 
 		protected virtual bool CanResetPort(NodePort port) => true;
 
-		public void OnEdgeDisconnected(SerializableEdge edge)
+		public void OnEdgeDisconnected(SerializableEdge edge, bool updatePorts = true)
 		{
 			if (edge == null)
 				return;
@@ -581,7 +581,8 @@ namespace GraphProcessor
 					edge.ToPort?.ResetToDefault();
 			}
 
-			UpdateAllPorts();
+			if (updatePorts)
+				UpdateAllPorts();
 		}
 
 		public void OnProcess()
