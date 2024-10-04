@@ -708,6 +708,7 @@ namespace GraphProcessor
 			}
 			catch (Exception e)
 			{
+				Debug.LogError($"Exception thrown in {name}:");
 				Debug.LogException(e);
 			}
 		}
