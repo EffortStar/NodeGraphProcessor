@@ -18,7 +18,10 @@ namespace GraphProcessor
 		{
 			None = 0,
 			Obsolete = 1 << 0,
-			Prototype = 1 << 1
+			Prototype = 1 << 1,
+			HasInfo = 1 << 2,
+			//
+			Striped = Obsolete | Prototype
 		}
 		
 		private class AllCachedNodeDetails
@@ -76,8 +79,7 @@ namespace GraphProcessor
 			public IReadOnlyCollection<Type> CompatibleGraphTypes => _compatibleGraphTypes;
 
 			public readonly Type NodeType;
-			public readonly bool Obsolete;
-			public bool Prototype;
+			public NodeFlags Flags;
 			public Type NodeEditorType;
 
 			private List<string> _menusPaths;
@@ -89,14 +91,14 @@ namespace GraphProcessor
 			public CachedNodeDetails(Type nodeType)
 			{
 				NodeType = nodeType;
-				Obsolete = Attribute.IsDefined(nodeType, typeof(ObsoleteAttribute));
+				Flags = Attribute.IsDefined(nodeType, typeof(ObsoleteAttribute)) ? NodeFlags.Obsolete : NodeFlags.None;
 			}
 
 			public void AddMenuPath(string path)
 			{
 				_menusPaths ??= new List<string>();
 
-				if (Obsolete)
+				if ((Flags & NodeFlags.Obsolete) != 0)
 				{
 					int lastSlash = path.LastIndexOf('/');
 					if (lastSlash >= 0)
@@ -201,7 +203,19 @@ namespace GraphProcessor
 					continue;
 				}
 
-				cache.Prototype = true;
+				cache.Flags |= NodeFlags.Prototype;
+			}
+			
+			// Collect prototype nodes
+			foreach (Type type in TypeCache.GetTypesWithAttribute<NodeInfoAttribute>())
+			{
+				if (!NodeCache.NodesByType.TryGetValue(type, out CachedNodeDetails cache))
+				{
+					Debug.LogError($"{type} was decorated with {nameof(NodeInfoAttribute)} but it doesn't inherit from {nameof(BaseNode)}.");
+					continue;
+				}
+
+				cache.Flags |= NodeFlags.HasInfo;
 			}
 		}
 
@@ -348,17 +362,6 @@ namespace GraphProcessor
 			}
 		}
 
-		public static NodeFlags GetNodeFlags(Type nodeType)
-		{
-			var flags = NodeFlags.None;
-			if (NodeCache.NodesByType.TryGetValue(nodeType, out CachedNodeDetails details))
-			{
-				if (details.Obsolete)
-					flags |= NodeFlags.Obsolete;
-				if (details.Prototype)
-					flags |= NodeFlags.Prototype;
-			}
-			return flags;
-		}
+		public static NodeFlags GetNodeFlags(Type nodeType) => NodeCache.NodesByType.TryGetValue(nodeType, out CachedNodeDetails details) ? details.Flags : NodeFlags.None;
 	}
 }

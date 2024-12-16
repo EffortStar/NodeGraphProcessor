@@ -226,4 +226,18 @@ namespace GraphProcessor
 	public sealed class PrototypeNodeAttribute : Attribute
 	{
 	}
+	
+	/// <summary>
+	/// Adds a hoverable info flag to a node with a text tooltip
+	/// </summary>
+	[AttributeUsage(AttributeTargets.Class)]
+	public sealed class NodeInfoAttribute : Attribute
+	{
+		public readonly string Message;
+
+		public NodeInfoAttribute(string message)
+		{
+			Message = message;
+		}
+	}
 }

@@ -179,7 +179,7 @@ namespace GraphProcessor
 
 		protected virtual void InitializeView()
 		{
-			if (nodeFlags != NodeProvider.NodeFlags.None)
+			if ((nodeFlags & NodeProvider.NodeFlags.Striped) != 0)
 				this.Q(TitleContainerName).Insert(0, new StripedElement());
 
 			controlsContainer = new VisualElement { name = "controls" };
@@ -224,6 +224,11 @@ namespace GraphProcessor
 			{
 				AddToClassList(PrototypeUssClassName);
 				AddBadge("Prototype node may be changed or removed", BadgeMessageType.Warning);
+			}
+			else if ((nodeFlags & NodeProvider.NodeFlags.HasInfo) != 0)
+			{
+				AddToClassList(ObsoleteUssClassName);
+				AddBadge(nodeTarget.GetType().GetCustomAttributes<NodeInfoAttribute>().First().Message, BadgeMessageType.Info);
 			}
 		}
 
