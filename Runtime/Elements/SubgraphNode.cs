@@ -34,6 +34,16 @@ namespace GraphProcessor
 		public override string name => Subgraph == null ? "Subgraph" : Subgraph.name;
 #endif
 
+		protected override void Enable()
+		{
+			if (_subgraph == null)
+				return;
+			// Force the subgraph to initialize before this node does.
+			// If the subgraph isn't enabled first then its nodes and ports won't have valid data when queried.
+			if (!_subgraph.isEnabled)
+				_subgraph.OnEnable();
+		}
+
 		[HideInInspector]
 		[SerializeField] private BaseGraph _subgraph;
 

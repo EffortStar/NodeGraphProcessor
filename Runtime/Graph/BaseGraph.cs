@@ -139,7 +139,7 @@ namespace GraphProcessor
 			private set => _isEnabled = value;
 		}
 
-		protected virtual void OnEnable()
+		public virtual void OnEnable()
 		{
 			if (isEnabled)
 				OnDisable();
