@@ -9,6 +9,7 @@ using System.Collections;
 using System.Linq;
 using UnityEditor.UIElements;
 using System.Text.RegularExpressions;
+using UnityEngine.Pool;
 using Status = UnityEngine.UIElements.DropdownMenuAction.Status;
 using NodeView = UnityEditor.Experimental.GraphView.Node;
 
@@ -730,14 +731,23 @@ namespace GraphProcessor
 
 		protected virtual void DrawDefaultInspector(bool fromInspector = false)
 		{
-			IEnumerable<FieldInfo> fields = nodeTarget.GetType().GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
-				// Filter fields from the BaseNode type since we are only interested in user-defined fields
-				// (better than BindingFlags.DeclaredOnly because we keep any inherited user-defined fields) 
-				.Where(f => f.DeclaringType != typeof(BaseNode));
-
-			fields = BaseNode.OverrideFieldOrder(fields).Reverse();
-
-			foreach (FieldInfo field in fields)
+			using var _ = ListPool<FieldInfo>.Get(out var fields);
+			Type type = nodeTarget.GetType();
+			do
+			{
+				fields.AddRange(
+					type.GetFields(
+						BindingFlags.Public 
+						| BindingFlags.NonPublic 
+						| BindingFlags.Instance
+						| BindingFlags.DeclaredOnly
+					)
+				);
+				type = type.BaseType;
+			} while (type != null && type != typeof(BaseNode));
+			
+			
+			foreach (FieldInfo field in BaseNode.OverrideFieldOrder(fields).Reverse())
 			{
 				//skip if the field is a node setting
 				if (Attribute.IsDefined(field, typeof(SettingAttribute)))
