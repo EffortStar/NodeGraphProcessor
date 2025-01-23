@@ -1,4 +1,5 @@
 ﻿using System;
+using JetBrains.Annotations;
 
 namespace GraphProcessor
 {
@@ -6,6 +7,7 @@ namespace GraphProcessor
 	/// Tell that this field is will generate an input port
 	/// </summary>
 	[AttributeUsage(AttributeTargets.Field)]
+	[MeansImplicitUse]
 	public sealed class InputAttribute : Attribute
 	{
 		public string name;
@@ -27,6 +29,7 @@ namespace GraphProcessor
 	/// Tell that this field is will generate an output port
 	/// </summary>
 	[AttributeUsage(AttributeTargets.Field)]
+	[MeansImplicitUse]
 	public sealed class OutputAttribute : Attribute
 	{
 		public string name;

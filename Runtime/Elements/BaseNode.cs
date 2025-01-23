@@ -14,8 +14,6 @@ namespace GraphProcessor
 	[Serializable]
 	public abstract class BaseNode
 	{
-		[SerializeField] internal string nodeCustomName; // The name of the node in case it was renamed by a user
-
 		/// <summary>
 		/// Name of the node, it will be displayed in the title section
 		/// </summary>
@@ -72,11 +70,6 @@ namespace GraphProcessor
 		/// Does the node needs to be visible in the inspector (when selected).
 		/// </summary>
 		public virtual bool needsInspector => false;
-
-		/// <summary>
-		/// Can the node be renamed in the UI. By default a node can be renamed by double clicking it's name.
-		/// </summary>
-		public virtual bool isRenamable => false;
 
 		/// <summary>
 		/// Is the node created from a duplicate operation (either ctrl-D or copy/paste).
@@ -820,21 +813,8 @@ namespace GraphProcessor
 			messages.Clear();
 		}
 
-		/// <summary>
-		/// Set the custom name of the node. This is intended to be used by renamable nodes.
-		/// This custom name will be serialized inside the node.
-		/// </summary>
-		/// <param name="customName">New name of the node.</param>
-		public void SetCustomName(string customName) => nodeCustomName = customName;
-
-		/// <summary>
-		/// Get the name of the node. If the node have a custom name (set using the UI by double clicking on the node title) then it will return this name first, otherwise it returns the value of the name field.
-		/// </summary>
-		/// <returns>The name of the node as written in the title</returns>
-		public string GetCustomName() => string.IsNullOrEmpty(nodeCustomName) ? name : nodeCustomName;
-
 		#endregion
 
-		public override string ToString() => $"{GetCustomName()} ({GetType().Name}) (in: {graph.name})";
+		public override string ToString() => $"{name} ({GetType().Name}) (in: {graph.name})";
 	}
 }
