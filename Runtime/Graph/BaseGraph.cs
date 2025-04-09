@@ -658,6 +658,11 @@ namespace GraphProcessor
 		}
 
 		/// <summary>
+		/// A cache to prevent expending work asking the same question...
+		/// </summary>
+		private static Dictionary<(Type from, Type to), bool> s_typesAreConnectable = new();
+
+		/// <summary>
 		/// Tell if two types can be connected in the context of a graph
 		/// </summary>
 		/// <param name="t1"></param>
@@ -668,22 +673,35 @@ namespace GraphProcessor
 			if (t1 == null || t2 == null)
 				return false;
 
-			if (TypeAdapter.AreIncompatible(t1, t2))
+			(Type, Type) types = (t1, t2);
+			if (s_typesAreConnectable.TryGetValue(types, out bool connectable))
+			{
+				return connectable;
+			}
+
+			bool result = AreTypesAreConnectableLocal();
+			s_typesAreConnectable.Add(types, result);
+			return result;
+
+			bool AreTypesAreConnectableLocal()
+			{
+				if (TypeAdapter.AreIncompatible(t1, t2))
+					return false;
+
+				// Check if there is custom adapters for this assignation.
+				if (CustomPortIO.IsAssignable(t1, t2))
+					return true;
+
+				// Check for type assignability.
+				if (t2.IsReallyAssignableFrom(t1))
+					return true;
+
+				// User defined type conversions.
+				if (TypeAdapter.AreAssignable(t1, t2))
+					return true;
+
 				return false;
-
-			//Check if there is custom adapters for this assignation
-			if (CustomPortIO.IsAssignable(t1, t2))
-				return true;
-
-			//Check for type assignability
-			if (t2.IsReallyAssignableFrom(t1))
-				return true;
-
-			// User defined type conversions
-			if (TypeAdapter.AreAssignable(t1, t2))
-				return true;
-
-			return false;
+			}
 		}
 
 		public void Realize() => Realize(0);

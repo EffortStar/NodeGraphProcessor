@@ -13,8 +13,8 @@ namespace GraphProcessor
 		class PortIOPerField : Dictionary< string, CustomPortIODelegate > {}
 		class PortIOPerNode : Dictionary< Type, PortIOPerField > {}
 
-		static Dictionary< Type, List< Type > >	assignableTypes = new Dictionary< Type, List< Type > >();
-		static PortIOPerNode					customIOPortMethods = new PortIOPerNode();
+		static Dictionary< Type, List< Type > >	assignableTypes = new();
+		static PortIOPerNode					customIOPortMethods = new();
 
 		static CustomPortIO()
 		{
@@ -25,12 +25,19 @@ namespace GraphProcessor
 		{
 			BindingFlags bindingFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
 
+#if UNITY_EDITOR
+			foreach (var type in UnityEditor.TypeCache.GetTypesDerivedFrom<BaseNode>())
+			{
+				if (type.IsAbstract || type.ContainsGenericParameters)
+					continue;
+#else
 			foreach (var type in AppDomain.CurrentDomain.GetAllTypes())
 			{
 				if (type.IsAbstract || type.ContainsGenericParameters)
-					continue ;
-				if (!(type.IsSubclassOf(typeof(BaseNode))))
-					continue ;
+					continue;
+				if (!type.IsSubclassOf(typeof(BaseNode)))
+					continue;
+#endif
 
 				var methods = type.GetMethods(bindingFlags);
 
@@ -43,11 +50,9 @@ namespace GraphProcessor
 						continue ;
 					
 					var p = method.GetParameters();
-					bool nodePortSignature = false;
-
 					// Check if the function can take a NodePort in optional param
-					if (p.Length == 2 && p[1].ParameterType == typeof(NodePort))
-						nodePortSignature = true;
+					bool nodePortSignature = p.Length == 2 && p[1].ParameterType == typeof(NodePort);
+
 
 					CustomPortIODelegate deleg;
 #if ENABLE_IL2CPP
@@ -129,8 +134,8 @@ namespace GraphProcessor
 
 		public static bool IsAssignable(Type input, Type output)
 		{
-			if (assignableTypes.ContainsKey(input))
-				return assignableTypes[input].Contains(output);
+			if (assignableTypes.TryGetValue(input, out List<Type> type))
+				return type.Contains(output);
 			return false;
 		}
 	}
