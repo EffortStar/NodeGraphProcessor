@@ -25,7 +25,7 @@ namespace GraphProcessor
 			?? typeof(object);
 
 		[CustomPortBehavior(nameof(In)), UsedImplicitly]
-		private IEnumerable<PortData> InputPortBehavior(List<SerializableEdge> edges)
+		private IEnumerable<PortData> InputPortBehavior()
 		{
 			var acceptMultipleEdges = false;
 			Type type = GetRelayType();
@@ -43,7 +43,7 @@ namespace GraphProcessor
 		}
 
 		[CustomPortBehavior(nameof(Out)), UsedImplicitly]
-		private IEnumerable<PortData> OutputPortBehavior(List<SerializableEdge> edges)
+		private IEnumerable<PortData> OutputPortBehavior()
 		{
 			// Default dummy port to avoid having a relay without any output:
 			yield return new PortData

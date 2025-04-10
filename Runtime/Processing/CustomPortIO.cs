@@ -25,6 +25,9 @@ namespace GraphProcessor
 		{
 			BindingFlags bindingFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
 
+			Type portInputType = typeof(CustomPortInputAttribute);
+			Type portOutputType = typeof(CustomPortOutputAttribute);
+
 #if UNITY_EDITOR
 			foreach (var type in UnityEditor.TypeCache.GetTypesDerivedFrom<BaseNode>())
 			{
@@ -43,11 +46,9 @@ namespace GraphProcessor
 
 				foreach (var method in methods)
 				{
-					var portInputAttr = method.GetCustomAttribute< CustomPortInputAttribute >();
-					var portOutputAttr = method.GetCustomAttribute< CustomPortOutputAttribute >();
-
-					if (portInputAttr == null && portOutputAttr == null)
-						continue ;
+					
+					if (!Attribute.IsDefined(method, portInputType) && !Attribute.IsDefined(method, portOutputType))
+						continue;
 					
 					var p = method.GetParameters();
 					// Check if the function can take a NodePort in optional param
@@ -88,6 +89,9 @@ namespace GraphProcessor
 						Debug.LogWarning("Can't use custom IO port function " + method + ": The method have to respect this format: " + typeof(CustomPortIODelegate));
 						continue ;
 					}
+					
+					var portInputAttr = (CustomPortInputAttribute)method.GetCustomAttribute(portInputType);
+					var portOutputAttr = (CustomPortOutputAttribute)method.GetCustomAttribute(portOutputType);
 
 					string fieldName = (portInputAttr == null) ? portOutputAttr.fieldName : portInputAttr.fieldName;
 					Type customType = (portInputAttr == null) ? portOutputAttr.outputType : portInputAttr.inputType;
@@ -103,15 +107,12 @@ namespace GraphProcessor
 
 		public static CustomPortIODelegate GetCustomPortMethod(Type nodeType, string fieldName)
 		{
-			PortIOPerField			portIOPerField;
-			CustomPortIODelegate	deleg;
-
-			customIOPortMethods.TryGetValue(nodeType, out portIOPerField);
+			customIOPortMethods.TryGetValue(nodeType, out PortIOPerField portIOPerField);
 
 			if (portIOPerField == null)
 				return null;
 
-			portIOPerField.TryGetValue(fieldName, out deleg);
+			portIOPerField.TryGetValue(fieldName, out CustomPortIODelegate deleg);
 
 			return deleg;
 		}

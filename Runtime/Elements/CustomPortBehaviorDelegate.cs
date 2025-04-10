@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace GraphProcessor
 {
-	public delegate IEnumerable<PortData> CustomPortBehaviorDelegate(List<SerializableEdge> edges);
+	public delegate IEnumerable<PortData> CustomPortBehaviorDelegate();
 
 	public static class CustomPortBehaviour
 	{

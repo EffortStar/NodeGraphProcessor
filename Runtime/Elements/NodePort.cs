@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using JetBrains.Annotations;
 using UnityEngine;
 
 namespace GraphProcessor
@@ -108,7 +109,7 @@ namespace GraphProcessor
 
 		private readonly List<SerializableEdge> _edges = new();
 		private readonly Dictionary<SerializableEdge, PushDataDelegate> _pushDataDelegates = new();
-		private readonly List<SerializableEdge> _edgeWithRemoteCustomIO = new();
+		[CanBeNull] private List<SerializableEdge> _edgeWithRemoteCustomIO;
 
 		private bool GetPushDataDelegate(SerializableEdge edge, out PushDataDelegate edgeDelegate)
 		{
@@ -184,12 +185,18 @@ namespace GraphProcessor
 			if (edge.ToNode == owner)
 			{
 				if (edge.FromPort._customPortIOMethod != null)
+				{
+					_edgeWithRemoteCustomIO ??= new List<SerializableEdge>();
 					_edgeWithRemoteCustomIO.Add(edge);
+				}
 			}
 			else
 			{
 				if (edge.ToPort._customPortIOMethod != null)
+				{
+					_edgeWithRemoteCustomIO ??= new List<SerializableEdge>();
 					_edgeWithRemoteCustomIO.Add(edge);
+				}
 			}
 
 			// NOTE: this is slowing down code reload speeds so much that any warnings here aren't worth the trouble.
@@ -288,7 +295,7 @@ namespace GraphProcessor
 				return;
 
 			_pushDataDelegates.Remove(edge);
-			_edgeWithRemoteCustomIO.Remove(edge);
+			_edgeWithRemoteCustomIO?.Remove(edge);
 			_edges.Remove(edge);
 		}
 
@@ -316,7 +323,7 @@ namespace GraphProcessor
 					edgeDelegate();
 			}
 
-			if (_edgeWithRemoteCustomIO.Count == 0)
+			if (_edgeWithRemoteCustomIO == null || _edgeWithRemoteCustomIO.Count == 0)
 				return;
 
 			//if there are custom IO implementation on the other ports, they'll need our value in the passThrough buffer
@@ -361,7 +368,7 @@ namespace GraphProcessor
 			}
 
 			// check if this port have connection to ports that have custom output functions
-			if (_edgeWithRemoteCustomIO.Count == 0)
+			if (_edgeWithRemoteCustomIO == null || _edgeWithRemoteCustomIO.Count == 0)
 				return;
 
 			// Only one input connection is handled by this code, if you want to

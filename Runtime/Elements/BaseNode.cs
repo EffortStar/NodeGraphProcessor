@@ -281,29 +281,32 @@ namespace GraphProcessor
 			NodePortContainer portCollection = fieldInfo.input ? inputPorts : outputPorts;
 
 			// Gather all fields for this port (before to modify them)
-			IEnumerable<NodePort> nodePorts = portCollection.Where(p => p.fieldName == fieldName);
-			// Gather all edges connected to these fields:
-			List<SerializableEdge> edges = nodePorts.SelectMany(n => n.GetEdges()).ToList();
-
+			NodePort[] nodePorts = portCollection.Where(p => p.fieldName == fieldName).ToArray();
 			if (TryGetCustomPortBehaviour(fieldInfo.fieldName, out CustomPortBehaviorDelegate behavior))
 			{
-				foreach (PortData portData in behavior(edges))
+				foreach (PortData portData in behavior())
 					AddPortData(portData);
 			}
 
 			// TODO
 			// Remove only the ports that are no more in the list
-			if (nodePorts != null)
 			{
-				List<NodePort> currentPortsCopy = nodePorts.ToList();
-				foreach (NodePort currentPort in currentPortsCopy)
+				foreach (NodePort currentPort in nodePorts)
 				{
 					// If the current port does not appear in the list of final ports, we remove it
-					if (finalPorts.All(id => id != currentPort.portData.identifier))
+					// if (finalPorts.All(id => id != currentPort.portData.identifier))
+					var all = true;
+					// ReSharper disable once ForeachCanBeConvertedToQueryUsingAnotherGetEnumerator
+					foreach (string id in finalPorts)
 					{
-						RemovePort(fieldInfo.input, currentPort);
-						changed = true;
+						if (id != currentPort.portData.identifier) continue;
+						all = false;
+						break;
 					}
+
+					if (!all) continue;
+					RemovePort(fieldInfo.input, currentPort);
+					changed = true;
 				}
 			}
 
@@ -326,7 +329,16 @@ namespace GraphProcessor
 
 			void AddPortData(PortData portData)
 			{
-				NodePort port = nodePorts.FirstOrDefault(n => n.portData.identifier == portData.identifier);
+				NodePort port = null;
+				// NodePort port = nodePorts.FirstOrDefault(n => n.portData.identifier == portData.identifier);
+				// ReSharper disable once LoopCanBeConvertedToQuery
+				foreach (NodePort n in nodePorts)
+				{
+					if (n.portData.identifier != portData.identifier) continue;
+					port = n;
+					break;
+				}
+
 				// Guard using the port identifier so we don't duplicate identifiers
 				if (port == null)
 				{

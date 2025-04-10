@@ -60,7 +60,7 @@ namespace GraphProcessor
 		public object Outputs;
 
 		[CustomPortBehavior(nameof(Inputs))]
-		public IEnumerable<PortData> InputPorts(List<SerializableEdge> edges)
+		public IEnumerable<PortData> InputPorts()
 		{
 			if (Subgraph == null)
 			{
@@ -97,7 +97,7 @@ namespace GraphProcessor
 		}
 
 		[CustomPortBehavior(nameof(Outputs))]
-		public IEnumerable<PortData> OutputPorts(List<SerializableEdge> edges)
+		public IEnumerable<PortData> OutputPorts()
 		{
 			if (Subgraph == null)
 			{
