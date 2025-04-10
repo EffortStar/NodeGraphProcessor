@@ -192,18 +192,19 @@ namespace GraphProcessor
 					_edgeWithRemoteCustomIO.Add(edge);
 			}
 
+			// NOTE: this is slowing down code reload speeds so much that any warnings here aren't worth the trouble.
+/*#if UNITY_EDITOR
 			//if we have a custom io implementation, we don't need to genereate the defaut one
 			if (edge.ToPort._customPortIOMethod != null || edge.FromPort._customPortIOMethod != null)
 				return;
 
-#if UNITY_EDITOR
 			// In the editor we create delegates immediately as they might provide some error feedback.
 			// At runtime they're deferred to GetPushDataDelegate.
 			PushDataDelegate edgeDelegate = CreatePushDataDelegateForEdge(edge);
 
 			if (edgeDelegate != null)
 				_pushDataDelegates[edge] = edgeDelegate;
-#endif
+#endif*/
 		}
 
 		PushDataDelegate CreatePushDataDelegateForEdge(SerializableEdge edge)

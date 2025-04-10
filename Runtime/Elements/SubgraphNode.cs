@@ -72,7 +72,7 @@ namespace GraphProcessor
 			foreach (ParameterNode node in Subgraph.nodes.OfType<ParameterNode>())
 			{
 				// Must get from the subgraph, not the node. Because the node hasn't been initialized via the view.
-				SubgraphParameter parameter = Subgraph.GetSubgraphParameterFromGUID(node.parameterGUID);
+				SubgraphParameter parameter = Subgraph.GetSubgraphParameterFromGuid(node.parameterGUID);
 				if (parameter.Direction != ParameterDirection.Input) continue;
 
 				if (!parametersToNodes.TryGetValue(parameter, out List<ParameterNode> list))
@@ -109,7 +109,7 @@ namespace GraphProcessor
 			foreach (ParameterNode node in Subgraph.nodes.OfType<ParameterNode>())
 			{
 				// Must get from the subgraph, not the node. Because the node hasn't been initialized via the view.
-				SubgraphParameter parameter = Subgraph.GetSubgraphParameterFromGUID(node.parameterGUID);
+				SubgraphParameter parameter = Subgraph.GetSubgraphParameterFromGuid(node.parameterGUID);
 				if (parameter.Direction != ParameterDirection.Output) continue;
 
 				if (!parametersToNodes.TryGetValue(parameter, out List<ParameterNode> list))

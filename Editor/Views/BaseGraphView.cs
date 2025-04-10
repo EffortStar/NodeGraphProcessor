@@ -870,7 +870,7 @@ namespace GraphProcessor
 			{
 				BaseNode node = graph.nodes[i];
 				if (node is not ParameterNode parameter) continue;
-				if (graph.GetSubgraphParameterFromGUID(parameter.parameterGUID) == null)
+				if (graph.GetSubgraphParameterFromGuid(parameter.parameterGUID) == null)
 					RemoveNode(node);
 			}
 

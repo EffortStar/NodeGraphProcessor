@@ -7,10 +7,6 @@ using UnityEngine.Serialization;
 
 namespace GraphProcessor
 {
-	public delegate IEnumerable<PortData> CustomPortBehaviorDelegate(List<SerializableEdge> edges);
-
-	public delegate IEnumerable<PortData> CustomPortTypeBehaviorDelegate(string fieldName, string displayName, object value);
-
 	[Serializable]
 	public abstract class BaseNode
 	{
@@ -77,47 +73,12 @@ namespace GraphProcessor
 		public bool createdFromDuplication { get; internal set; } = false;
 
 		[NonSerialized] internal Dictionary<string, NodeFieldInformation> nodeFields = new();
-
-		[NonSerialized] internal Dictionary<Type, CustomPortTypeBehaviorDelegate> customPortTypeBehaviorMap = new();
+		
+		[NonSerialized] internal Dictionary<string, CustomPortBehaviorDelegate> _customPortBehaviorMap = null;
 
 		[NonSerialized] private List<string> messages = new();
 
 		[NonSerialized] protected BaseGraph graph;
-
-		internal class NodeFieldInformation
-		{
-			public readonly string name;
-			public readonly string fieldName;
-			public readonly FieldInfo info;
-			public readonly bool input;
-			public readonly bool isMultiple;
-			public readonly string tooltip;
-			public CustomPortBehaviorDelegate behavior;
-			public readonly bool isRequired;
-			public readonly bool vertical;
-
-			public NodeFieldInformation(
-				FieldInfo info,
-				string name,
-				bool input,
-				bool isMultiple,
-				string tooltip,
-				bool vertical,
-				CustomPortBehaviorDelegate behavior,
-				bool isRequired
-			)
-			{
-				this.input = input;
-				this.isMultiple = isMultiple;
-				this.info = info;
-				this.name = name;
-				fieldName = info.Name;
-				this.behavior = behavior;
-				this.isRequired = isRequired;
-				this.tooltip = tooltip;
-				this.vertical = vertical;
-			}
-		}
 
 		private struct PortUpdate
 		{
@@ -134,6 +95,12 @@ namespace GraphProcessor
 		// Used in port update algorithm
 		private Stack<PortUpdate> fieldsToUpdate = new();
 		private HashSet<PortUpdate> updatedFields = new();
+
+		private bool TryGetCustomPortBehaviour(string fieldName, out CustomPortBehaviorDelegate behavior)
+		{
+			_customPortBehaviorMap ??= CustomPortBehaviour.Get(this);
+			return _customPortBehaviorMap.TryGetValue(fieldName, out behavior);
+		}
 
 		/// <summary>
 		/// Creates a node of type T at a certain position
@@ -259,8 +226,7 @@ namespace GraphProcessor
 		{
 			inputPorts = new NodeInputPortContainer(this);
 			outputPorts = new NodeOutputPortContainer(this);
-
-			InitializeInOutDatas();
+			nodeFields = NodeFieldInformation.GetInfoGroup(GetType());
 		}
 
 		/// <summary>
@@ -319,49 +285,10 @@ namespace GraphProcessor
 			// Gather all edges connected to these fields:
 			List<SerializableEdge> edges = nodePorts.SelectMany(n => n.GetEdges()).ToList();
 
-			if (fieldInfo.behavior != null)
+			if (TryGetCustomPortBehaviour(fieldInfo.fieldName, out CustomPortBehaviorDelegate behavior))
 			{
-				foreach (PortData portData in fieldInfo.behavior(edges))
+				foreach (PortData portData in behavior(edges))
 					AddPortData(portData);
-			}
-			else
-			{
-				CustomPortTypeBehaviorDelegate customPortTypeBehavior = customPortTypeBehaviorMap[fieldInfo.info.FieldType];
-
-				foreach (PortData portData in customPortTypeBehavior(fieldName, fieldInfo.name, fieldInfo.info.GetValue(this)))
-					AddPortData(portData);
-			}
-
-			void AddPortData(PortData portData)
-			{
-				NodePort port = nodePorts.FirstOrDefault(n => n.portData.identifier == portData.identifier);
-				// Guard using the port identifier so we don't duplicate identifiers
-				if (port == null)
-				{
-					AddPort(fieldInfo.input, fieldName, portData);
-					changed = true;
-				}
-				else
-				{
-					// in case the port type have changed for an incompatible type, we disconnect all the edges attached to this port
-					if (!BaseGraph.TypesAreConnectable(port.portData.displayType, portData.displayType))
-					{
-						if (this is not SimplifiedRelayNode)
-						{
-							foreach (SerializableEdge edge in port.GetEdges().ToList())
-								graph.Disconnect(edge.GUID);
-						}
-					}
-
-					// patch the port data
-					if (port.portData != portData)
-					{
-						port.portData.CopyFrom(portData);
-						changed = true;
-					}
-				}
-
-				finalPorts.Add(portData.identifier);
 			}
 
 			// TODO
@@ -396,14 +323,43 @@ namespace GraphProcessor
 				onPortsUpdated?.Invoke(fieldName);
 
 			return changed;
+
+			void AddPortData(PortData portData)
+			{
+				NodePort port = nodePorts.FirstOrDefault(n => n.portData.identifier == portData.identifier);
+				// Guard using the port identifier so we don't duplicate identifiers
+				if (port == null)
+				{
+					AddPort(fieldInfo.input, fieldName, portData);
+					changed = true;
+				}
+				else
+				{
+					// in case the port type have changed for an incompatible type, we disconnect all the edges attached to this port
+					if (!BaseGraph.TypesAreConnectable(port.portData.displayType, portData.displayType))
+					{
+						if (this is not SimplifiedRelayNode)
+						{
+							foreach (SerializableEdge edge in port.GetEdges().ToList())
+								graph.Disconnect(edge.GUID);
+						}
+					}
+
+					// patch the port data
+					if (port.portData != portData)
+					{
+						port.portData.CopyFrom(portData);
+						changed = true;
+					}
+				}
+
+				finalPorts.Add(portData.identifier);
+			}
 		}
 
 		private bool HasCustomBehavior(NodeFieldInformation info)
 		{
-			if (info.behavior != null)
-				return true;
-
-			if (customPortTypeBehaviorMap.ContainsKey(info.info.FieldType))
+			if (TryGetCustomPortBehaviour(info.fieldName, out _))
 				return true;
 
 			return false;
@@ -473,72 +429,6 @@ namespace GraphProcessor
 		/// Called only when the node is created, not when instantiated
 		/// </summary>
 		public virtual void OnNodeCreated() => GUID = Guid.NewGuid().ToString();
-
-		public virtual FieldInfo[] GetNodeFields()
-			=> GetType().GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-
-		private void InitializeInOutDatas()
-		{
-			FieldInfo[] fields = GetNodeFields();
-
-			foreach (FieldInfo field in fields)
-			{
-				var inputAttribute = field.GetCustomAttribute<InputAttribute>();
-				var outputAttribute = field.GetCustomAttribute<OutputAttribute>();
-
-				if (inputAttribute == null && outputAttribute == null)
-					continue;
-
-				var isVertical = Attribute.IsDefined(field, typeof(VerticalAttribute));
-				var isRequired = Attribute.IsDefined(field, typeof(RequiredPortAttribute));
-				var tooltipAttribute = field.GetCustomAttribute<TooltipAttribute>();
-
-
-				// check if field is a collection type
-				bool isMultiple = inputAttribute?.allowMultiple ?? outputAttribute.allowMultiple;
-				bool input = inputAttribute != null;
-				var tooltip = $"<b>{TypeUtility.FormatTypeName(field.FieldType)}</b>";
-				if (tooltipAttribute != null)
-				{
-					tooltip += $"\n{tooltipAttribute.tooltip}";
-				}
-
-				string name = field.Name;
-				if (inputAttribute is { name: not null })
-					name = inputAttribute.name;
-				if (outputAttribute is { name: not null })
-					name = outputAttribute.name;
-
-				// By default, we set the behavior to null, if the field have a custom behavior, it will be set in the loop just below
-				nodeFields[field.Name] = new NodeFieldInformation(field, name, input, isMultiple, tooltip, isVertical, null, isRequired);
-			}
-
-			MethodInfo[] methods = GetType().GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-			foreach (MethodInfo method in methods)
-			{
-				var customPortBehaviorAttribute = method.GetCustomAttribute<CustomPortBehaviorAttribute>();
-				CustomPortBehaviorDelegate behavior = null;
-
-				if (customPortBehaviorAttribute == null)
-					continue;
-
-				// Check if custom port behavior function is valid
-				try
-				{
-					Type referenceType = typeof(CustomPortBehaviorDelegate);
-					behavior = (CustomPortBehaviorDelegate)Delegate.CreateDelegate(referenceType, this, method, true);
-				}
-				catch
-				{
-					Debug.LogError("The function " + method + " cannot be converted to the required delegate format: " + typeof(CustomPortBehaviorDelegate));
-				}
-
-				if (nodeFields.TryGetValue(customPortBehaviorAttribute.fieldName, out NodeFieldInformation field))
-					field.behavior = behavior;
-				else
-					Debug.LogError("Invalid field name for custom port behavior: " + method + ", " + customPortBehaviorAttribute.fieldName);
-			}
-		}
 
 		#endregion
 

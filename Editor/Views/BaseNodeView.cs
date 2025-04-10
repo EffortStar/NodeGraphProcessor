@@ -971,8 +971,8 @@ namespace GraphProcessor
 			if (port.direction == Direction.Input && inputContainerElement?.Q(port.fieldName) != null)
 			{
 				inputContainerElement.Q(port.fieldName).RemoveFromClassList("empty");
-
-				if (nodeTarget.nodeFields.TryGetValue(port.fieldName, out BaseNode.NodeFieldInformation fieldInfo))
+				
+				if (NodeFieldInformation.TryGetInfo(nodeTarget.GetType(), port.fieldName, out NodeFieldInformation fieldInfo))
 				{
 					object valueBeforeConnection = GetInputFieldValue(fieldInfo.info);
 

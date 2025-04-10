@@ -625,7 +625,20 @@ namespace GraphProcessor
 		/// </summary>
 		/// <param name="guid">GUID of the parameter</param>
 		/// <returns>The parameter</returns>
-		public SubgraphParameter GetSubgraphParameterFromGUID(string guid) => subgraphParameters.FirstOrDefault(e => e?.Guid == guid);
+		public SubgraphParameter GetSubgraphParameterFromGuid(string guid)
+		{
+			// return subgraphParameters.FirstOrDefault(e => e?.Guid == guid);
+			// ReSharper disable once ForeachCanBeConvertedToQueryUsingAnotherGetEnumerator
+			foreach (SubgraphParameter e in subgraphParameters)
+			{
+				if (e?.Guid == guid)
+				{
+					return e;
+				}
+			}
+
+			return null;
+		}
 
 		/// <summary>
 		/// Link the current graph to the scene in parameter, allowing the graph to pick and serialize objects from the scene.

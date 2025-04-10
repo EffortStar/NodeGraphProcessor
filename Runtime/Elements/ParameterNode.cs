@@ -34,7 +34,7 @@ namespace GraphProcessor
 
 		private void LoadExposedParameter()
 		{
-			Parameter = graph.GetSubgraphParameterFromGUID(parameterGUID);
+			Parameter = graph.GetSubgraphParameterFromGuid(parameterGUID);
 
 			if (Parameter == null)
 			{
