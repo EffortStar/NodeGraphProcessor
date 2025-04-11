@@ -262,7 +262,20 @@ namespace GraphProcessor
 			settingsContainer.Add(settings);
 			Add(settingsContainer);
 
-			FieldInfo[] fields = nodeTarget.GetType().GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+			using var _ = ListPool<FieldInfo>.Get(out var fields);
+			Type type = nodeTarget.GetType();
+			do
+			{
+				fields.AddRange(
+					type.GetFields(
+						BindingFlags.Public 
+						| BindingFlags.NonPublic 
+						| BindingFlags.Instance
+						| BindingFlags.DeclaredOnly
+					)
+				);
+				type = type.BaseType;
+			} while (type != null && type != typeof(BaseNode));
 
 			foreach (FieldInfo field in fields)
 			{
@@ -692,7 +705,6 @@ namespace GraphProcessor
 				);
 				type = type.BaseType;
 			} while (type != null && type != typeof(BaseNode));
-			
 			
 			foreach (FieldInfo field in BaseNode.OverrideFieldOrder(fields).Reverse())
 			{

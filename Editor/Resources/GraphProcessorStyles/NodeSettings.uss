@@ -1,7 +1,7 @@
 NodeSettingsView {
     position: absolute;
     min-width: 110px;
-    max-width: 300px;
+    max-width: 550px;
     -unity-slice-top: 40;
     -unity-slice-left: 80;
     -unity-slice-right: 25;
