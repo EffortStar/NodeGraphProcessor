@@ -128,11 +128,6 @@ namespace GraphProcessor
 
 			return false;
 		}
-		
-		/// <summary>
-		/// Owner of the FieldInfo, to be used in case of Get/SetValue
-		/// </summary>
-		public readonly object fieldOwner;
 
 		private readonly CustomPortIODelegate _customPortIOMethod;
 
@@ -143,33 +138,20 @@ namespace GraphProcessor
 		/// </summary>
 		public delegate void PushDataDelegate();
 
-		/// <summary>
-		/// Constructor
-		/// </summary>
-		/// <param name="owner">owner node</param>
-		/// <param name="fieldName">the C# property name</param>
-		/// <param name="portData">Data of the port</param>
-		public NodePort(BaseNode owner, string fieldName, PortData portData) : this(owner, owner, fieldName, portData)
-		{
-		}
 
 		/// <summary>
 		/// Constructor
 		/// </summary>
 		/// <param name="owner">owner node</param>
-		/// <param name="fieldOwner"></param>
-		/// <param name="fieldName">the C# property name</param>
+		/// <param name="nodeFieldInfo">Complete info about the field</param>
 		/// <param name="portData">Data of the port</param>
-		public NodePort(BaseNode owner, object fieldOwner, string fieldName, PortData portData)
+		public NodePort(BaseNode owner, NodeFieldInformation nodeFieldInfo, PortData portData)
 		{
-			this.fieldName = fieldName;
+			fieldName = nodeFieldInfo.fieldName;
 			this.owner = owner;
 			this.portData = portData;
-			this.fieldOwner = fieldOwner;
 
-			fieldInfo = fieldOwner.GetType().GetField(
-				fieldName,
-				BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+			fieldInfo = nodeFieldInfo.info;
 			_customPortIOMethod = CustomPortIO.GetCustomPortMethod(owner.GetType(), fieldName);
 		}
 
@@ -327,7 +309,7 @@ namespace GraphProcessor
 				return;
 
 			//if there are custom IO implementation on the other ports, they'll need our value in the passThrough buffer
-			object ourValue = fieldInfo.GetValue(fieldOwner);
+			object ourValue = fieldInfo.GetValue(owner);
 			foreach (SerializableEdge edge in _edgeWithRemoteCustomIO)
 				edge.PassThroughBuffer = ourValue;
 		}
@@ -339,14 +321,14 @@ namespace GraphProcessor
 		{
 			// Clear lists, set classes to null and struct to default value.
 			if (typeof(IList).IsAssignableFrom(fieldInfo.FieldType))
-				(fieldInfo.GetValue(fieldOwner) as IList)?.Clear();
+				(fieldInfo.GetValue(owner) as IList)?.Clear();
 			else if (fieldInfo.FieldType.GetTypeInfo().IsClass)
-				fieldInfo.SetValue(fieldOwner, null);
+				fieldInfo.SetValue(owner, null);
 			else
 			{
 				try
 				{
-					fieldInfo.SetValue(fieldOwner, Activator.CreateInstance(fieldInfo.FieldType));
+					fieldInfo.SetValue(owner, Activator.CreateInstance(fieldInfo.FieldType));
 				}
 				catch
 				{
@@ -382,7 +364,7 @@ namespace GraphProcessor
 					if (TypeAdapter.AreAssignable(fieldInfo.FieldType, passThroughObject.GetType()))
 						passThroughObject = TypeAdapter.Convert(passThroughObject, fieldInfo.FieldType);
 
-				fieldInfo.SetValue(fieldOwner, passThroughObject);
+				fieldInfo.SetValue(owner, passThroughObject);
 			}
 		}
 	}

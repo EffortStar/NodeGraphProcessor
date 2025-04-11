@@ -3,10 +3,11 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using UnityEngine;
+using UnityEngine.Pool;
 
 namespace GraphProcessor
 {
-	internal class NodeFieldInformation
+	public class NodeFieldInformation
 	{
 		public readonly string name;
 		public readonly string fieldName;
@@ -57,21 +58,34 @@ namespace GraphProcessor
 
 		private static Dictionary<string, NodeFieldInformation> CreateInfoGroup(Type type)
 		{
-			FieldInfo[] fields = type.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-#if UNITY_EDITOR
-			// Assure that the executed field is always at the top of the node port section
-			Array.Sort(fields, (f1, _) => f1.Name == "executed" ? -1 : 1);
-#endif
-
 			Dictionary<string, NodeFieldInformation> infoGroup = new();
-			
-			foreach (FieldInfo field in fields)
+			do
 			{
+				foreach (FieldInfo field in type.GetFields(
+					BindingFlags.Public 
+					| BindingFlags.NonPublic 
+					| BindingFlags.Instance
+					| BindingFlags.DeclaredOnly
+				))
+				{
+					ProcessField(field, infoGroup);
+				}
+				
+				type = type.BaseType;
+			} while (type != null && type != typeof(BaseNode));
+
+			return infoGroup;
+
+			static void ProcessField(FieldInfo field, Dictionary<string, NodeFieldInformation> infoGroup)
+			{
+				var hasInput = Attribute.IsDefined(field, typeof(InputAttribute));
+				var hasOutput = Attribute.IsDefined(field, typeof(OutputAttribute));
+
+				if (!hasInput && !hasOutput)
+					return;
+				
 				var inputAttribute = field.GetCustomAttribute<InputAttribute>();
 				var outputAttribute = field.GetCustomAttribute<OutputAttribute>();
-
-				if (inputAttribute == null && outputAttribute == null)
-					continue;
 
 				var isVertical = Attribute.IsDefined(field, typeof(VerticalAttribute));
 				var isRequired = Attribute.IsDefined(field, typeof(RequiredPortAttribute));
@@ -96,8 +110,6 @@ namespace GraphProcessor
 				// By default, we set the behavior to null, if the field have a custom behavior, it will be set in the loop just below
 				infoGroup.Add(field.Name, new NodeFieldInformation(field, name, input, isMultiple, tooltip, isVertical, isRequired));
 			}
-
-			return infoGroup;
 		}
 	}
 }

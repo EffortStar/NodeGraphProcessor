@@ -183,8 +183,7 @@ namespace GraphProcessor
 				{
 					// If we don't have a custom behavior on the node, we just have to create a simple port
 					AddPort(
-						nodeField.input,
-						nodeField.fieldName,
+						nodeField,
 						new PortData
 						{
 							acceptMultipleEdges = nodeField.isMultiple,
@@ -342,7 +341,7 @@ namespace GraphProcessor
 				// Guard using the port identifier so we don't duplicate identifiers
 				if (port == null)
 				{
-					AddPort(fieldInfo.input, fieldName, portData);
+					AddPort(fieldInfo, portData);
 					changed = true;
 				}
 				else
@@ -528,15 +527,15 @@ namespace GraphProcessor
 		/// <param name="input">is input port</param>
 		/// <param name="fieldName">C# field name</param>
 		/// <param name="portData">Data of the port</param>
-		public void AddPort(bool input, string fieldName, PortData portData)
+		public void AddPort(NodeFieldInformation fieldInfo, PortData portData)
 		{
 			// Fixup port data info if needed:
-			portData.displayType ??= nodeFields[fieldName].info.FieldType;
+			portData.displayType ??= nodeFields[fieldInfo.fieldName].info.FieldType;
 
-			if (input)
-				inputPorts.Add(new NodePort(this, fieldName, portData));
+			if (fieldInfo.input)
+				inputPorts.Add(new NodePort(this, fieldInfo, portData));
 			else
-				outputPorts.Add(new NodePort(this, fieldName, portData));
+				outputPorts.Add(new NodePort(this, fieldInfo, portData));
 		}
 
 		/// <summary>
