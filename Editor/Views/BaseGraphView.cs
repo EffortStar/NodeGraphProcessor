@@ -109,7 +109,6 @@ namespace GraphProcessor
 
 		public SerializedObject serializedGraph { get; private set; }
 
-		private Dictionary<Type, (Type nodeType, MethodInfo initalizeNodeFromObject)> nodeTypePerCreateAssetType = new();
 		private NodeGraphState.StateValue _viewState;
 		private readonly BaseGraphWindow _window;
 		private Dictionary<string, BaseNode> _lastCopiedNodesMap;
@@ -654,28 +653,20 @@ namespace GraphProcessor
 						var node = BaseNode.CreateFromType<SubgraphNode>(mousePos);
 						node.Subgraph = draggedGraph;
 						AddNode(node);
-						break;
+						continue;
 					}
 
 					Type objectType = obj.GetType();
 
-					foreach (KeyValuePair<Type, (Type nodeType, MethodInfo initalizeNodeFromObject)> kp in nodeTypePerCreateAssetType)
+					while (objectType != typeof(Object))
 					{
-						if (!kp.Key.IsAssignableFrom(objectType))
-							continue;
-						try
+						if (NodeProvider.TryGetNodeFromDragAndDroppedAsset(graph, obj, mousePos, out BaseNode createdNode))
 						{
-							var node = BaseNode.CreateFromType(kp.Value.nodeType, mousePos);
-							if ((bool)kp.Value.initalizeNodeFromObject.Invoke(node, new[] { obj }))
-							{
-								AddNode(node);
-								break;
-							}
+							AddNode(createdNode);
+							break;
 						}
-						catch (Exception exception)
-						{
-							Debug.LogException(exception);
-						}
+
+						objectType = objectType!.BaseType;
 					}
 				}
 			}
@@ -789,29 +780,6 @@ namespace GraphProcessor
 			initialized?.Invoke();
 
 			InitializeView();
-
-			// Register the nodes that can be created from assets
-			foreach ((string path, Type type) nodeInfo in NodeProvider.GetNodeMenuEntries(graph))
-			{
-				Type[] interfaces = nodeInfo.type.GetInterfaces();
-				IEnumerable<Type> exceptInheritedInterfaces = interfaces.Except(interfaces.SelectMany(t => t.GetInterfaces()));
-				foreach (Type i in interfaces)
-				{
-					if (i.IsGenericType && i.GetGenericTypeDefinition() == typeof(ICreateNodeFrom<>))
-					{
-						Type genericArgumentType = i.GetGenericArguments()[0];
-						MethodInfo initializeFunction = nodeInfo.type.GetMethod(
-							nameof(ICreateNodeFrom<Object>.InitializeNodeFromObject),
-							BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
-							null, new Type[] { genericArgumentType }, null
-						);
-
-						// We only add the type that implements the interface, not it's children
-						if (initializeFunction.DeclaringType == nodeInfo.type)
-							nodeTypePerCreateAssetType[genericArgumentType] = (nodeInfo.type, initializeFunction);
-					}
-				}
-			}
 		}
 
 		public void ClearGraphElements()

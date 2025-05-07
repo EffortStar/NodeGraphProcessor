@@ -5,7 +5,9 @@ using System;
 using System.Linq;
 using System.IO;
 using System.Reflection;
+using JetBrains.Annotations;
 using UnityEditor.Experimental.GraphView;
+using Object = UnityEngine.Object;
 
 namespace GraphProcessor
 {
@@ -24,12 +26,12 @@ namespace GraphProcessor
 			Striped = Obsolete | Prototype
 		}
 		
-		private class AllCachedNodeDetails
+		private sealed class AllCachedNodeDetails
 		{
 			public readonly Dictionary<Type, CachedNodeDetails> NodesByType = new();
 		}
 
-		private class CachedNodeDetails
+		private sealed class CachedNodeDetails
 		{
 			public IEnumerable<string> MenuPaths => _menusPaths ?? Enumerable.Empty<string>();
 
@@ -139,20 +141,83 @@ namespace GraphProcessor
 			}
 		}
 
-		private static readonly AllCachedNodeDetails NodeCache = new();
+		private sealed class NodeCreationDetails
+		{
+			private readonly Dictionary<Type, (Type nodeType, MethodInfo initializeNode)> _dragAndDropLookup = new();
+
+			public NodeCreationDetails()
+			{
+				foreach (Type type in TypeCache.GetTypesDerivedFrom(typeof(ICreateNodeFrom<>)))
+				{
+					if (type.IsAbstract)
+					{
+						continue;
+					}
+
+					if (!type.IsSubclassOf(typeof(BaseNode)))
+					{
+						Debug.LogError($"{type} inherits from {typeof(ICreateNodeFrom<>).Name}. This interface can only be implemented on types inheriting from {nameof(BaseNode)}.");
+						continue;
+					}
+					
+					foreach (Type i in type.GetInterfaces())
+					{
+						if (!i.IsGenericType || i.GetGenericTypeDefinition() != typeof(ICreateNodeFrom<>))
+						{
+							continue;
+						}
+						
+
+						Type genericArgumentType = i.GetGenericArguments()[0];
+						MethodInfo initializeFunction = type.GetMethod(
+							nameof(ICreateNodeFrom<Object>.InitializeNodeFromObject),
+							BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
+							null, new[] { genericArgumentType }, null
+						);
+
+						// We only add the type that implements the interface, not it's children
+						if (IsNearestImplementation(initializeFunction!, type))
+							_dragAndDropLookup[genericArgumentType] = (type, initializeFunction);
+					}
+					
+				}
+			}
+
+			private static bool IsNearestImplementation(MethodInfo initializeFunction, Type type)
+			{
+				if (initializeFunction.DeclaringType == type)
+				{
+					return true;
+				}
+
+				// This could probably be better implemented, we just check if the parent of the type is abstract or generic,
+				// if so, then it probably cannot create a node.
+				if (type.BaseType!.IsAbstract || type.BaseType.IsGenericType)
+				{
+					return true;
+				}
+
+				return false;
+			}
+
+			public bool TryGetFromAssetType(Type assetType, out (Type nodeType, MethodInfo initializeNode) result) => _dragAndDropLookup.TryGetValue(assetType, out result);
+		}
+
+		private static readonly AllCachedNodeDetails s_nodeCache = new();
+		[CanBeNull] private static NodeCreationDetails _nodeCreationDetails = null;
 
 		private static void BuildNodeCache()
 		{
-			NodeCache.NodesByType.Add(typeof(BaseNode), new CachedNodeDetails(typeof(BaseNode)));
+			s_nodeCache.NodesByType.Add(typeof(BaseNode), new CachedNodeDetails(typeof(BaseNode)));
 			foreach (Type nodeType in TypeCache.GetTypesDerivedFrom<BaseNode>())
 			{
-				NodeCache.NodesByType.Add(nodeType, new CachedNodeDetails(nodeType));
+				s_nodeCache.NodesByType.Add(nodeType, new CachedNodeDetails(nodeType));
 			}
 
 			// Collect node menu details
 			foreach (Type type in TypeCache.GetTypesWithAttribute<NodeMenuItemAttribute>())
 			{
-				if (!NodeCache.NodesByType.TryGetValue(type, out CachedNodeDetails cache))
+				if (!s_nodeCache.NodesByType.TryGetValue(type, out CachedNodeDetails cache))
 				{
 					Debug.LogError($"{type} was decorated with {nameof(NodeMenuItemAttribute)} but it doesn't inherit from {nameof(BaseNode)}.");
 					continue;
@@ -178,7 +243,7 @@ namespace GraphProcessor
 				foreach (NodeCustomEditorAttribute attribute in type.GetCustomAttributes<NodeCustomEditorAttribute>())
 				{
 					Type nodeType = attribute.nodeType;
-					if (!NodeCache.NodesByType.TryGetValue(nodeType, out CachedNodeDetails cachedDetails))
+					if (!s_nodeCache.NodesByType.TryGetValue(nodeType, out CachedNodeDetails cachedDetails))
 					{
 						Debug.LogError($"{type} was decorated with {nameof(NodeCustomEditorAttribute)} but its target, {nodeType}, doesn't inherit from {nameof(BaseNode)}.");
 						continue;
@@ -197,7 +262,7 @@ namespace GraphProcessor
 			// Collect prototype nodes
 			foreach (Type type in TypeCache.GetTypesWithAttribute<PrototypeNodeAttribute>())
 			{
-				if (!NodeCache.NodesByType.TryGetValue(type, out CachedNodeDetails cache))
+				if (!s_nodeCache.NodesByType.TryGetValue(type, out CachedNodeDetails cache))
 				{
 					Debug.LogError($"{type} was decorated with {nameof(PrototypeNodeAttribute)} but it doesn't inherit from {nameof(BaseNode)}.");
 					continue;
@@ -209,7 +274,7 @@ namespace GraphProcessor
 			// Collect prototype nodes
 			foreach (Type type in TypeCache.GetTypesWithAttribute<NodeInfoAttribute>())
 			{
-				if (!NodeCache.NodesByType.TryGetValue(type, out CachedNodeDetails cache))
+				if (!s_nodeCache.NodesByType.TryGetValue(type, out CachedNodeDetails cache))
 				{
 					Debug.LogError($"{type} was decorated with {nameof(NodeInfoAttribute)} but it doesn't inherit from {nameof(BaseNode)}.");
 					continue;
@@ -284,7 +349,7 @@ namespace GraphProcessor
 		{
 			while (true)
 			{
-				if (NodeCache.NodesByType.TryGetValue(nodeType!, out CachedNodeDetails details) && details.NodeEditorType != null)
+				if (s_nodeCache.NodesByType.TryGetValue(nodeType!, out CachedNodeDetails details) && details.NodeEditorType != null)
 				{
 					return details.NodeEditorType;
 				}
@@ -302,7 +367,7 @@ namespace GraphProcessor
 		{
 			Type graphType = graph == null ? null : graph.GetType();
 
-			foreach ((Type nodeType, CachedNodeDetails details) in NodeCache.NodesByType)
+			foreach ((Type nodeType, CachedNodeDetails details) in s_nodeCache.NodesByType)
 			{
 				if (nodeType.IsAbstract)
 					continue;
@@ -317,7 +382,7 @@ namespace GraphProcessor
 
 		public static IEnumerable<Type> GetGraphTypeRequirementFromType(Type nodeType)
 		{
-			if (!NodeCache.NodesByType.TryGetValue(nodeType, out CachedNodeDetails details))
+			if (!s_nodeCache.NodesByType.TryGetValue(nodeType, out CachedNodeDetails details))
 			{
 				Debug.LogWarning($"{nodeType} was not present in cache");
 				return Enumerable.Empty<Type>();
@@ -326,16 +391,16 @@ namespace GraphProcessor
 		}
 
 		public static MonoScript GetNodeViewScript(Type type)
-			=> NodeCache.NodesByType.TryGetValue(type, out CachedNodeDetails details) ? details.ViewScript : null;
+			=> s_nodeCache.NodesByType.TryGetValue(type, out CachedNodeDetails details) ? details.ViewScript : null;
 
 		public static MonoScript GetNodeScript(Type type)
-			=> NodeCache.NodesByType.TryGetValue(type, out CachedNodeDetails details) ? details.Script : null;
+			=> s_nodeCache.NodesByType.TryGetValue(type, out CachedNodeDetails details) ? details.Script : null;
 
 		public static IEnumerable<PortDescription> GetEdgeCreationNodeMenuEntry(PortView portView, BaseGraph graph = null)
 		{
 			Type graphType = graph == null ? null : graph.GetType();
 
-			foreach ((_, CachedNodeDetails details) in NodeCache.NodesByType)
+			foreach ((_, CachedNodeDetails details) in s_nodeCache.NodesByType)
 			{
 				if (!details.IsCompatibleWithGraphType(graphType))
 					continue;
@@ -362,6 +427,39 @@ namespace GraphProcessor
 			}
 		}
 
-		public static NodeFlags GetNodeFlags(Type nodeType) => NodeCache.NodesByType.TryGetValue(nodeType, out CachedNodeDetails details) ? details.Flags : NodeFlags.None;
+		public static NodeFlags GetNodeFlags(Type nodeType) => s_nodeCache.NodesByType.TryGetValue(nodeType, out CachedNodeDetails details) ? details.Flags : NodeFlags.None;
+
+		public static bool TryGetNodeFromDragAndDroppedAsset(BaseGraph graph, Object asset, Vector2 mousePos, out BaseNode node)
+		{
+			_nodeCreationDetails ??= new NodeCreationDetails();
+			if (!_nodeCreationDetails.TryGetFromAssetType(asset.GetType(), out (Type nodeType, MethodInfo initializeNode) result))
+			{
+				node = null;
+				return false;
+			}
+
+			Type graphType = graph.GetType();
+			if (!s_nodeCache.NodesByType.TryGetValue(result.nodeType, out var details) || !details.IsCompatibleWithGraphType(graphType))
+			{
+				node = null;
+				return false;
+			}
+			
+			try
+			{
+				node = BaseNode.CreateFromType(result.nodeType, mousePos);
+				if ((bool)result.initializeNode.Invoke(node, new object[] { asset }))
+				{
+					return true;
+				}
+			}
+			catch (Exception exception)
+			{
+				Debug.LogException(exception);
+			}
+
+			node = null;
+			return false;
+		}
 	}
 }
