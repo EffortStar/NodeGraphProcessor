@@ -87,7 +87,7 @@ namespace GraphProcessor
 			_titleEditor.style.display = DisplayStyle.None;
 
 			var titleInput = _titleEditor.Q(TextField.textInputUssName);
-			titleInput.RegisterCallback<FocusOutEvent>(e => OnEditTitleFinished(), TrickleDown.TrickleDown);
+			_titleEditor.RegisterCallback<FocusOutEvent>(e => OnEditTitleFinished(), TrickleDown.TrickleDown);
 			titleInput.RegisterCallback<KeyDownEvent>(TitleEditorOnKeyDown, TrickleDown.TrickleDown);
 
 			_contentArea = this.Q(name: "contentContainerPlaceholder");
@@ -157,6 +157,7 @@ namespace GraphProcessor
 
 					// Prevent MouseDown from refocusing the Label on PostDispatch
 					e.StopImmediatePropagation();
+					focusController.IgnoreEvent(e);
 				}
 			}
 		}
@@ -167,7 +168,7 @@ namespace GraphProcessor
 			_titleEditor.style.display = DisplayStyle.Flex;
 			_titleLabel.visible = false;
 			_titleEditor.textSelection.SelectAll();
-			_titleEditor.Q(TextField.textInputUssName).Focus();
+			_titleEditor.Focus();
 		}
 
 
