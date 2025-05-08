@@ -143,7 +143,7 @@ namespace GraphProcessor
 
 		private sealed class NodeCreationDetails
 		{
-			private readonly Dictionary<Type, (Type nodeType, MethodInfo initializeNode)> _dragAndDropLookup = new();
+			private readonly Dictionary<Type, List<(Type nodeType, MethodInfo initializeNode)>> _dragAndDropLookup = new();
 
 			public NodeCreationDetails()
 			{
@@ -172,12 +172,19 @@ namespace GraphProcessor
 						MethodInfo initializeFunction = type.GetMethod(
 							nameof(ICreateNodeFrom<Object>.InitializeNodeFromObject),
 							BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
-							null, new[] { genericArgumentType }, null
+							null, new[] { typeof(BaseGraph), genericArgumentType }, null
 						);
+
+						if (!_dragAndDropLookup.TryGetValue(genericArgumentType, out var list))
+						{
+							_dragAndDropLookup.Add(genericArgumentType, list = new());
+						}
 
 						// We only add the type that implements the interface, not it's children
 						if (IsNearestImplementation(initializeFunction!, type))
-							_dragAndDropLookup[genericArgumentType] = (type, initializeFunction);
+						{
+							list.Add((type, initializeFunction));
+						}
 					}
 					
 				}
@@ -200,7 +207,7 @@ namespace GraphProcessor
 				return false;
 			}
 
-			public bool TryGetFromAssetType(Type assetType, out (Type nodeType, MethodInfo initializeNode) result) => _dragAndDropLookup.TryGetValue(assetType, out result);
+			public bool TryGetFromAssetType(Type assetType, out List<(Type nodeType, MethodInfo initializeNode)> result) => _dragAndDropLookup.TryGetValue(assetType, out result);
 		}
 
 		private static readonly AllCachedNodeDetails s_nodeCache = new();
@@ -432,30 +439,33 @@ namespace GraphProcessor
 		public static bool TryGetNodeFromDragAndDroppedAsset(BaseGraph graph, Object asset, Vector2 mousePos, out BaseNode node)
 		{
 			_nodeCreationDetails ??= new NodeCreationDetails();
-			if (!_nodeCreationDetails.TryGetFromAssetType(asset.GetType(), out (Type nodeType, MethodInfo initializeNode) result))
+			if (!_nodeCreationDetails.TryGetFromAssetType(asset.GetType(), out List<(Type nodeType, MethodInfo initializeNode)> result))
 			{
 				node = null;
 				return false;
 			}
 
-			Type graphType = graph.GetType();
-			if (!s_nodeCache.NodesByType.TryGetValue(result.nodeType, out var details) || !details.IsCompatibleWithGraphType(graphType))
+			foreach ((Type nodeType, MethodInfo initializeNode) in result)
 			{
-				node = null;
-				return false;
-			}
-			
-			try
-			{
-				node = BaseNode.CreateFromType(result.nodeType, mousePos);
-				if ((bool)result.initializeNode.Invoke(node, new object[] { asset }))
+				Type graphType = graph.GetType();
+				if (!s_nodeCache.NodesByType.TryGetValue(nodeType, out var details) || !details.IsCompatibleWithGraphType(graphType))
 				{
-					return true;
+					node = null;
+					return false;
 				}
-			}
-			catch (Exception exception)
-			{
-				Debug.LogException(exception);
+			
+				try
+				{
+					node = BaseNode.CreateFromType(nodeType, mousePos);
+					if ((bool)initializeNode.Invoke(node, new object[] { graph, asset }))
+					{
+						return true;
+					}
+				}
+				catch (Exception exception)
+				{
+					Debug.LogException(exception);
+				}
 			}
 
 			node = null;
