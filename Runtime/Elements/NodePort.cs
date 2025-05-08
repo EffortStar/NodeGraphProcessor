@@ -198,11 +198,33 @@ namespace GraphProcessor
 
 		PushDataDelegate CreatePushDataDelegateForEdge(SerializableEdge edge)
 		{
+			static FieldInfo GetFieldInfo(BaseNode node, string name)
+			{
+				Type type = node.GetType();
+				do
+				{
+					FieldInfo result = type.GetField(name,
+						BindingFlags.Public
+						| BindingFlags.NonPublic
+						| BindingFlags.Instance
+						| BindingFlags.DeclaredOnly
+					);
+					if (result != null)
+					{
+						return result;
+					}
+					
+					type = type.BaseType;
+				} while (type != null && type != typeof(BaseNode));
+				
+				throw new ArgumentException($"Field of name \"{name}\" could not be found in {node}.");
+			}
+			
 			try
 			{
 				//Creation of the delegate to move the data from the input node to the output node:
-				FieldInfo inputField = edge.ToNode.GetType().GetField(edge.inputFieldName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)!;
-				FieldInfo outputField = edge.FromNode.GetType().GetField(edge.outputFieldName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)!;
+				FieldInfo inputField = GetFieldInfo(edge.ToNode, edge.inputFieldName);
+				FieldInfo outputField = GetFieldInfo(edge.FromNode, edge.outputFieldName);
 
 				// ReSharper disable JoinDeclarationAndInitializer
 				Type inType, outType;
