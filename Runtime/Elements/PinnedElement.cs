@@ -11,7 +11,7 @@ namespace GraphProcessor
 	{
 		public static readonly Vector2 defaultSize = new(220, 250);
 
-		public Rect position = new(Vector2.zero, defaultSize);
+		public Rect position = new(new Vector2(0, 16), defaultSize);
 		public bool opened = true;
 		public SerializableType editorType;
 

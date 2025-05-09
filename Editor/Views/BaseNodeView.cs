@@ -9,6 +9,7 @@ using System.Collections;
 using System.Linq;
 using UnityEditor.UIElements;
 using System.Text.RegularExpressions;
+using JetBrains.Annotations;
 using UnityEngine.Pool;
 using Status = UnityEngine.UIElements.DropdownMenuAction.Status;
 using NodeView = UnityEditor.Experimental.GraphView.Node;
@@ -62,7 +63,6 @@ namespace GraphProcessor
 
 		private IconBadges badges;
 
-		private List<Node> selectedNodes = new();
 		private float selectedNodesFarLeft;
 		private float selectedNodesNearLeft;
 		private float selectedNodesFarRight;
@@ -465,15 +465,15 @@ namespace GraphProcessor
 			ports.Remove(p);
 		}
 
-		private void SetValuesForSelectedNodes()
+		private List<Node> GetValuesForSelectedNodes()
 		{
-			selectedNodes = new List<Node>();
+			List<Node> selectedNodes = new();
 			owner.nodes.ForEach(node =>
 			{
 				if (node.selected) selectedNodes.Add(node);
 			});
 
-			if (selectedNodes.Count < 2) return; //	No need for any of the calculations below
+			if (selectedNodes.Count < 2) return selectedNodes; //	No need for any of the calculations below
 
 			selectedNodesFarLeft = int.MinValue;
 			selectedNodesFarRight = int.MinValue;
@@ -504,6 +504,7 @@ namespace GraphProcessor
 
 			selectedNodesAvgHorizontal = (selectedNodesNearLeft + selectedNodesFarRight) / 2f;
 			selectedNodesAvgVertical = (selectedNodesNearTop + selectedNodesFarBottom) / 2f;
+			return selectedNodes;
 		}
 
 		public static Rect GetNodeRect(Node node, float left = int.MaxValue, float top = int.MaxValue)
@@ -516,7 +517,7 @@ namespace GraphProcessor
 
 		public void AlignToLeft()
 		{
-			SetValuesForSelectedNodes();
+			List<Node> selectedNodes = GetValuesForSelectedNodes();
 			if (selectedNodes.Count < 2) return;
 
 			foreach (Node selectedNode in selectedNodes)
@@ -527,7 +528,7 @@ namespace GraphProcessor
 
 		public void AlignToCenter()
 		{
-			SetValuesForSelectedNodes();
+			List<Node> selectedNodes = GetValuesForSelectedNodes();
 			if (selectedNodes.Count < 2) return;
 
 			foreach (Node selectedNode in selectedNodes)
@@ -538,7 +539,7 @@ namespace GraphProcessor
 
 		public void AlignToRight()
 		{
-			SetValuesForSelectedNodes();
+			List<Node> selectedNodes = GetValuesForSelectedNodes();
 			if (selectedNodes.Count < 2) return;
 
 			foreach (Node selectedNode in selectedNodes)
@@ -549,7 +550,7 @@ namespace GraphProcessor
 
 		public void AlignToTop()
 		{
-			SetValuesForSelectedNodes();
+			List<Node> selectedNodes = GetValuesForSelectedNodes();
 			if (selectedNodes.Count < 2) return;
 
 			foreach (Node selectedNode in selectedNodes)
@@ -560,7 +561,7 @@ namespace GraphProcessor
 
 		public void AlignToMiddle()
 		{
-			SetValuesForSelectedNodes();
+			List<Node> selectedNodes = GetValuesForSelectedNodes();
 			if (selectedNodes.Count < 2) return;
 
 			foreach (Node selectedNode in selectedNodes)
@@ -571,7 +572,7 @@ namespace GraphProcessor
 
 		public void AlignToBottom()
 		{
-			SetValuesForSelectedNodes();
+			List<Node> selectedNodes = GetValuesForSelectedNodes();
 			if (selectedNodes.Count < 2) return;
 
 			foreach (Node selectedNode in selectedNodes)
@@ -580,13 +581,17 @@ namespace GraphProcessor
 			}
 		}
 
+		[PublicAPI]
 		public void OpenNodeViewScript()
 		{
 			MonoScript script = NodeProvider.GetNodeViewScript(GetType());
 
 			if (script != null)
+			{
 				AssetDatabase.OpenAsset(script.GetInstanceID(), 0, 0);
-			
+				return;
+			}
+
 			foreach (MethodInfo method in GetType().GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static))
 			{
 				if (SourceUtility.OpenAtMethod(method))
@@ -1041,12 +1046,13 @@ namespace GraphProcessor
 		{
 			BuildAlignMenu(evt);
 			evt.menu.AppendAction("Open Node Script", (e) => OpenNodeScript());
-			evt.menu.AppendAction("Open Node View Script", (e) => OpenNodeViewScript());
-			evt.menu.AppendAction("Debug", (e) => ToggleDebug(), DebugStatus);
+			// evt.menu.AppendAction("Open Node View Script", (e) => OpenNodeViewScript());
+			// evt.menu.AppendAction("Debug", (e) => ToggleDebug(), DebugStatus); // TODO re-add if we ever use this.
 		}
 
 		protected void BuildAlignMenu(ContextualMenuPopulateEvent evt)
 		{
+			if (owner.selection.OfType<BaseNodeView>().Count() < 2) return;
 			evt.menu.AppendAction("Align/To Left", (e) => AlignToLeft());
 			evt.menu.AppendAction("Align/To Center", (e) => AlignToCenter());
 			evt.menu.AppendAction("Align/To Right", (e) => AlignToRight());

@@ -38,7 +38,7 @@ namespace GraphProcessor
 
 		public void ResetPosition()
 		{
-			PinnedElement.position = new Rect(Vector2.zero, PinnedElement.defaultSize);
+			PinnedElement.position = new Rect(new Vector2(0, 16), PinnedElement.defaultSize);
 			SetPosition(PinnedElement.position);
 		}
 

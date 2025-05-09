@@ -174,7 +174,14 @@ namespace GraphProcessor
 
 		private void BuildContextualMenu(ContextualMenuPopulateEvent evt)
 		{
-			evt.menu.ClearItems();
+			if (!HitTest(evt.localMousePosition))
+			{
+				// This will allow the CreateNode to be shown.
+				evt.target = Owner;
+				return;
+			}
+			
+			// evt.menu.ClearItems();
 			evt.menu.AppendAction("Delete Group", _ => Owner.RemoveGroup(this));
 			evt.menu.AppendAction("Delete Group and Children", _ =>
 			{
@@ -182,6 +189,7 @@ namespace GraphProcessor
 					Owner.RemoveNode(node.nodeTarget);
 				Owner.RemoveGroup(this);
 			});
+			evt.menu.AppendSeparator();
 		}
 
 		public void Initialize(BaseGraphView graphView, Group block)
