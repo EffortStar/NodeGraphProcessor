@@ -216,6 +216,13 @@ namespace GraphProcessor
 		{
 		}
 
+		/// <summary>
+		/// Cleanup for <see cref="CacheNode"/> when a node is removed from the graph.
+		/// </summary>
+		protected virtual void RemoveNodeFromCache(BaseNode node)
+		{
+		}
+
 		protected virtual void OnDisable()
 		{
 			isEnabled = false;
@@ -284,6 +291,7 @@ namespace GraphProcessor
 			nodesPerGUID.Remove(node.GUID);
 
 			nodes.Remove(node);
+			RemoveNodeFromCache(node);
 
 			onGraphChanges?.Invoke(new GraphChanges { removedNode = node });
 		}
