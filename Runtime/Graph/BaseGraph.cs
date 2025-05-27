@@ -89,7 +89,7 @@ namespace GraphProcessor
 		/// <summary>
 		/// Checks for any subgraph parameters. Doesn't perform checks for usage.
 		/// </summary>
-		public bool IsSubgraph => subgraphParameters.Count > 0;
+		public bool IsSubgraph => subgraphParameters.Count > 0 || name.EndsWith("Subgraph", StringComparison.OrdinalIgnoreCase);
 
 		[SerializeField, HideInInspector]
 		internal List<SubgraphParameter> subgraphParameters = new();
