@@ -22,8 +22,9 @@ namespace GraphProcessor
 			Obsolete = 1 << 0,
 			Prototype = 1 << 1,
 			HasInfo = 1 << 2,
+			SubgraphIncompatible = 1 << 3,
 			//
-			Striped = Obsolete | Prototype
+			Striped = Obsolete | Prototype | SubgraphIncompatible
 		}
 		
 		private sealed class AllCachedNodeDetails
@@ -232,14 +233,19 @@ namespace GraphProcessor
 
 				foreach (NodeMenuItemAttribute attribute in type.GetCustomAttributes<NodeMenuItemAttribute>())
 				{
-					if (!string.IsNullOrEmpty(attribute.menuTitle))
+					if (!string.IsNullOrEmpty(attribute.MenuTitle))
 					{
-						cache.AddMenuPath(attribute.menuTitle);
+						cache.AddMenuPath(attribute.MenuTitle);
 					}
 
-					if (attribute.onlyCompatibleWithGraph != null)
+					if (attribute.OnlyCompatibleWithGraph != null)
 					{
-						cache.AddCompatibleGraphType(attribute.onlyCompatibleWithGraph);
+						cache.AddCompatibleGraphType(attribute.OnlyCompatibleWithGraph);
+					}
+
+					if (!attribute.SubgraphSupport)
+					{
+						cache.Flags |= NodeFlags.SubgraphIncompatible;
 					}
 				}
 			}

@@ -69,17 +69,23 @@ namespace GraphProcessor
 	[AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
 	public sealed class NodeMenuItemAttribute : Attribute
 	{
-		public string menuTitle;
-		public Type onlyCompatibleWithGraph;
+		public string MenuTitle;
+		public Type OnlyCompatibleWithGraph;
+		public bool SubgraphSupport = true;
 
 		/// <summary>
 		/// Register the node in the NodeProvider class. The node will also be available in the node creation window.
 		/// </summary>
 		/// <param name="menuTitle">Path in the menu, use / as folder separators</param>
-		public NodeMenuItemAttribute(string menuTitle = null, Type onlyCompatibleWithGraph = null)
+		public NodeMenuItemAttribute(
+			string menuTitle = null,
+			Type onlyCompatibleWithGraph = null,
+			bool subgraphSupport = true
+		)
 		{
-			this.menuTitle = menuTitle;
-			this.onlyCompatibleWithGraph = onlyCompatibleWithGraph;
+			MenuTitle = menuTitle;
+			OnlyCompatibleWithGraph = onlyCompatibleWithGraph;
+			SubgraphSupport = subgraphSupport;
 		}
 	}
 
@@ -154,7 +160,7 @@ namespace GraphProcessor
 			this.fieldName = fieldName;
 		}
 	}
-	
+
 	/// <summary>
 	/// Mark a type as capable of accepting multiple inputs into a relay node.
 	/// </summary>
@@ -220,7 +226,7 @@ namespace GraphProcessor
 			this.name = name;
 		}
 	}
-	
+
 	/// <summary>
 	/// Mark this node as used for prototyping.
 	/// This indicates that the node may undergo unsafe refactoring, and shouldn't be used in a production graph.
@@ -229,7 +235,7 @@ namespace GraphProcessor
 	public sealed class PrototypeNodeAttribute : Attribute
 	{
 	}
-	
+
 	/// <summary>
 	/// Adds a hoverable info flag to a node with a text tooltip
 	/// </summary>

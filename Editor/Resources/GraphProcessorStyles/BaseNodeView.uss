@@ -233,7 +233,8 @@ ParameterNodeView .input > #title-label {
     --stripe-angle: 45;
 }
 
-.node.node--obsolete StripedElement {
+.node.node--obsolete StripedElement,
+.node.node--hasError StripedElement {
     display: flex;
     --stripe-color: #D32222;
     opacity: 0.6;
@@ -246,6 +247,7 @@ ParameterNodeView .input > #title-label {
 }
 
 .node.node--obsolete #title > Label,
+.node.node--hasError #title > Label,
 .node.node--prototype #title > Label {
     background-color: rgba(54, 54, 54, 0.75);
     padding-right: 3px;

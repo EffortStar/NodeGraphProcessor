@@ -24,7 +24,7 @@ namespace GraphProcessor
 		public void Initialize(string name, Type type, ParameterDirection direction)
 		{
 			Guid = System.Guid.NewGuid().ToString(); // Generated once and unique per parameter
-			Name = name;
+			Name = name ?? "";
 			Direction = direction;
 			Type = new SerializableType(type);
 		}

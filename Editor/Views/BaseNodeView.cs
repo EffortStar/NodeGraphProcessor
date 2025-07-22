@@ -22,6 +22,7 @@ namespace GraphProcessor
 		public const string UssClassName = "node";
 		public const string IconUssClassName = UssClassName + "__icon";
 		public const string ObsoleteUssClassName = UssClassName + "--obsolete";
+		public const string HasErrorUssClassName = UssClassName + "--hasError";
 		public const string PrototypeUssClassName = UssClassName + "--prototype";
 
 		public const string TitleContainerName = "title";
@@ -219,10 +220,16 @@ namespace GraphProcessor
 				AddToClassList(PrototypeUssClassName);
 				AddBadge("Prototype node may be changed or removed", BadgeMessageType.Warning);
 			}
-			else if ((nodeFlags & NodeProvider.NodeFlags.HasInfo) != 0)
+			
+			if ((nodeFlags & NodeProvider.NodeFlags.HasInfo) != 0)
 			{
-				AddToClassList(ObsoleteUssClassName);
 				AddBadge(nodeTarget.GetType().GetCustomAttributes<NodeInfoAttribute>().First().Message, BadgeMessageType.Info);
+			}
+
+			if ((nodeFlags & NodeProvider.NodeFlags.SubgraphIncompatible) != 0 && owner.graph.IsSubgraph)
+			{
+				AddToClassList(HasErrorUssClassName);
+				AddBadge("This node is not supported in subgraphs.", BadgeMessageType.Error);
 			}
 		}
 
