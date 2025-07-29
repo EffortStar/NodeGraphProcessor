@@ -313,7 +313,7 @@ namespace GraphProcessor
 								Debug.LogException(ex);
 							}
 
-							graph.RemoveNode(nodeView.nodeTarget);
+							RemoveNode(nodeView.nodeTarget);
 							UpdateSerializedProperties();
 							RemoveElement(nodeView);
 							if (Selection.activeObject == nodeInspector)
