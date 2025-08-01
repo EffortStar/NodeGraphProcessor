@@ -253,7 +253,7 @@ namespace GraphProcessor
 #if UNITY_EDITOR
 				if (!BaseGraph.TypesAreConnectable(outputField.FieldType, inputField.FieldType))
 				{
-					Debug.LogError($"Can't convert from {outputField.FieldType} to {inputField.FieldType}, " +
+					Debug.LogError($"[NodeGraph] Can't convert from {outputField.FieldType} to {inputField.FieldType}, " +
 					               "you must specify a custom port function (i.e CustomPortInput or CustomPortOutput) for non-implicit conversions. " +
 					               $" {edge.FromNode} -> {edge.ToNode}");
 					return null;
@@ -429,7 +429,7 @@ namespace GraphProcessor
 
 			if (port == null)
 			{
-				Debug.LogError("The edge can't be properly connected because it's ports can't be found");
+				Debug.LogError("[NodeGraph] The edge can't be properly connected because its ports can't be found.");
 				return;
 			}
 

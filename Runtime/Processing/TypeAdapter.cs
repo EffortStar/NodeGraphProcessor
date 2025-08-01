@@ -75,13 +75,13 @@ namespace GraphProcessor
 				{
 					if (method.GetParameters().Length != 1)
 					{
-						Debug.LogError($"Ignoring conversion method {method} because it does not have exactly one parameter");
+						Debug.LogError($"[NodeGraph] Ignoring conversion method {method} because it does not have exactly one parameter");
 						continue;
 					}
 
 					if (method.ReturnType == typeof(void))
 					{
-						Debug.LogError($"Ignoring conversion method {method} because it does not returns anything");
+						Debug.LogError($"[NodeGraph] Ignoring conversion method {method} because it does not returns anything");
 						continue;
 					}
 
@@ -109,7 +109,7 @@ namespace GraphProcessor
 					}
 					catch (Exception e)
 					{
-						Debug.LogError($"Failed to load the type conversion method: {method}\n{e}");
+						Debug.LogError($"[NodeGraph] Failed to load the type conversion method: {method}\n{e}");
 					}
 				}
 			}

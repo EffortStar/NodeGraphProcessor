@@ -157,7 +157,7 @@ namespace GraphProcessor
 			}
 			catch (Exception e)
 			{
-				Debug.LogError($"Error while processing \"{this}\".");
+				Debug.LogError($"[NodeGraph] Error while processing \"{this}\".");
 				Debug.LogException(e);
 			}
 		}
@@ -489,7 +489,7 @@ namespace GraphProcessor
 			}
 			catch (Exception e)
 			{
-				Debug.LogError($"Error while processing \"{this}\".");
+				Debug.LogError($"[NodeGraph] Error while processing \"{this}\".");
 				Debug.LogException(e);
 			}
 

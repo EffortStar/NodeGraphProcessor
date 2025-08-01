@@ -747,7 +747,7 @@ namespace GraphProcessor
 			}
 			catch (Exception e)
 			{
-				Debug.LogError($"Exception thrown in {name}:");
+				Debug.LogError($"[NodeGraph] Exception thrown in {name}:");
 				Debug.LogException(e);
 			}
 		}
@@ -766,7 +766,7 @@ namespace GraphProcessor
 				BaseGraph subgraph = subgraphNode.Subgraph;
 				if (subgraph == null)
 				{
-					Debug.LogError($"Subgraph node in {name} had no graph assigned.", this);
+					Debug.LogError($"[NodeGraph] Subgraph node in {name} had no graph assigned.", this);
 					foreach (SerializableEdge edge in subgraphNode.GetAllEdges().ToArray())
 						Disconnect(edge);
 					continue;
@@ -774,13 +774,13 @@ namespace GraphProcessor
 
 				if (subgraph == this)
 				{
-					Debug.LogError("A subgraph node was nested inside of itself!", this);
+					Debug.LogError($"[NodeGraph] A subgraph node in {name} was nested inside of itself!", this);
 					continue;
 				}
 
 				if (subgraph.nodes.Count == 0)
 				{
-					Debug.LogWarning($"Subgraph {subgraph} had no nodes, and couldn't be inlined.");
+					Debug.LogWarning($"[NodeGraph] Subgraph {subgraph} had no nodes, and couldn't be inlined.");
 					continue;
 				}
 

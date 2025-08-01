@@ -92,7 +92,7 @@ namespace GraphProcessor
 			if (!Owner.nodesPerGUID.ContainsKey(outputNodeGUID) || !Owner.nodesPerGUID.ContainsKey(inputNodeGUID))
 			{
 				if (logWarnings)
-					Debug.LogWarning($"Edge {GUID} failed to deserialize due to invalid node GUIDs ({inputNodeGUID} -> {outputNodeGUID})");
+					Debug.LogWarning($"[NodeGraph] Edge {GUID} failed to deserialize due to invalid node GUIDs ({inputNodeGUID} -> {outputNodeGUID}, owner: {Owner})", Owner);
 
 				return DeserializationResult.NoChanges;
 			}
@@ -112,7 +112,7 @@ namespace GraphProcessor
 				else
 				{
 					if (logWarnings)
-						Debug.LogWarning($"Edge {GUID} failed to deserialize due to invalid input port (fieldName: {inputFieldName}, id: {inputPortIdentifier})");
+						Debug.LogWarning($"[NodeGraph] Edge {GUID} failed to deserialize due to invalid input port (fieldName: {inputFieldName}, id: {inputPortIdentifier}, owner: {Owner})", Owner);
 				}
 			}
 
@@ -125,7 +125,7 @@ namespace GraphProcessor
 				else
 				{
 					if (logWarnings)
-						Debug.LogWarning($"Edge {GUID} failed to deserialize due to invalid output port (fieldName: {outputFieldName}, id: {outputPortIdentifier})");
+						Debug.LogWarning($"[NodeGraph] Edge {GUID} failed to deserialize due to invalid output port (fieldName: {outputFieldName}, id: {outputPortIdentifier}, owner: {Owner})", Owner);
 				}
 			}
 

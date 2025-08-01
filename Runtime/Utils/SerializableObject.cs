@@ -35,7 +35,7 @@ namespace GraphProcessor
 		{
 			if (string.IsNullOrEmpty(serializedType))
 			{
-				Debug.LogError("Can't deserialize the object from null type");
+				Debug.LogError("[NodeGraph] Can't deserialize the object from null type");
 				return;
 			}
 
@@ -65,7 +65,7 @@ namespace GraphProcessor
 				catch (Exception e)
 				{
 					Debug.LogError(e);
-					Debug.LogError("Can't serialize type " + serializedType);
+					Debug.LogError("[NodeGraph] Can't serialize type " + serializedType);
 				}
 			}
 		}
@@ -99,7 +99,7 @@ namespace GraphProcessor
 				}
 				catch
 				{
-					Debug.LogError("Can't serialize type " + serializedType);
+					Debug.LogError("[NodeGraph] Can't serialize type " + serializedType);
 				}
 			}
 		}
