@@ -217,6 +217,8 @@ namespace GraphProcessor
 				return false;
 			}
 
+			public IEnumerable<KeyValuePair<Type, List<(Type nodeType, MethodInfo initializeNode)>>> DragAndDropTypes => _dragAndDropLookup;
+			
 			public bool TryGetFromAssetType(Type assetType, out List<(Type nodeType, MethodInfo initializeNode)> result) => _dragAndDropLookup.TryGetValue(assetType, out result);
 		}
 
@@ -476,37 +478,61 @@ namespace GraphProcessor
 		public static bool TryGetNodeFromDragAndDroppedAsset(BaseGraph graph, Object asset, Vector2 mousePos, out BaseNode node)
 		{
 			_nodeCreationDetails ??= new NodeCreationDetails();
-			if (!_nodeCreationDetails.TryGetFromAssetType(asset.GetType(), out List<(Type nodeType, MethodInfo initializeNode)> result))
+			Type assetType = asset.GetType();
+			foreach ((Type type, List<(Type nodeType, MethodInfo initializeNode)> list) in _nodeCreationDetails.DragAndDropTypes)
 			{
-				node = null;
-				return false;
-			}
-
-			foreach ((Type nodeType, MethodInfo initializeNode) in result)
-			{
-				Type graphType = graph.GetType();
-				if (!s_nodeCache.NodesByType.TryGetValue(nodeType, out var details) || !details.IsCompatibleWithGraphType(graphType))
+				if (assetType == type)
 				{
-					node = null;
-					return false;
-				}
-			
-				try
-				{
-					node = BaseNode.CreateFromType(nodeType, mousePos);
-					if ((bool)initializeNode.Invoke(node, new object[] { graph, asset }))
+					if (TryCreate(list, out node))
 					{
 						return true;
 					}
 				}
-				catch (Exception exception)
+			}
+			
+			foreach ((Type type, List<(Type nodeType, MethodInfo initializeNode)> list) in _nodeCreationDetails.DragAndDropTypes)
+			{
+				if (assetType.IsSubclassOf(type))
 				{
-					Debug.LogException(exception);
+					if (TryCreate(list, out node))
+					{
+						return true;
+					}
 				}
 			}
-
+			
 			node = null;
 			return false;
+
+
+			bool TryCreate(List<(Type nodeType, MethodInfo initializeNode)> nodes, [CanBeNull] out BaseNode node)
+			{
+				foreach ((Type nodeType, MethodInfo initializeNode) in nodes)
+				{
+					Type graphType = graph.GetType();
+					if (!s_nodeCache.NodesByType.TryGetValue(nodeType, out var details) || !details.IsCompatibleWithGraphType(graphType))
+					{
+						node = null;
+						return false;
+					}
+
+					try
+					{
+						node = BaseNode.CreateFromType(nodeType, mousePos);
+						if ((bool)initializeNode.Invoke(node, new object[] { graph, asset }))
+						{
+							return true;
+						}
+					}
+					catch (Exception exception)
+					{
+						Debug.LogException(exception);
+					}
+				}
+
+				node = null;
+				return false;
+			}
 		}
 	}
 }
