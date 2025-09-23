@@ -1,5 +1,6 @@
 ﻿using System;
 using JetBrains.Annotations;
+using UnityEngine;
 
 namespace GraphProcessor
 {
@@ -87,6 +88,14 @@ namespace GraphProcessor
 			OnlyCompatibleWithGraph = onlyCompatibleWithGraph;
 			SubgraphSupport = subgraphSupport;
 		}
+	}
+
+	[AttributeUsage(AttributeTargets.Class)]
+	public sealed class NodeColorAttribute : Attribute
+	{
+		public readonly Color Color;
+		
+		public NodeColorAttribute(float r, float g, float b) => Color = new Color(r, g, b);
 	}
 
 	/// <summary>

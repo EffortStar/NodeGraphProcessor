@@ -85,6 +85,7 @@ namespace GraphProcessor
 			public NodeFlags Flags;
 			public Type NodeEditorType;
 
+			private Color? _color;
 			private List<string> _menusPaths;
 			private HashSet<Type> _compatibleGraphTypes;
 			private MonoScript _script;
@@ -139,6 +140,14 @@ namespace GraphProcessor
 
 					graphType = graphType.BaseType;
 				}
+			}
+
+			public void SetColor(Color color) => _color = color;
+
+			public bool TryGetColor(out Color color)
+			{
+				color = _color.GetValueOrDefault();
+				return _color.HasValue;
 			}
 		}
 
@@ -295,6 +304,17 @@ namespace GraphProcessor
 
 				cache.Flags |= NodeFlags.HasInfo;
 			}
+			
+			foreach (Type type in TypeCache.GetTypesWithAttribute<NodeColorAttribute>())
+			{
+				if (!s_nodeCache.NodesByType.TryGetValue(type, out CachedNodeDetails cache))
+				{
+					Debug.LogError($"{type} was decorated with {nameof(NodeColorAttribute)} but it doesn't inherit from {nameof(BaseNode)}.");
+					continue;
+				}
+
+				cache.SetColor(type.GetCustomAttribute<NodeColorAttribute>(true).Color);
+			}
 		}
 
 		public struct PortDescription
@@ -408,6 +428,17 @@ namespace GraphProcessor
 
 		public static MonoScript GetNodeScript(Type type)
 			=> s_nodeCache.NodesByType.TryGetValue(type, out CachedNodeDetails details) ? details.Script : null;
+
+		public static bool TryGetNodeColor(Type type, out Color color)
+		{
+			if (s_nodeCache.NodesByType.TryGetValue(type, out CachedNodeDetails details))
+			{
+				return details.TryGetColor(out color);
+			}
+
+			color = default;
+			return false;
+		}
 
 		public static IEnumerable<PortDescription> GetEdgeCreationNodeMenuEntry(PortView portView, BaseGraph graph = null)
 		{

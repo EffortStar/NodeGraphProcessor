@@ -181,6 +181,13 @@ namespace GraphProcessor
 			if ((nodeFlags & NodeProvider.NodeFlags.Striped) != 0)
 				this.Q(TitleContainerName).Insert(0, new StripedElement());
 
+			if (NodeProvider.TryGetNodeColor(nodeTarget.GetType(), out Color color))
+			{
+				IStyle style = this.Q("node-border").style;
+				style.borderTopColor = color;
+				style.borderTopWidth = 4;
+			}
+
 			controlsContainer = new VisualElement { name = "controls" };
 			controlsContainer.AddToClassList("NodeControls");
 			mainContainer.Add(controlsContainer);
