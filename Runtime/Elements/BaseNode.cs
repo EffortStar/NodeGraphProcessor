@@ -16,11 +16,6 @@ namespace GraphProcessor
 		/// <returns></returns>
 		public virtual string name => GetType().Name;
 
-		/// <summary>
-		/// The accent color of the node
-		/// </summary>
-		public virtual Color color => Color.clear;
-
 		//id
 		public string GUID;
 
