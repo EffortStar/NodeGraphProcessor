@@ -267,3 +267,7 @@ ParameterNodeView .input > #title-label {
 .node__icon.subgraph-node__icon {
     background-image: resource("Packages/com.alelievr.node-graph-processor/Editor/Icons/Subgraph@2x.png");
 }
+
+#contents > #top > #input {
+  flex-shrink: 1;
+}
