@@ -59,12 +59,12 @@ namespace GraphProcessor
 		{
 			// We wait for the graph to be initialized
 			if (_graph.isEnabled)
-				InitializeGraph(_graph);
+				InitializeGraph(_graph, _graph.IsSubgraph);
 			else
 				_graph.onEnabled += OnGraphEnabled;
 		}
 
-		private void OnGraphEnabled() => InitializeGraph(_graph);
+		private void OnGraphEnabled() => InitializeGraph(_graph, _graph.IsSubgraph);
 
 		/// <summary>
 		/// Called by Unity when the window is disabled (happens on domain reload)
