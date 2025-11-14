@@ -881,8 +881,14 @@ namespace GraphProcessor
 				return;
 
 			var nodeIndexString = nodeIndex.ToString();
-			foreach (PropertyField propertyField in this.Query<PropertyField>().ToList())
+			foreach (PropertyField propertyField in this.Query<PropertyField>().Build())
 			{
+				// Don't process nested property fields.
+				if (propertyField.panel == null || propertyField.GetFirstAncestorOfType<PropertyField>() != null)
+				{
+					continue;
+				}
+				
 				propertyField.Unbind();
 				// The property path look like this: nodes.Array.data[x].fieldName
 				// And we want to update the value of x with the new node index:
