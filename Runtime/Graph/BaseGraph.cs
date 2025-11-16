@@ -867,10 +867,7 @@ namespace GraphProcessor
 						{
 							// thisEdge.FromPort -> thisEdge -> inputPorts | [subgraphNode]
 							// [inputParameter] -> subgraphEdge -> subgraphEdge.ToPort
-							foreach (SerializableEdge subgraphEdge in inputParameter.GetAllEdges())
-							{
-								Connect(thisEdge.FromPort, subgraphEdge.ToPort, false);
-							}
+							Connect(thisEdge.FromPort, edge.ToPort, false);
 						}
 
 						break;
@@ -891,10 +888,7 @@ namespace GraphProcessor
 						{
 							// [subgraphNode] | outputPorts -> thisEdge -> thisEdge.ToPort
 							// subgraphEdge.FromPort -> subgraphEdge -> [outputParameter]
-							foreach (SerializableEdge subgraphEdge in outputParameter.GetAllEdges())
-							{
-								Connect(subgraphEdge.FromPort, thisEdge.ToPort, false);
-							}
+							Connect(edge.FromPort, thisEdge.ToPort, false);
 						}
 
 						break;
