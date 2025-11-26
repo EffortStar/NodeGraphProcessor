@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEditor;
 using UnityEngine.UIElements;
@@ -166,10 +167,21 @@ namespace GraphProcessor
 
 			if (_graphBreadcrumbs != null)
 			{
-				foreach (BaseGraph graph in _graphBreadcrumbs)
+				for (var i = 0; i < _graphBreadcrumbs.Count; i++)
 				{
+					BaseGraph graph = _graphBreadcrumbs[i];
 					if (graph == null) continue;
-					_breadcrumbs.PushItem(ObjectNames.NicifyVariableName(graph.name), () => InitializeGraph(graph));
+					BaseGraph[] parentCrumbs = _graphBreadcrumbs.Take(i).ToArray();
+					_breadcrumbs.PushItem(ObjectNames.NicifyVariableName(graph.name), () =>
+					{
+						InitializeGraph(graph);
+						if (parentCrumbs.Length > 0)
+						{
+							_graphBreadcrumbs.Clear();
+							_graphBreadcrumbs.AddRange(parentCrumbs);
+							UpdateBreadcrumbs();
+						}
+					});
 				}
 			}
 
