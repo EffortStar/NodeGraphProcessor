@@ -23,7 +23,7 @@ namespace GraphProcessor
 		[SerializeField]
 		private List<BaseGraph> _graphBreadcrumbs;
 
-		protected IEnumerable<BaseGraph> GraphBreadcrumbs => _graphBreadcrumbs;
+		protected IEnumerable<BaseGraph> GraphBreadcrumbs => _graphBreadcrumbs ?? Enumerable.Empty<BaseGraph>();
 
 		private const string GraphWindowStyle = "GraphProcessorStyles/BaseGraphView";
 		private bool _reloadWorkaround;
