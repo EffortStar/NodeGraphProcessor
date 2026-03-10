@@ -57,7 +57,7 @@ namespace GraphProcessor
 			if (obj == null)
                 return null;
 			else
-				path = AssetDatabase.GetAssetPath(obj.GetInstanceID());
+				path = AssetDatabase.GetAssetPath(obj.GetEntityId());
 
 			if (path.Length > 0)
 			{

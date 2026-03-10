@@ -602,7 +602,7 @@ namespace GraphProcessor
 
 			if (script != null)
 			{
-				AssetDatabase.OpenAsset(script.GetInstanceID(), 0, 0);
+				AssetDatabase.OpenAsset(script.GetEntityId(), 0, 0);
 				return;
 			}
 
@@ -618,7 +618,7 @@ namespace GraphProcessor
 			MonoScript script = NodeProvider.GetNodeScript(nodeTarget.GetType());
 
 			if (script != null)
-				AssetDatabase.OpenAsset(script.GetInstanceID(), 0, 0);
+				AssetDatabase.OpenAsset(script.GetEntityId(), 0, 0);
 			
 			foreach (MethodInfo method in nodeTarget.GetType().GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static))
 			{
