@@ -32,7 +32,9 @@ namespace GraphProcessor
 			this.isMultiple = isMultiple;
 			this.info = info;
 			this.name = name;
-			fieldName = info.Name;
+			// Intern this string as it's referenced
+			// across edges and ports many times.
+			fieldName = string.Intern(info.Name);
 			this.isRequired = isRequired;
 			this.tooltip = tooltip;
 			this.vertical = vertical;
