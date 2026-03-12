@@ -545,7 +545,7 @@ namespace GraphProcessor
 			if (e.keyCode == KeyCode.LeftControl)
 				return;
 
-			if (e.keyCode == KeyCode.S && (e.commandKey || e.ctrlKey))
+			if (e.keyCode == KeyCode.S && (e.commandKey || e.ctrlKey) && !e.shiftKey)
 			{
 				SaveGraphToDisk();
 				e.StopPropagation();
@@ -762,7 +762,7 @@ namespace GraphProcessor
 			EditorSceneManager.sceneSaved += _ => SaveGraphToDisk();
 			RegisterCallback<KeyDownEvent>(e =>
 			{
-				if (e.keyCode == KeyCode.S && e.actionKey)
+				if (e.keyCode == KeyCode.S && e.actionKey && !e.shiftKey)
 					SaveGraphToDisk();
 			});
 
