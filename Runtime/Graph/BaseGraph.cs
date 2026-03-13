@@ -742,6 +742,7 @@ namespace GraphProcessor
 			{
 				InlineSubgraphs(depth);
 				InlineSimplifiedRelays();
+				RealizeCustomElements();
 				/*if (inlinedSubgraph)
 					OpenThisGraphInEditor();*/
 			}
@@ -923,6 +924,8 @@ namespace GraphProcessor
 
 			return true;
 		}
+
+		protected virtual void RealizeCustomElements() { }
 
 		[System.Diagnostics.Conditional("UNITY_EDITOR")]
 		public void OpenThisGraphInEditor()
