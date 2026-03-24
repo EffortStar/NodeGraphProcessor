@@ -25,17 +25,12 @@
 }
 
 #settings-button:hover {
-    background-color: rgba(127, 127, 127 0.2);
+    background-color: rgba(127, 127, 127, 0.2);
 }
 
-#contents #top .executed #connector, #contents #top .executed #connector #cap,
-#contents #top .executes #connector, #contents #top .executes #connector #cap,
-#contents #top .executeAfter #connector, #contents #top .executeAfter #connector #cap,
-#contents #top .true #connector, #contents #top .true #connector #cap,
-#contents #top .false #connector, #contents #top .false #connector #cap,
-#contents #top .loopBody #connector, #contents #top .loopBody #connector #cap,
-#contents #top .loopCompleted #connector, #contents #top .loopCompleted #connector #cap {
-    border-radius: 0px;
+.Port_ConditionalLink > .connectorBox#connector,
+.Port_ConditionalLink > .connectorBox#connector > .connectorCap#cap {
+  border-radius: 0;
 }
 
 .Highlight {
