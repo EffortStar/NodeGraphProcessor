@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 
 namespace GraphProcessor
@@ -9,14 +8,6 @@ namespace GraphProcessor
 	public sealed class SerializableEdge : ISerializationCallbackReceiver
 	{
 		public string GUID;
-
-		internal BaseGraph Owner
-		{
-			private get => owner;
-			set => owner = value;
-		}
-
-		[SerializeField] BaseGraph owner;
 		[SerializeField] string inputNodeGUID;
 		[SerializeField] string outputNodeGUID;
 
@@ -57,7 +48,6 @@ namespace GraphProcessor
 		{
 			return new SerializableEdge
 			{
-				Owner = graph,
 				GUID = Guid.NewGuid().ToString(),
 				ToNode = toPort.owner,
 				inputFieldName = toPort.fieldName,
@@ -87,18 +77,18 @@ namespace GraphProcessor
 		}
 
 		//here our owner have been deserialized
-		public DeserializationResult Deserialize(bool logWarnings = true)
+		public DeserializationResult Deserialize(BaseGraph graph, bool logWarnings = true)
 		{
-			if (!Owner.nodesPerGUID.ContainsKey(outputNodeGUID) || !Owner.nodesPerGUID.ContainsKey(inputNodeGUID))
+			if (!graph.nodesPerGUID.ContainsKey(outputNodeGUID) || !graph.nodesPerGUID.ContainsKey(inputNodeGUID))
 			{
 				if (logWarnings)
-					Debug.LogWarning($"[NodeGraph] Edge {GUID} failed to deserialize due to invalid node GUIDs ({inputNodeGUID} -> {outputNodeGUID}, owner: {Owner})", Owner);
+					Debug.LogWarning($"[NodeGraph] Edge {GUID} failed to deserialize due to invalid node GUIDs ({inputNodeGUID} -> {outputNodeGUID}, owner: {graph})", graph);
 
 				return DeserializationResult.NoChanges;
 			}
 
-			FromNode = Owner.nodesPerGUID[outputNodeGUID];
-			ToNode = Owner.nodesPerGUID[inputNodeGUID];
+			FromNode = graph.nodesPerGUID[outputNodeGUID];
+			ToNode = graph.nodesPerGUID[inputNodeGUID];
 			ToPort = ToNode.GetPort(inputFieldName, inputPortIdentifier);
 			FromPort = FromNode.GetPort(outputFieldName, outputPortIdentifier);
 
@@ -112,7 +102,7 @@ namespace GraphProcessor
 				else
 				{
 					if (logWarnings)
-						Debug.LogWarning($"[NodeGraph] Edge {GUID} failed to deserialize due to invalid input port (fieldName: {inputFieldName}, id: {inputPortIdentifier}, owner: {Owner})", Owner);
+						Debug.LogWarning($"[NodeGraph] Edge {GUID} failed to deserialize due to invalid input port (fieldName: {inputFieldName}, id: {inputPortIdentifier}, owner: {graph})", graph);
 				}
 			}
 
@@ -125,7 +115,7 @@ namespace GraphProcessor
 				else
 				{
 					if (logWarnings)
-						Debug.LogWarning($"[NodeGraph] Edge {GUID} failed to deserialize due to invalid output port (fieldName: {outputFieldName}, id: {outputPortIdentifier}, owner: {Owner})", Owner);
+						Debug.LogWarning($"[NodeGraph] Edge {GUID} failed to deserialize due to invalid output port (fieldName: {outputFieldName}, id: {outputPortIdentifier}, owner: {graph})", graph);
 				}
 			}
 
@@ -134,8 +124,6 @@ namespace GraphProcessor
 
 		public void RemapNodes(BaseGraph graph, Dictionary<string, BaseNode> map)
 		{
-			owner = graph;
-			
 			var reserialize = false;
 			if (map.TryGetValue(ToNodeGuid, out BaseNode toNode))
 			{
@@ -151,7 +139,7 @@ namespace GraphProcessor
 
 			if (!reserialize)
 				return;
-			Deserialize(false);
+			Deserialize(graph, false);
 		}
 
 		public override string ToString() => $"{FromNode.name}:{FromPort.fieldName} -> {ToNode.name}:{ToPort.fieldName}";

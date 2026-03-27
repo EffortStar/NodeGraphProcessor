@@ -243,7 +243,7 @@ namespace GraphProcessor
 			{
 				var edge = JsonSerializer.Deserialize<SerializableEdge>(serializedEdge);
 
-				edge.Deserialize(false);
+				edge.Deserialize(graph, logWarnings: false);
 				edge.RemapNodes(graph, copiedNodesMap);
 				if (edge.ToNode == null || edge.FromNode == null ||
 				    // Logic to protect SubGraphs.
