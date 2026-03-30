@@ -91,7 +91,7 @@ namespace GraphProcessor
 			private MonoScript _script;
 			private MonoScript _viewScript;
 			private List<PortDescription> _portDescriptions;
-			private Dictionary<string, Action<BaseNode>> _configurationMethods;
+			private Dictionary<string, ConfigureNode> _configurationMethods;
 
 			public CachedNodeDetails(Type nodeType)
 			{
@@ -151,14 +151,14 @@ namespace GraphProcessor
 				return _color.HasValue;
 			}
 
-			public void AddConfiguration(string menuTitle, Action<BaseNode> configuration)
+			public void AddConfiguration(string menuTitle, ConfigureNode configuration)
 			{
-				_configurationMethods ??= new Dictionary<string, Action<BaseNode>>();
+				_configurationMethods ??= new Dictionary<string, ConfigureNode>();
 				_configurationMethods.Add(menuTitle, configuration);
 			}
 
-			public Action<BaseNode> GetConfigurationOrNull(string menuPath)
-				=> _configurationMethods?.TryGetValue(menuPath, out Action<BaseNode> configuration) ?? false ? configuration : null;
+			public ConfigureNode GetConfigurationOrNull(string menuPath)
+				=> _configurationMethods?.TryGetValue(menuPath, out ConfigureNode configuration) ?? false ? configuration : null;
 		}
 
 		private sealed class NodeCreationDetails
@@ -248,7 +248,7 @@ namespace GraphProcessor
 			{
 				if (!s_nodeCache.NodesByType.TryGetValue(type, out CachedNodeDetails cache))
 				{
-					Debug.LogError($"{type} was decorated with {nameof(NodeMenuItemAttribute)} but it doesn't inherit from {nameof(BaseNode)}.");
+					Debug.LogError($"{type} was decorated with {nameof(NodeMenuItemAttribute)} but it doesn't inherit from {nameof(BaseNode)} or is abstract.");
 					continue;
 				}
 
@@ -290,8 +290,16 @@ namespace GraphProcessor
 					Type type = producedNode.NodeType;
 					if (!s_nodeCache.NodesByType.TryGetValue(type, out CachedNodeDetails cache))
 					{
-						Debug.LogError($"{type} was decorated with {nameof(NodeMenuItemAttribute)} but it doesn't inherit from {nameof(BaseNode)}.");
-						continue;
+						// Late detail creation for generic types.
+						if (type.IsGenericType && !type.IsAbstract && typeof(BaseNode).IsAssignableFrom(type))
+						{
+							s_nodeCache.NodesByType.Add(type, cache = new CachedNodeDetails(type));
+						}
+						else
+						{
+							Debug.LogError($"{type} was decorated with {nameof(NodeMenuItemAttribute)} but it doesn't inherit from {nameof(BaseNode)} or is abstract.");
+							continue;
+						}
 					}
 					
 					cache.AddMenuPath(producedNode.MenuTitle);
@@ -436,7 +444,7 @@ namespace GraphProcessor
 			}
 		}
 
-		public static IEnumerable<(string path, Type type, Action<BaseNode> configuration)> GetNodeMenuEntries(BaseGraph graph = null)
+		public static IEnumerable<(string path, Type type, ConfigureNode configuration)> GetNodeMenuEntries(BaseGraph graph = null)
 		{
 			Type graphType = graph == null ? null : graph.GetType();
 

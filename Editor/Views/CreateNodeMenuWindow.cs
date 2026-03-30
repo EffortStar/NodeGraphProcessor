@@ -60,14 +60,14 @@ namespace GraphProcessor
 		private void CreateStandardNodeMenu(List<SearchTreeEntry> tree)
 		{
 			// Sort menu by alphabetical order and submenus
-			IOrderedEnumerable<(string path, Type type, Action<BaseNode> configuration)> nodeEntries = _graphView.FilterCreateNodeMenuEntries().OrderBy(k => k.path);
+			IOrderedEnumerable<(string path, Type type, ConfigureNode configuration)> nodeEntries = _graphView.FilterCreateNodeMenuEntries().OrderBy(k => k.path);
 			var titlePaths = new HashSet<string>();
 			AddNodeEntries(tree, nodeEntries, titlePaths);
-			IEnumerable<(string, BaseGraph, Action<BaseNode> configuration)> subgraphEntries = GetSubgraphEntries();
+			IEnumerable<(string, BaseGraph, ConfigureNode configuration)> subgraphEntries = GetSubgraphEntries();
 			AddNodeEntries(tree, subgraphEntries, titlePaths);
 		}
 
-		private IEnumerable<(string path, BaseGraph subgraph, Action<BaseNode> config)> GetSubgraphEntries()
+		private IEnumerable<(string path, BaseGraph subgraph, ConfigureNode config)> GetSubgraphEntries()
 		{
 			Type type = _graphView.graph.GetType();
 			foreach (BaseGraph subgraph in AssetDatabase.FindAssets($"t:{nameof(BaseGraph)}")
@@ -81,9 +81,9 @@ namespace GraphProcessor
 			}
 		}
 
-		private void AddNodeEntries<T>(List<SearchTreeEntry> tree, IEnumerable<(string path, T type, Action<BaseNode> configuration)> nodeEntries, HashSet<string> titlePaths)
+		private void AddNodeEntries<T>(List<SearchTreeEntry> tree, IEnumerable<(string path, T type, ConfigureNode configuration)> nodeEntries, HashSet<string> titlePaths)
 		{
-			foreach ((string nodePath, T type, Action<BaseNode> configuration) in nodeEntries)
+			foreach ((string nodePath, T type, ConfigureNode configuration) in nodeEntries)
 			{
 				string nodeName = nodePath;
 				var level = 0;
@@ -128,7 +128,7 @@ namespace GraphProcessor
 
 			var titlePaths = new HashSet<string>();
 
-			(string path, Type type, Action<BaseNode> _)[] nodePaths = NodeProvider.GetNodeMenuEntries(_graphView.graph).ToArray();
+			(string path, Type type, ConfigureNode _)[] nodePaths = NodeProvider.GetNodeMenuEntries(_graphView.graph).ToArray();
 
 			tree.Add(new SearchTreeEntry(new GUIContent("Relay", _icon))
 			{
@@ -238,10 +238,9 @@ namespace GraphProcessor
 			BaseNode node;
 			switch (searchTreeEntry.userData)
 			{
-				case (Type t, Action<BaseNode> configuration):
-					node = BaseNode.CreateFromType(t, graphMousePosition);
-					// ReSharper disable once ConstantConditionalAccessQualifier
-					configuration?.Invoke(node);
+				case ValueTuple<Type, ConfigureNode> args:
+					node = BaseNode.CreateFromType(args.Item1, graphMousePosition);
+					args.Item2?.Invoke(node);
 					break;
 				case NodeProvider.PortDescription description when description.SubgraphContext != null:
 				{
