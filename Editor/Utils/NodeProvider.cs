@@ -91,6 +91,7 @@ namespace GraphProcessor
 			private MonoScript _script;
 			private MonoScript _viewScript;
 			private List<PortDescription> _portDescriptions;
+			private Dictionary<string, Action<BaseNode>> _configurationMethods;
 
 			public CachedNodeDetails(Type nodeType)
 			{
@@ -149,6 +150,15 @@ namespace GraphProcessor
 				color = _color.GetValueOrDefault();
 				return _color.HasValue;
 			}
+
+			public void AddConfiguration(string menuTitle, Action<BaseNode> configuration)
+			{
+				_configurationMethods ??= new Dictionary<string, Action<BaseNode>>();
+				_configurationMethods.Add(menuTitle, configuration);
+			}
+
+			public Action<BaseNode> GetConfigurationOrNull(string menuPath)
+				=> _configurationMethods?.TryGetValue(menuPath, out Action<BaseNode> configuration) ?? false ? configuration : null;
 		}
 
 		private sealed class NodeCreationDetails
@@ -258,6 +268,34 @@ namespace GraphProcessor
 					{
 						cache.Flags |= NodeFlags.SubgraphIncompatible;
 					}
+				}
+			}
+			
+			foreach (MethodInfo methodInfo in TypeCache.GetMethodsWithAttribute<NodeMenuItemProducerAttribute>())
+			{
+				if (!methodInfo.IsStatic)
+				{
+					Debug.LogError($"{methodInfo} was decorated with {nameof(NodeMenuItemProducerAttribute)} but it was not static.");
+					continue;
+				}
+
+				if (methodInfo.Invoke(null, null) is not ProducedNode[] producedNodes)
+				{
+					Debug.LogError($"{methodInfo} was decorated with {nameof(NodeMenuItemProducerAttribute)} but does not return {nameof(ProducedNode)}[].");
+					continue;
+				}
+
+				foreach (ProducedNode producedNode in producedNodes)
+				{
+					Type type = producedNode.NodeType;
+					if (!s_nodeCache.NodesByType.TryGetValue(type, out CachedNodeDetails cache))
+					{
+						Debug.LogError($"{type} was decorated with {nameof(NodeMenuItemAttribute)} but it doesn't inherit from {nameof(BaseNode)}.");
+						continue;
+					}
+					
+					cache.AddMenuPath(producedNode.MenuTitle);
+					cache.AddConfiguration(producedNode.MenuTitle, producedNode.Configure);
 				}
 			}
 
@@ -398,7 +436,7 @@ namespace GraphProcessor
 			}
 		}
 
-		public static IEnumerable<(string path, Type type)> GetNodeMenuEntries(BaseGraph graph = null)
+		public static IEnumerable<(string path, Type type, Action<BaseNode> configuration)> GetNodeMenuEntries(BaseGraph graph = null)
 		{
 			Type graphType = graph == null ? null : graph.GetType();
 
@@ -411,7 +449,7 @@ namespace GraphProcessor
 					continue;
 
 				foreach (string menuPath in details.MenuPaths)
-					yield return (menuPath, nodeType);
+					yield return (menuPath, nodeType, details.GetConfigurationOrNull(menuPath));
 			}
 		}
 

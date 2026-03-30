@@ -1366,10 +1366,10 @@ namespace GraphProcessor
 		{
 		}
 
-		public virtual IEnumerable<(string path, Type type)> FilterCreateNodeMenuEntries()
+		public virtual IEnumerable<(string path, Type type, Action<BaseNode> configuration)> FilterCreateNodeMenuEntries()
 		{
 			// By default we don't filter anything
-			foreach ((string path, Type type) nodeMenuItem in NodeProvider.GetNodeMenuEntries(graph))
+			foreach ((string path, Type type, Action<BaseNode> configuration) nodeMenuItem in NodeProvider.GetNodeMenuEntries(graph))
 				yield return nodeMenuItem;
 
 			// TODO: add exposed properties to this list
