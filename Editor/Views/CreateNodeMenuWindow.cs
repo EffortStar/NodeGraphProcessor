@@ -252,10 +252,10 @@ namespace GraphProcessor
 				case NodeProvider.PortDescription description:
 					node = BaseNode.CreateFromType(description.NodeType, graphMousePosition);
 					break;
-				case BaseGraph graph:
+				case ValueTuple<BaseGraph, ConfigureNode> args:
 				{
 					var subgraphNode = BaseNode.CreateFromType<SubgraphNode>(graphMousePosition);
-					subgraphNode.Subgraph = graph;
+					subgraphNode.Subgraph = args.Item1;
 					node = subgraphNode;
 					break;
 				}
