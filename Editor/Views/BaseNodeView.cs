@@ -473,20 +473,47 @@ namespace GraphProcessor
 
 		public void InsertPort(PortView portView, int index)
 		{
-			if (portView.direction == Direction.Input)
+			try
 			{
-				if (portView.portData.vertical)
-					topPortContainer.Insert(index, portView);
+				if (portView.direction == Direction.Input)
+				{
+					if (portView.portData.vertical)
+					{
+						if (IsAlreadyAtIndex(topPortContainer))
+							return;
+						topPortContainer.Insert(index, portView);
+					}
+					else
+					{
+						if (IsAlreadyAtIndex(inputContainer))
+							return;
+						inputContainer.Insert(index, portView);
+					}
+				}
 				else
-					inputContainer.Insert(index, portView);
+				{
+					if (portView.portData.vertical)
+					{
+						if (IsAlreadyAtIndex(bottomPortContainer))
+							return;
+						bottomPortContainer.Insert(index, portView);
+					}
+					else
+					{
+						if (IsAlreadyAtIndex(outputContainer))
+							return;
+						outputContainer.Insert(index, portView);
+					}
+				}
 			}
-			else
+			catch (Exception e)
 			{
-				if (portView.portData.vertical)
-					bottomPortContainer.Insert(index, portView);
-				else
-					outputContainer.Insert(index, portView);
+				Debug.LogException(e);
 			}
+			return;
+
+			bool IsAlreadyAtIndex(VisualElement parent)
+				=> parent.childCount > index && parent[index] == portView;
 		}
 
 		public void RemovePort(PortView p)
@@ -920,7 +947,12 @@ namespace GraphProcessor
 				{
 					continue;
 				}
-				
+
+				if (propertyField.bindingPath == null)
+				{
+					continue;
+				}
+
 				propertyField.Unbind();
 				// The property path look like this: nodes.Array.data[x].fieldName
 				// And we want to update the value of x with the new node index:
@@ -1166,6 +1198,115 @@ namespace GraphProcessor
 				PortView pv = portViewList.FirstOrDefault(p => p.portData.identifier == id);
 				if (pv != null)
 					InsertPort(pv, i);
+			}
+		}
+
+		public bool MorphNodeToGenericNodeType(Type genericTypeArgument, bool refreshPorts = false)
+		{
+			BaseNode prevNode = nodeTarget;
+			Type nodeType = prevNode.GetType();
+			if (
+				!Attribute.IsDefined(nodeType, typeof(GenericNodeAttribute))
+				|| !nodeType.IsConstructedGenericType
+				|| genericTypeArgument == typeof(object)
+			)
+			{
+				return false;
+			}
+
+			var attribute = nodeType.GetCustomAttribute<GenericNodeAttribute>();
+			Type genericNodeType = nodeType.GetGenericTypeDefinition();
+			for (var i = 0; i < attribute.ExcludedTypes.Length; i++)
+			{
+				if (attribute.ExcludedTypes[i] != genericTypeArgument)
+					continue;
+					
+				Debug.LogWarning($"{TypeUtility.FormatTypeName(genericNodeType)} does not support {TypeUtility.FormatTypeName(genericTypeArgument)} because {attribute.Reasons[i]}.");
+				return false;
+			}
+
+			Type[] genericArgs = nodeType.GetGenericArguments();
+			if (genericArgs.Length != 1)
+			{
+				Debug.LogWarning("Multiple generic args currently not supported for " + nameof(GenericNodeAttribute));
+				return false;
+			}
+
+			if (genericArgs[0] != typeof(object))
+			{
+				return false;
+			}
+			
+			return MorphNodeToType(genericNodeType.MakeGenericType(genericTypeArgument), refreshPorts);
+		}
+		
+		public bool MorphNodeToType(Type toType, bool refreshPorts = true)
+		{
+			if (!TryMakeSpecificGenericNode())
+			{
+				return false;
+			}
+			
+			foreach (PortView portView in outputPortViews)
+			{
+				foreach (EdgeView edgeView in portView.GetEdges())
+				{
+					edgeView.output = GetPortViewFromFieldName(portView.fieldName, portView.portData.identifier);
+					edgeView.OnPortChanged(false);
+				}
+			}
+			
+			foreach (PortView portView in inputPortViews)
+			{
+				foreach (EdgeView edgeView in portView.GetEdges())
+				{
+					edgeView.input = GetPortViewFromFieldName(portView.fieldName, portView.portData.identifier);
+					edgeView.OnPortChanged(true);
+				}
+			}
+
+			if (refreshPorts)
+			{
+				RefreshPorts();
+			}
+
+			return true;
+
+			bool TryMakeSpecificGenericNode()
+			{
+				try
+				{
+					BaseNode prevNode = nodeTarget;
+					var instance = (BaseNode)Activator.CreateInstance(toType);
+					FieldInfo[] fields = toType.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.FlattenHierarchy);
+					foreach (FieldInfo field in fields)
+					{
+						if (field.IsInitOnly) continue;
+						if (field.Name == "_customPortBehaviorMap") continue;
+						try
+						{
+							field.SetValue(instance, field.GetValue(prevNode));
+						}
+						catch (Exception)
+						{
+							// Generic fields won't copy, but this is fine.
+						}
+					}
+
+					nodeTarget = instance;
+					owner.graph.nodes.Remove(prevNode);
+					owner.graph.RemoveNodeFromCache(prevNode);
+					owner.graph.AddNode(instance);
+					RefreshAfterSetNodeTarget();
+
+					// Debug.Log($"Morph {genericArgs[0]} to {toType}");
+					return true;
+				}
+				catch (Exception e)
+				{
+					Debug.LogException(e);
+					return false;
+				}
 			}
 		}
 

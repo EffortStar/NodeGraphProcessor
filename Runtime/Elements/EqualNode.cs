@@ -9,7 +9,8 @@ namespace GraphProcessor
 		new[] { typeof(float) },
 		new[] { "floats should be compared using greater/less than, not strict equality" }
 	)]
-	public class EqualNode<T> : BaseNode {
+	public class EqualNode<T> : BaseNode
+	{
 		[Input(name = "A"), SerializeField]
 		public T InputA;
 
@@ -18,7 +19,7 @@ namespace GraphProcessor
 
 		[Output(name = "")]
 		public bool Equal;
-		
+
 		public override string name => $"{TypeUtility.FormatTypeName(typeof(T), nicify: true)} ==";
 
 		protected override void Process() => Equal = EqualityComparer<T>.Default.Equals(InputA, InputB);
