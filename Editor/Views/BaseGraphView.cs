@@ -1173,14 +1173,40 @@ namespace GraphProcessor
 			}
 
 			AddElement(e);
+			
+			if (inputPortView.portType == typeof(object) && TryMakeSpecificGenericNode(inputNodeView, outputPortView.portType))
+			{
+				e.input = null;
+				foreach (PortView portView in inputNodeView.inputPortViews)
+				{
+					foreach (EdgeView edgeView in portView.GetEdges())
+					{
+						edgeView.input = inputNodeView.GetPortViewFromFieldName(portView.fieldName, portView.portData.identifier);
+						edgeView.OnPortChanged(true);
+					}
+				}
+			}
 
-			e.input.Connect(e);
-			e.output.Connect(e);
+			if (outputPortView.portType == typeof(object) && TryMakeSpecificGenericNode(outputNodeView, inputPortView.portType))
+			{
+				e.output = null;
+				foreach (PortView portView in outputNodeView.outputPortViews)
+				{
+					foreach (EdgeView edgeView in portView.GetEdges())
+					{
+						edgeView.output = outputNodeView.GetPortViewFromFieldName(portView.fieldName, portView.portData.identifier);
+						edgeView.OnPortChanged(false);
+					}
+				}
+			}
 
 			// If the input port have been removed by the custom port behavior
 			// we try to find if it's still here
 			e.input ??= inputNodeView.GetPortViewFromFieldName(inputPortView.fieldName, inputPortView.portData.identifier);
-			e.output ??= inputNodeView.GetPortViewFromFieldName(outputPortView.fieldName, outputPortView.portData.identifier);
+			e.output ??= outputNodeView.GetPortViewFromFieldName(outputPortView.fieldName, outputPortView.portData.identifier);
+			
+			e.input.Connect(e);
+			e.output.Connect(e);
 
 			edgeViews.Add(e);
 
@@ -1193,6 +1219,66 @@ namespace GraphProcessor
 			e.isConnected = true;
 
 			return true;
+
+			bool TryMakeSpecificGenericNode(BaseNodeView nodeView, Type toType)
+			{
+				BaseNode prevNode = nodeView.nodeTarget;
+				Type nodeType = prevNode.GetType();
+				if (!Attribute.IsDefined(nodeType, typeof(GenericNodeAttribute)) || !nodeType.IsConstructedGenericType || toType == typeof(object))
+				{
+					return false;
+				}
+
+				var attribute = nodeType.GetCustomAttribute<GenericNodeAttribute>();
+				Type genericNodeType = nodeType.GetGenericTypeDefinition();
+				for (var i = 0; i < attribute.ExcludedTypes.Length; i++)
+				{
+					if (attribute.ExcludedTypes[i] != toType)
+						continue;
+					
+					Debug.LogWarning($"{TypeUtility.FormatTypeName(genericNodeType)} does not support {TypeUtility.FormatTypeName(toType)} because {attribute.Reasons[i]}.");
+					return false;
+				}
+
+				Type[] genericArgs = nodeType.GetGenericArguments();
+				if (genericArgs.Length != 1)
+				{
+					Debug.LogWarning("Multiple generic args currently not supported for " + nameof(GenericNodeAttribute));
+					return false;
+				}
+
+				if (genericArgs[0] != typeof(object))
+				{
+					return false;
+				}
+
+
+				Type newNodeType = genericNodeType.MakeGenericType(toType);
+				var instance = (BaseNode)Activator.CreateInstance(newNodeType);
+				FieldInfo[] fields = newNodeType.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.FlattenHierarchy);
+				foreach (FieldInfo field in fields)
+				{
+					if (field.IsInitOnly) continue;
+					if (field.Name == "_customPortBehaviorMap") continue;
+					try
+					{
+						field.SetValue(instance, field.GetValue(prevNode));
+					}
+					catch (Exception)
+					{
+						// Generic fields won't copy, but this is fine.
+					}
+				}
+				
+				nodeView.nodeTarget = instance;
+				graph.nodes.Remove(prevNode);
+				graph.RemoveNodeFromCache(prevNode);
+				graph.AddNode(instance);
+				nodeView.RefreshAfterSetNodeTarget();
+
+				// Debug.Log($"Morph {genericArgs[0]} to {toType}");
+				return true;
+			}
 		}
 
 		public bool Connect(PortView fromPortView, PortView toPortView, bool autoDisconnectInputs = true)

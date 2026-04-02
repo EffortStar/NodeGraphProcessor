@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using UnityEngine;
 using UnityEngine.Serialization;
+using UnityEngine.UIElements;
 
 namespace GraphProcessor
 {
@@ -67,7 +68,7 @@ namespace GraphProcessor
 		/// </summary>
 		public bool createdFromDuplication { get; internal set; } = false;
 
-		[NonSerialized] internal Dictionary<string, NodeFieldInformation> nodeFields = new();
+		[NonSerialized] internal readonly Dictionary<string, NodeFieldInformation> nodeFields = new();
 		
 		[NonSerialized] internal Dictionary<string, CustomPortBehaviorDelegate> _customPortBehaviorMap = null;
 
@@ -119,7 +120,21 @@ namespace GraphProcessor
 			if (!nodeType.IsSubclassOf(typeof(BaseNode)))
 				return null;
 
-			var node = (BaseNode)Activator.CreateInstance(nodeType);
+			BaseNode node;
+			try
+			{
+				node = (BaseNode)Activator.CreateInstance(nodeType);
+			}
+			catch (Exception)
+			{
+				if (!Attribute.IsDefined(nodeType, typeof(GenericNodeAttribute)))
+				{
+					throw;
+				}
+
+				nodeType = nodeType.MakeGenericType(typeof(object));
+				node = (BaseNode)Activator.CreateInstance(nodeType);
+			}
 
 			node.position = position;
 			try

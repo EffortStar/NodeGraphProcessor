@@ -239,6 +239,46 @@ namespace GraphProcessor
 				AddBadge("This node is not supported in subgraphs.", BadgeMessageType.Error);
 			}
 		}
+		
+		protected internal void RefreshAfterSetNodeTarget()
+		{
+			owner.serializedGraph.Update();
+			portsPerFieldName.Clear();
+			// in
+			PortView[] oldPortViewsIn = inputPortViews.ToArray();
+			inputPortViews.Clear();
+			inputContainer.Clear();
+			inputContainerElement.Clear();
+			// out
+			PortView[] oldPortViewsOut = outputPortViews.ToArray();
+			outputPortViews.Clear();
+			outputContainer.Clear();
+			// other
+			bottomPortContainer.Clear();
+			controlsContainer.Clear();
+			fieldControlsMap.Clear();
+			UpdateTitle();
+			InitializePorts();
+			DrawDefaultInspector();
+			ReassignPortViewEdges(oldPortViewsIn, inputPortViews);
+			ReassignPortViewEdges(oldPortViewsOut, outputPortViews);
+			return;
+
+			void ReassignPortViewEdges(PortView[] oldPortViews, List<PortView> newPortViews)
+			{
+				foreach (PortView oldPortView in oldPortViews)
+				{
+					foreach (PortView newPortView in newPortViews)
+					{
+						if (oldPortView.fieldName != newPortView.fieldName || oldPortView.portData.identifier != newPortView.portData.identifier) continue;
+						foreach (EdgeView edgeView in oldPortView.GetEdges())
+						{
+							newPortView.Connect(edgeView);
+						}
+					}
+				}
+			}
+		}
 
 		protected void SetTitleIcon(string className)
 		{
@@ -381,11 +421,6 @@ namespace GraphProcessor
 			return ret;
 		}
 
-		public PortView GetFirstPortViewFromFieldName(string fieldName)
-		{
-			return GetPortViewsFromFieldName(fieldName)?.First();
-		}
-
 		public PortView GetPortViewFromFieldName(string fieldName, string identifier)
 			=> GetPortViewsFromFieldName(fieldName)?
 				.FirstOrDefault(
@@ -422,9 +457,7 @@ namespace GraphProcessor
 
 			p.Initialize(this, portData?.displayName);
 
-			List<PortView> ports;
-			portsPerFieldName.TryGetValue(p.fieldName, out ports);
-			if (ports == null)
+			if (!portsPerFieldName.TryGetValue(p.fieldName, out List<PortView> ports))
 			{
 				ports = new List<PortView>();
 				portsPerFieldName[p.fieldName] = ports;
@@ -474,14 +507,13 @@ namespace GraphProcessor
 					p.RemoveFromHierarchy();
 			}
 
-			List<PortView> ports;
-			portsPerFieldName.TryGetValue(p.fieldName, out ports);
+			List<PortView> ports = portsPerFieldName[p.fieldName];
 			ports.Remove(p);
 		}
 
-		private List<Node> GetValuesForSelectedNodes()
+		private List<NodeView> GetValuesForSelectedNodes()
 		{
-			List<Node> selectedNodes = new();
+			List<NodeView> selectedNodes = new();
 			owner.nodes.ForEach(node =>
 			{
 				if (node.selected) selectedNodes.Add(node);
@@ -499,7 +531,7 @@ namespace GraphProcessor
 			selectedNodesNearTop = int.MaxValue;
 			selectedNodesNearBottom = int.MaxValue;
 
-			foreach (Node selectedNode in selectedNodes)
+			foreach (NodeView selectedNode in selectedNodes)
 			{
 				IStyle nodeStyle = selectedNode.style;
 				float nodeWidth = selectedNode.localBound.size.x;
@@ -521,7 +553,7 @@ namespace GraphProcessor
 			return selectedNodes;
 		}
 
-		public static Rect GetNodeRect(Node node, float left = int.MaxValue, float top = int.MaxValue)
+		public static Rect GetNodeRect(NodeView node, float left = int.MaxValue, float top = int.MaxValue)
 		{
 			return new Rect(
 				new Vector2(left != int.MaxValue ? left : node.style.left.value.value, top != int.MaxValue ? top : node.style.top.value.value),
@@ -531,10 +563,10 @@ namespace GraphProcessor
 
 		public void AlignToLeft()
 		{
-			List<Node> selectedNodes = GetValuesForSelectedNodes();
+			List<NodeView> selectedNodes = GetValuesForSelectedNodes();
 			if (selectedNodes.Count < 2) return;
 
-			foreach (Node selectedNode in selectedNodes)
+			foreach (NodeView selectedNode in selectedNodes)
 			{
 				selectedNode.SetPosition(GetNodeRect(selectedNode, selectedNodesNearLeft));
 			}
@@ -542,10 +574,10 @@ namespace GraphProcessor
 
 		public void AlignToCenter()
 		{
-			List<Node> selectedNodes = GetValuesForSelectedNodes();
+			List<NodeView> selectedNodes = GetValuesForSelectedNodes();
 			if (selectedNodes.Count < 2) return;
 
-			foreach (Node selectedNode in selectedNodes)
+			foreach (NodeView selectedNode in selectedNodes)
 			{
 				selectedNode.SetPosition(GetNodeRect(selectedNode, selectedNodesAvgHorizontal - selectedNode.localBound.size.x / 2f));
 			}
@@ -553,10 +585,10 @@ namespace GraphProcessor
 
 		public void AlignToRight()
 		{
-			List<Node> selectedNodes = GetValuesForSelectedNodes();
+			List<NodeView> selectedNodes = GetValuesForSelectedNodes();
 			if (selectedNodes.Count < 2) return;
 
-			foreach (Node selectedNode in selectedNodes)
+			foreach (NodeView selectedNode in selectedNodes)
 			{
 				selectedNode.SetPosition(GetNodeRect(selectedNode, selectedNodesFarRight - selectedNode.localBound.size.x));
 			}
@@ -564,10 +596,10 @@ namespace GraphProcessor
 
 		public void AlignToTop()
 		{
-			List<Node> selectedNodes = GetValuesForSelectedNodes();
+			List<NodeView> selectedNodes = GetValuesForSelectedNodes();
 			if (selectedNodes.Count < 2) return;
 
-			foreach (Node selectedNode in selectedNodes)
+			foreach (NodeView selectedNode in selectedNodes)
 			{
 				selectedNode.SetPosition(GetNodeRect(selectedNode, top: selectedNodesNearTop));
 			}
@@ -575,10 +607,10 @@ namespace GraphProcessor
 
 		public void AlignToMiddle()
 		{
-			List<Node> selectedNodes = GetValuesForSelectedNodes();
+			List<NodeView> selectedNodes = GetValuesForSelectedNodes();
 			if (selectedNodes.Count < 2) return;
 
-			foreach (Node selectedNode in selectedNodes)
+			foreach (NodeView selectedNode in selectedNodes)
 			{
 				selectedNode.SetPosition(GetNodeRect(selectedNode, top: selectedNodesAvgVertical - selectedNode.localBound.size.y / 2f));
 			}
@@ -586,10 +618,10 @@ namespace GraphProcessor
 
 		public void AlignToBottom()
 		{
-			List<Node> selectedNodes = GetValuesForSelectedNodes();
+			List<NodeView> selectedNodes = GetValuesForSelectedNodes();
 			if (selectedNodes.Count < 2) return;
 
-			foreach (Node selectedNode in selectedNodes)
+			foreach (NodeView selectedNode in selectedNodes)
 			{
 				selectedNode.SetPosition(GetNodeRect(selectedNode, top: selectedNodesFarBottom - selectedNode.localBound.size.y));
 			}
@@ -1095,8 +1127,9 @@ namespace GraphProcessor
 			List<PortView> portViewList = portViews.ToList();
 
 			// Maybe not good to remove ports as edges are still connected :/
-			foreach (PortView pv in portViews.ToList())
+			for (int index = portViewList.Count - 1; index >= 0; index--)
 			{
+				PortView pv = portViewList[index];
 				// If the port have disappeared from the node data, we remove the view:
 				// We can use the identifier here because this function will only be called when there is a custom port behavior
 				if (!ports.Any(p => p.portData.identifier == pv.portData.identifier))
@@ -1109,7 +1142,7 @@ namespace GraphProcessor
 			foreach (NodePort p in ports)
 			{
 				// Add missing port views
-				if (!portViews.Any(pv => p.portData.identifier == pv.portData.identifier))
+				if (portViewList.All(pv => p.portData.identifier != pv.portData.identifier))
 				{
 					Direction portDirection = nodeTarget.IsFieldInput(p.fieldName) ? Direction.Input : Direction.Output;
 					PortView pv = AddPort(p.fieldInfo, portDirection, listener, p.portData);

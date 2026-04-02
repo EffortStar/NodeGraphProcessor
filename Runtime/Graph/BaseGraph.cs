@@ -218,7 +218,7 @@ namespace GraphProcessor
 		/// <summary>
 		/// Cleanup for <see cref="CacheNode"/> when a node is removed from the graph.
 		/// </summary>
-		protected virtual void RemoveNodeFromCache(BaseNode node)
+		protected internal virtual void RemoveNodeFromCache(BaseNode node)
 		{
 		}
 

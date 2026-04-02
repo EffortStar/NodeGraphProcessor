@@ -68,7 +68,17 @@ namespace GraphProcessor
 					this.graphView.Disconnect((EdgeView)edge);
 			} catch (System.Exception)
 			{
-				this.graphView.Disconnect((EdgeView)edge);
+				try
+				{
+					this.graphView.Disconnect((EdgeView)edge);
+				}
+				catch (System.Exception e)
+				{
+					// NOTE: the original exception is likely more important
+					Debug.LogException(e);
+				}
+
+				throw;
 			}
 		}
 

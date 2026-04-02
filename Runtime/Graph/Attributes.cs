@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using JetBrains.Annotations;
 using UnityEngine;
 
@@ -70,9 +71,9 @@ namespace GraphProcessor
 	[AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
 	public sealed class NodeMenuItemAttribute : Attribute
 	{
-		public string MenuTitle;
+		public readonly string MenuTitle;
 		public Type OnlyCompatibleWithGraph;
-		public bool SubgraphSupport = true;
+		public readonly bool SubgraphSupport;
 
 		/// <summary>
 		/// Register the node in the NodeProvider class. The node will also be available in the node creation window.
@@ -90,6 +91,28 @@ namespace GraphProcessor
 		}
 	}
 
+	/// <summary>
+	/// Underlying type will change depending on what's assigned to the generic ports.
+	/// </summary>
+	[AttributeUsage(AttributeTargets.Class)]
+	public sealed class GenericNodeAttribute : Attribute
+	{
+		public Type[] ExcludedTypes { get; }
+		public string[] Reasons { get; }
+		
+		public GenericNodeAttribute()
+		{
+			ExcludedTypes = Array.Empty<Type>();
+			Reasons = Array.Empty<string>();
+		}
+		
+		public GenericNodeAttribute(Type[] excludedTypes, string[] excludedReasons)
+		{
+			ExcludedTypes = excludedTypes;
+			Reasons = excludedReasons;
+		}
+	}
+
 	[AttributeUsage(AttributeTargets.Class)]
 	public sealed class NodeColorAttribute : Attribute
 	{
@@ -104,8 +127,8 @@ namespace GraphProcessor
 	[AttributeUsage(AttributeTargets.Method)]
 	public sealed class CustomPortInputAttribute : Attribute
 	{
-		public string fieldName;
-		public Type inputType;
+		public readonly string fieldName;
+		public readonly Type inputType;
 		public bool allowCast;
 
 		/// <summary>
@@ -129,8 +152,8 @@ namespace GraphProcessor
 	[AttributeUsage(AttributeTargets.Method)]
 	public sealed class CustomPortOutputAttribute : Attribute
 	{
-		public string fieldName;
-		public Type outputType;
+		public readonly string fieldName;
+		public readonly Type outputType;
 		public bool allowCast;
 
 		/// <summary>
@@ -154,7 +177,7 @@ namespace GraphProcessor
 	[AttributeUsage(AttributeTargets.Method)]
 	public sealed class CustomPortBehaviorAttribute : Attribute
 	{
-		public string fieldName;
+		public readonly string fieldName;
 
 		/// <summary>
 		/// Allow you to modify the generated port view from a field. Can be used to generate multiple ports from one field.
@@ -184,7 +207,7 @@ namespace GraphProcessor
 	[AttributeUsage(AttributeTargets.Class)]
 	public sealed class CustomStackNodeViewAttribute : Attribute
 	{
-		public Type stackNodeType;
+		public readonly Type stackNodeType;
 
 		/// <summary>
 		/// Allow you to have a custom view for your stack nodes
@@ -199,8 +222,8 @@ namespace GraphProcessor
 	[AttributeUsage(AttributeTargets.Field)]
 	public sealed class VisibleIfAttribute : Attribute
 	{
-		public string fieldName;
-		public object value;
+		public readonly string fieldName;
+		public readonly object value;
 
 		public VisibleIfAttribute(string fieldName, object value)
 		{
@@ -212,7 +235,7 @@ namespace GraphProcessor
 	[AttributeUsage(AttributeTargets.Field)]
 	public sealed class ShowInInspectorAttribute : Attribute
 	{
-		public bool showInNode;
+		public readonly bool showInNode;
 
 		public ShowInInspectorAttribute(bool showInNode = false)
 		{
@@ -228,7 +251,7 @@ namespace GraphProcessor
 	[AttributeUsage(AttributeTargets.Field)]
 	public sealed class SettingAttribute : Attribute
 	{
-		public string name;
+		public readonly string name;
 
 		public SettingAttribute(string name = null)
 		{
