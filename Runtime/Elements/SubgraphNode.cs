@@ -164,7 +164,7 @@ namespace GraphProcessor
 					// Walk through nodes and edges towards node input ports
 					foreach (NodePort port in node.outputPorts)
 					{
-						foreach (SerializableEdge edge in port.GetEdges())
+						foreach (SerializableEdge edge in port.Edges)
 						{
 							if (edge.ToNode is SimplifiedRelayNode)
 							{
@@ -172,7 +172,7 @@ namespace GraphProcessor
 							}
 							else
 							{
-								if (edge.ToPort.GetEdges().Count <= 1) // Edges are only required if what's querying it is all that's connected.
+								if (edge.ToPort.Edges.Count <= 1) // Edges are only required if what's querying it is all that's connected.
 									required |= edge.ToPort.portData.required;
 								acceptMultipleEdges |= edge.ToPort.portData.acceptMultipleEdges;
 							}
@@ -184,7 +184,7 @@ namespace GraphProcessor
 					// Walk through nodes and edges towards node output ports
 					foreach (NodePort port in node.inputPorts)
 					{
-						foreach (SerializableEdge edge in port.GetEdges())
+						foreach (SerializableEdge edge in port.Edges)
 						{
 							if (edge.FromNode is SimplifiedRelayNode)
 							{
@@ -192,7 +192,7 @@ namespace GraphProcessor
 							}
 							else
 							{
-								if (edge.FromPort.GetEdges().Count <= 1) // Edges are only required if what's querying it is all that's connected.
+								if (edge.FromPort.Edges.Count <= 1) // Edges are only required if what's querying it is all that's connected.
 									required |= edge.FromPort.portData.required;
 								acceptMultipleEdges |= edge.FromPort.portData.acceptMultipleEdges;
 							}

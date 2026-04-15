@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
+using UnityEngine.Pool;
 using UnityEngine.Serialization;
 using UnityEngine.UIElements;
 
@@ -361,7 +362,7 @@ namespace GraphProcessor
 					{
 						if (this is not SimplifiedRelayNode)
 						{
-							foreach (SerializableEdge edge in port.GetEdges().ToList())
+							foreach (SerializableEdge edge in port.Edges.ToList())
 								graph.Disconnect(edge.GUID);
 						}
 					}
@@ -419,7 +420,7 @@ namespace GraphProcessor
 						if (port.fieldName != field)
 							continue;
 
-						foreach (SerializableEdge edge in port.GetEdges())
+						foreach (SerializableEdge edge in port.Edges)
 						{
 							BaseNode edgeNode = node.IsFieldInput(field) ? edge.FromNode : edge.ToNode;
 							List<string> fieldsWithBehavior = edgeNode.nodeFields.Values.Where(HasCustomBehavior).Select(f => f.fieldName).ToList();
@@ -480,7 +481,7 @@ namespace GraphProcessor
 			// Reset default values of input port:
 			if (edge.ToNode != null)
 			{
-				bool haveConnectedEdges = edge.ToNode.inputPorts.Where(p => p.fieldName == edge.inputFieldName).Any(p => p.GetEdges().Count != 0);
+				bool haveConnectedEdges = edge.ToNode.inputPorts.Where(p => p.fieldName == edge.inputFieldName).Any(p => p.Edges.Count != 0);
 				if (edge.ToNode == this && !haveConnectedEdges && CanResetPort(edge.ToPort))
 					edge.ToPort?.ResetToDefault();
 			}
@@ -578,22 +579,28 @@ namespace GraphProcessor
 		/// Get all the nodes connected to the input ports of this node
 		/// </summary>
 		/// <returns>an enumerable of node</returns>
-		public IEnumerable<BaseNode> GetInputNodes()
+		public List<BaseNode> GetInputNodes(List<BaseNode> results)
 		{
-			foreach (NodePort port in inputPorts)
-			foreach (SerializableEdge edge in port.GetEdges())
-				yield return edge.FromNode;
+			foreach (NodePort port in inputPorts){
+				foreach (SerializableEdge edge in port.Edges)
+					results.Add(edge.FromNode);
+			}
+
+			return results;
 		}
 
 		/// <summary>
 		/// Get all the nodes connected to the output ports of this node
 		/// </summary>
 		/// <returns>an enumerable of node</returns>
-		public IEnumerable<BaseNode> GetOutputNodes()
+		public List<BaseNode> GetOutputNodes(List<BaseNode> results)
 		{
-			foreach (NodePort port in outputPorts)
-			foreach (SerializableEdge edge in port.GetEdges())
-				yield return edge.ToNode;
+			foreach (NodePort port in outputPorts){
+				foreach (SerializableEdge edge in port.Edges)
+					results.Add(edge.ToNode);
+			}
+
+			return results;
 		}
 
 		/// <summary>
@@ -620,7 +627,8 @@ namespace GraphProcessor
 				if (condition(node))
 					return node;
 
-				foreach (BaseNode dep in node.GetInputNodes())
+				using var _ = ListPool<BaseNode>.Get(out var nodes);
+				foreach (BaseNode dep in node.GetInputNodes(nodes))
 					dependencies.Push(dep);
 			}
 
@@ -670,7 +678,7 @@ namespace GraphProcessor
 		/// Return all the connected edges of the node
 		/// </summary>
 		/// <returns></returns>
-		public IEnumerable<SerializableEdge> GetAllEdges() => AllPorts.SelectMany(port => port.GetEdges());
+		public IEnumerable<SerializableEdge> GetAllEdges() => AllPorts.SelectMany(port => port.Edges);
 
 		/// <summary>
 		/// Is the port an input

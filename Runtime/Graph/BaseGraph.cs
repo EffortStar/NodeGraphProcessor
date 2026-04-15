@@ -267,7 +267,7 @@ namespace GraphProcessor
 			// Disconnect all edges:
 			foreach (NodePort port in node.inputPorts)
 			{
-				foreach (SerializableEdge edge in port.GetEdges())
+				foreach (SerializableEdge edge in port.Edges)
 				{
 					edge.ToNode = null;
 					edge.ToPort = null;
@@ -277,7 +277,7 @@ namespace GraphProcessor
 
 			foreach (NodePort port in node.outputPorts)
 			{
-				foreach (SerializableEdge edge in port.GetEdges())
+				foreach (SerializableEdge edge in port.Edges)
 				{
 					edge.FromNode = null;
 					edge.FromPort = null;
@@ -301,13 +301,13 @@ namespace GraphProcessor
 		private void DissolveRelay(SimplifiedRelayNode relayNode, bool deleteNode = true)
 		{
 			using var _ = ListPool<NodePort>.Get(out var endpoints);
-			foreach (SerializableEdge edgeIn in relayNode.inputPorts[0].GetEdges())
+			foreach (SerializableEdge edgeIn in relayNode.inputPorts[0].Edges)
 			{
 				if (edgeIn.FromNode is SimplifiedRelayNode) continue;
 				NodePort fromPort = edgeIn.FromPort;
 
 				endpoints.Clear();
-				CollectEndpoints(relayNode.outputPorts[0].GetEdges());
+				CollectEndpoints(relayNode.outputPorts[0].Edges);
 				foreach (NodePort toPort in endpoints)
 				{
 					Connect(fromPort, toPort, false);
@@ -321,7 +321,7 @@ namespace GraphProcessor
 					{
 						if (edge.ToNode is SimplifiedRelayNode)
 						{
-							CollectEndpoints(edge.ToNode.outputPorts[0].GetEdges());
+							CollectEndpoints(edge.ToNode.outputPorts[0].Edges);
 						}
 						else
 						{
@@ -352,7 +352,7 @@ namespace GraphProcessor
 			//If the input port does not support multi-connection, we remove them
 			if (autoDisconnectInputs && !toPort.portData.acceptMultipleEdges)
 			{
-				foreach (SerializableEdge e in toPort.GetEdges().ToList())
+				foreach (SerializableEdge e in toPort.Edges.ToList())
 				{
 					// TODO: do not disconnect them if the connected port is the same than the old connected
 					Disconnect(e);
@@ -362,7 +362,7 @@ namespace GraphProcessor
 			// same for the output port:
 			if (autoDisconnectInputs && !fromPort.portData.acceptMultipleEdges)
 			{
-				foreach (SerializableEdge e in fromPort.GetEdges().ToList())
+				foreach (SerializableEdge e in fromPort.Edges.ToList())
 				{
 					// TODO: do not disconnect them if the connected port is the same than the old connected
 					Disconnect(e);
@@ -862,7 +862,7 @@ namespace GraphProcessor
 					foreach (NodePort port in subgraphNode.inputPorts)
 					{
 						if (port.portData.identifier != inputParameter.parameterGUID) continue;
-						foreach (SerializableEdge thisEdge in port.GetEdges())
+						foreach (SerializableEdge thisEdge in port.Edges)
 						{
 							// thisEdge.FromPort -> thisEdge -> inputPorts | [subgraphNode]
 							// [inputParameter] -> subgraphEdge -> subgraphEdge.ToPort
@@ -883,7 +883,7 @@ namespace GraphProcessor
 					foreach (NodePort port in subgraphNode.outputPorts)
 					{
 						if (port.portData.identifier != outputParameter.parameterGUID) continue;
-						foreach (SerializableEdge thisEdge in port.GetEdges())
+						foreach (SerializableEdge thisEdge in port.Edges)
 						{
 							// [subgraphNode] | outputPorts -> thisEdge -> thisEdge.ToPort
 							// subgraphEdge.FromPort -> subgraphEdge -> [outputParameter]

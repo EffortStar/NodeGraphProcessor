@@ -168,7 +168,7 @@ namespace GraphProcessor
 				{
 					if (port.portData.vertical)
 					{
-						foreach (SerializableEdge edge in port.GetEdges())
+						foreach (SerializableEdge edge in port.Edges)
 							data.copiedEdges.Add(JsonSerializer.Serialize(edge));
 					}
 				}
@@ -253,8 +253,8 @@ namespace GraphProcessor
 				}
 
 				// We avoid to break the graph by replacing unique connections:
-				if (edge.ToPort.GetEdges().Count > 0 && !edge.ToPort.portData.acceptMultipleEdges ||
-				    edge.FromPort.GetEdges().Count > 0 && !edge.FromPort.portData.acceptMultipleEdges)
+				if (edge.ToPort.Edges.Count > 0 && !edge.ToPort.portData.acceptMultipleEdges ||
+				    edge.FromPort.Edges.Count > 0 && !edge.FromPort.portData.acceptMultipleEdges)
 				{
 					continue;
 				}
@@ -388,8 +388,8 @@ namespace GraphProcessor
 					return;
 
 				if (
-					relay.inputPorts[0].GetEdges().Count != 0 ||
-					relay.outputPorts[0].GetEdges().Count != 0
+					relay.inputPorts[0].Edges.Count != 0 ||
+					relay.outputPorts[0].Edges.Count != 0
 				)
 					return;
 				RemoveNode(relay);
