@@ -1173,16 +1173,20 @@ namespace GraphProcessor
 			}
 
 			AddElement(e);
+			
+			
 
 			if (
-				inputPortView.portType == typeof(object)
+				inputNodeView.IsUnmorphedGenericNode(out Type baseTypeConstraint)
+				&& inputPortView.portType == baseTypeConstraint
 				&& inputNodeView.MorphNodeToGenericNodeType(outputPortView.portType)
 				)
 			{
 				e.input = null;
 			}
 			else if (
-				outputPortView.portType == typeof(object)
+				outputNodeView.IsUnmorphedGenericNode(out baseTypeConstraint)
+				&& outputPortView.portType == baseTypeConstraint
 				&& outputNodeView.MorphNodeToGenericNodeType(inputPortView.portType)
 			)
 			{

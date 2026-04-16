@@ -97,17 +97,20 @@ namespace GraphProcessor
 	[AttributeUsage(AttributeTargets.Class)]
 	public sealed class GenericNodeAttribute : Attribute
 	{
+		public Type BaseConstraintType { get; }
 		public Type[] ExcludedTypes { get; }
 		public string[] Reasons { get; }
 		
-		public GenericNodeAttribute()
+		public GenericNodeAttribute(Type baseConstraintType = null)
 		{
+			BaseConstraintType = baseConstraintType ?? typeof(object);
 			ExcludedTypes = Array.Empty<Type>();
 			Reasons = Array.Empty<string>();
 		}
 		
-		public GenericNodeAttribute(Type[] excludedTypes, string[] excludedReasons)
+		public GenericNodeAttribute(Type[] excludedTypes, string[] excludedReasons, Type baseConstraintType = null)
 		{
+			BaseConstraintType = baseConstraintType ?? typeof(object);
 			ExcludedTypes = excludedTypes;
 			Reasons = excludedReasons;
 		}

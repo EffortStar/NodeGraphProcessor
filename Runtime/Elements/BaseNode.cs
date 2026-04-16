@@ -128,12 +128,13 @@ namespace GraphProcessor
 			}
 			catch (Exception)
 			{
-				if (!Attribute.IsDefined(nodeType, typeof(GenericNodeAttribute)))
+				var genericNodeAttribute = (GenericNodeAttribute)Attribute.GetCustomAttribute(nodeType, typeof(GenericNodeAttribute));
+				if (genericNodeAttribute == null)
 				{
 					throw;
 				}
 
-				nodeType = nodeType.MakeGenericType(typeof(object));
+				nodeType = nodeType.MakeGenericType(genericNodeAttribute.BaseConstraintType);
 				node = (BaseNode)Activator.CreateInstance(nodeType);
 			}
 

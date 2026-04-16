@@ -26,7 +26,6 @@ namespace GraphProcessor
 		public const string PrototypeUssClassName = UssClassName + "--prototype";
 
 		public const string TitleContainerName = "title";
-
 		public BaseNode nodeTarget;
 		private NodeProvider.NodeFlags nodeFlags;
 
@@ -81,7 +80,26 @@ namespace GraphProcessor
 		/// </summary>
 		public virtual string layoutStyle => string.Empty;
 
-		#region Initialization
+		private bool _isUnmorphedGenericNode;
+
+		public bool IsUnmorphedGenericNode(out Type baseTypeConstraint)
+		{
+			if (!_isUnmorphedGenericNode)
+			{
+				baseTypeConstraint = null;
+				return false;
+			}
+
+			baseTypeConstraint =
+				((GenericNodeAttribute)Attribute.GetCustomAttribute(
+					nodeTarget.GetType(),
+					typeof(GenericNodeAttribute)
+				))
+				.BaseConstraintType;
+			return true;
+		}
+
+#region Initialization
 
 		public BaseNodeView()
 		{
@@ -111,6 +129,8 @@ namespace GraphProcessor
 
 			if (!node.deletable)
 				capabilities &= ~Capabilities.Deletable;
+			
+			_isUnmorphedGenericNode = Attribute.IsDefined(node.GetType(), typeof(GenericNodeAttribute));
 
 			node.onMessageAdded += AddBadge;
 			node.onMessageRemoved += RemoveBadge;
@@ -240,7 +260,7 @@ namespace GraphProcessor
 			}
 		}
 		
-		protected internal void RefreshAfterSetNodeTarget()
+		protected virtual void RefreshAfterSetNodeTarget()
 		{
 			owner.serializedGraph.Update();
 			portsPerFieldName.Clear();
@@ -1232,7 +1252,7 @@ namespace GraphProcessor
 				return false;
 			}
 
-			if (genericArgs[0] != typeof(object))
+			if (genericArgs[0] != attribute.BaseConstraintType)
 			{
 				return false;
 			}
@@ -1270,6 +1290,7 @@ namespace GraphProcessor
 				RefreshPorts();
 			}
 
+			_isUnmorphedGenericNode = false;
 			return true;
 
 			bool TryMakeSpecificGenericNode()
