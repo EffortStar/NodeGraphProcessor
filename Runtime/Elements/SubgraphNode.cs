@@ -84,14 +84,22 @@ namespace GraphProcessor
 			foreach (SubgraphParameter parameter in Subgraph.SubgraphParameters)
 			{
 				if (parameter.Direction != ParameterDirection.Input) continue;
-				(bool _, bool acceptMultipleEdges) = GetParameterPortInfoFromInner(parametersToNodes, parameter);
+				(bool _, bool acceptMultipleEdges, string tooltip) = GetParameterPortInfoFromInner(parametersToNodes, parameter);
+
+
+				Type t = parameter.GetValueType();
+				bool isNullable = t.IsGenericType && t.GetGenericTypeDefinition() == typeof(Nullable<>);
 				yield return new PortData
 				{
-					displayType = parameter.GetValueType(),
+					displayType = t,
 					acceptMultipleEdges = acceptMultipleEdges,
-					required = true, // input ports for subgraphs are always required because their edges are connected.
+					// Input ports for subgraphs are always required because their edges are connected.
+					// Unless that type is nullable, then we know it doesn't need to be assigned.
+					// Note that when modifying this logic, a subgraph input port could connect to multiple ports.
+					required = !isNullable,
 					displayName = parameter.Name,
-					identifier = parameter.Guid
+					identifier = parameter.Guid,
+					tooltip = tooltip
 				};
 			}
 		}
@@ -121,14 +129,15 @@ namespace GraphProcessor
 			foreach (SubgraphParameter parameter in Subgraph.SubgraphParameters)
 			{
 				if (parameter.Direction != ParameterDirection.Output) continue;
-				(bool required, bool acceptMultipleEdges) = GetParameterPortInfoFromInner(parametersToNodes, parameter);
+				(bool required, bool acceptMultipleEdges, string tooltip) = GetParameterPortInfoFromInner(parametersToNodes, parameter);
 				yield return new PortData
 				{
 					displayType = parameter.GetValueType(),
 					acceptMultipleEdges = acceptMultipleEdges,
 					required = required,
 					displayName = parameter.Name,
-					identifier = parameter.Guid
+					identifier = parameter.Guid,
+					tooltip = tooltip
 				};
 			}
 		}
@@ -136,7 +145,7 @@ namespace GraphProcessor
 		protected override void Process()
 			=> throw new NotSupportedException($"{this} attempted execution. Call {nameof(BaseGraph)}.{nameof(BaseGraph.Realize)} to inline subgraph nodes before processing.");
 
-		private (bool required, bool acceptMultipleEdges) GetParameterPortInfoFromInner(
+		private (bool required, bool acceptMultipleEdges, string tooltip) GetParameterPortInfoFromInner(
 			Dictionary<SubgraphParameter, List<ParameterNode>> parametersToNodes,
 			SubgraphParameter parameter
 		)
@@ -144,10 +153,11 @@ namespace GraphProcessor
 			if (!parametersToNodes.TryGetValue(parameter, out List<ParameterNode> nodes))
 			{
 				AddMessage("A Subgraph Parameter is missing a matching node and must be repaired.", BadgeMessageType.Error);
-				return (false, false);
+				return (false, false, null);
 			}
 			var required = false;
 			var acceptMultipleEdges = false;
+			string tooltip = null;
 			
 #if UNITY_EDITOR
 			s_stack.Clear();
@@ -175,6 +185,7 @@ namespace GraphProcessor
 								if (edge.ToPort.Edges.Count <= 1) // Edges are only required if what's querying it is all that's connected.
 									required |= edge.ToPort.portData.required;
 								acceptMultipleEdges |= edge.ToPort.portData.acceptMultipleEdges;
+								tooltip ??= edge.ToPort.portData.tooltip;
 							}
 						}
 					}
@@ -195,6 +206,7 @@ namespace GraphProcessor
 								if (edge.FromPort.Edges.Count <= 1) // Edges are only required if what's querying it is all that's connected.
 									required |= edge.FromPort.portData.required;
 								acceptMultipleEdges |= edge.FromPort.portData.acceptMultipleEdges;
+								tooltip ??= edge.FromPort.portData.tooltip;
 							}
 						}
 					}
@@ -202,7 +214,7 @@ namespace GraphProcessor
 			}
 #endif
 
-			return (required, acceptMultipleEdges);
+			return (required, acceptMultipleEdges, tooltip);
 		}
 	}
 }
