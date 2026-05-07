@@ -1173,8 +1173,6 @@ namespace GraphProcessor
 			}
 
 			AddElement(e);
-			
-			
 
 			if (
 				inputNodeView.IsUnmorphedGenericNode(out Type baseTypeConstraint)
@@ -1183,6 +1181,7 @@ namespace GraphProcessor
 				)
 			{
 				e.input = null;
+				nodeViewsPerNode[inputNodeView.nodeTarget] = inputNodeView;
 			}
 			else if (
 				outputNodeView.IsUnmorphedGenericNode(out baseTypeConstraint)
@@ -1191,6 +1190,7 @@ namespace GraphProcessor
 			)
 			{
 				e.output = null;
+				nodeViewsPerNode[outputNodeView.nodeTarget] = outputNodeView;
 			}
 
 			// If the input port have been removed by the custom port behavior
