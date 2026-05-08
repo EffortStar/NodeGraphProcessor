@@ -1177,8 +1177,8 @@ namespace GraphProcessor
 			if (
 				inputNodeView.IsUnmorphedGenericNode(out Type baseTypeConstraint)
 				&& inputPortView.portType == baseTypeConstraint
-				&& inputNodeView.MorphNodeToGenericNodeType(outputPortView.portType)
-				)
+				&& inputNodeView.MorphNodeToGenericNodeType(outputPortView.portType, solidifyType: true)
+			)
 			{
 				e.input = null;
 				nodeViewsPerNode[inputNodeView.nodeTarget] = inputNodeView;
@@ -1186,7 +1186,7 @@ namespace GraphProcessor
 			else if (
 				outputNodeView.IsUnmorphedGenericNode(out baseTypeConstraint)
 				&& outputPortView.portType == baseTypeConstraint
-				&& outputNodeView.MorphNodeToGenericNodeType(inputPortView.portType)
+				&& outputNodeView.MorphNodeToGenericNodeType(inputPortView.portType, solidifyType: true)
 			)
 			{
 				e.output = null;

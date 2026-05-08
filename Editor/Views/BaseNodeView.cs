@@ -1221,7 +1221,11 @@ namespace GraphProcessor
 			}
 		}
 
-		public bool MorphNodeToGenericNodeType(Type genericTypeArgument, bool refreshPorts = false)
+		public bool MorphNodeToGenericNodeType(
+			Type genericTypeArgument,
+			bool solidifyType,
+			bool refreshPorts = false
+		)
 		{
 			BaseNode prevNode = nodeTarget;
 			Type nodeType = prevNode.GetType();
@@ -1256,11 +1260,29 @@ namespace GraphProcessor
 			{
 				return false;
 			}
-			
-			return MorphNodeToType(genericNodeType.MakeGenericType(genericTypeArgument), refreshPorts);
+
+			return MorphNodeToType(
+				genericNodeType.MakeGenericType(genericTypeArgument),
+				solidifyType: solidifyType,
+				refreshPorts: refreshPorts
+			);
 		}
-		
-		public bool MorphNodeToType(Type toType, bool refreshPorts = true)
+
+		/// <summary>
+		/// Transform a node into a different type.
+		/// </summary>
+		/// <param name="toType">The type to transform the node into.</param>
+		/// <param name="solidifyType">
+		/// True if the node has been morphed into a specific type
+		/// (it can no longer morph due to edge connections)
+		/// </param>
+		/// <param name="refreshPorts"><see cref="RefreshPorts"/></param>
+		/// <returns>Whether the morph was successful.</returns>
+		public bool MorphNodeToType(
+			Type toType,
+			bool solidifyType,
+			bool refreshPorts = true
+		)
 		{
 			if (!TryMakeSpecificGenericNode())
 			{
@@ -1290,7 +1312,11 @@ namespace GraphProcessor
 				RefreshPorts();
 			}
 
-			_isUnmorphedGenericNode = false;
+			if (solidifyType)
+			{
+				_isUnmorphedGenericNode = false;
+			}
+
 			return true;
 
 			bool TryMakeSpecificGenericNode()
