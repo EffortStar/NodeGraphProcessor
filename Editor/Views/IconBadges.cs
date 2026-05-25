@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -28,27 +29,28 @@ namespace GraphProcessor
 			BadgeMessageType messageType,
 			SpriteAlignment alignment = SpriteAlignment.TopRight,
 			bool allowsRemoval = true
+		) => AddBadge(message, messageType switch {
+				BadgeMessageType.Info => "comment",
+				BadgeMessageType.Warning => "warning",
+				BadgeMessageType.Error => "error",
+				_  => "comment"
+			}, alignment, allowsRemoval);
+		
+		/// <summary>
+		/// Adds a badge (an attached icon and message).
+		/// </summary>
+		public void AddBadge(
+			string message,
+			string visualStyle,
+			SpriteAlignment alignment = SpriteAlignment.TopRight,
+			bool allowsRemoval = true
 		)
 		{
-			IconBadge badge;
-			switch (messageType)
+			IconBadge badge = new()
 			{
-				case BadgeMessageType.Error:
-					badge = IconBadge.CreateError(message);
-					break;
-				case BadgeMessageType.Info:
-					badge = IconBadge.CreateComment(message);
-					break;
-				case BadgeMessageType.Warning:
-					badge = new IconBadge
-					{
-						visualStyle = "warning",
-						badgeText = message
-					};
-					break;
-				default:
-					goto case BadgeMessageType.Info;
-			}
+				visualStyle = visualStyle,
+				badgeText = message
+			};
 
 			// Force any children of the root to be un-pickable.
 			// This makes it easy to detect if you're hovering an IconBadge, while not changing its behaviour.

@@ -724,6 +724,11 @@ namespace GraphProcessor
 		/// Adds a badge (an attached icon and message).
 		/// </summary>
 		public void AddBadge(string message, BadgeMessageType messageType) => badges.AddBadge(message, messageType);
+		
+		/// <summary>
+		/// Adds a badge (an attached icon and message).
+		/// </summary>
+		public void AddBadge(string message, string messageType) => badges.AddBadge(message, messageType);
 
 		/// <summary>
 		/// Removes a badge matching the provided <paramref name="message" />.
