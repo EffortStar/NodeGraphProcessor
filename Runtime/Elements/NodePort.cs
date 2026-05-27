@@ -63,8 +63,12 @@ namespace GraphProcessor
 
 			return;
 
-			static string PascalToSentenceCase(string str) =>
-				Regex.Replace(str, "[a-z][A-Z]", m => $"{m.Value[0]} {char.ToLower(m.Value[1])}");
+			static string PascalToSentenceCase(string str)
+			{
+				string result = Regex.Replace(str, "[a-z][A-Z]", m => $"{m.Value[0]} {m.Value[1]}");
+				result = result.Replace(" Id", " ID");
+				return result.Length > 2 ? $"{char.ToUpper(result[0])}{result[1..]}" : result;
+			}
 		}
 
 		public bool Equals(EditorOnlyPortInfo other)

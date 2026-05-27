@@ -112,6 +112,11 @@ namespace GraphProcessor
 			
 #if UNITY_EDITOR
 			tooltip = portData.EditorOnly.Tooltip;
+			if ((portData.EditorOnly.Flags & EditorOnlyPortInfo.FieldFlags.Obsolete) != 0)
+			{
+				this.Q<Label>().style.color = Color.indianRed;
+				badges.AddBadge("Obsolete", BadgeMessageType.Warning, SpriteAlignment.RightCenter);
+			}
 #endif
 		}
 

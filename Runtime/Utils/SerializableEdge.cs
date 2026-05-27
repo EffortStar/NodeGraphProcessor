@@ -105,6 +105,15 @@ namespace GraphProcessor
 						Debug.LogWarning($"[NodeGraph] Edge {GUID} failed to deserialize due to invalid input port (fieldName: {inputFieldName}, id: {inputPortIdentifier}, owner: {graph})", graph);
 				}
 			}
+			else
+			{
+#if UNITY_EDITOR
+				if ((ToPort.portData.EditorOnly.Flags & EditorOnlyPortInfo.FieldFlags.Obsolete) != 0)
+				{
+					Debug.LogError($"[NodeGraph] Edge was connected to Obsolete port {ToPort.portData.EditorOnly.DisplayName} on {ToNode}.", graph);
+				}
+#endif
+			}
 
 			if (FromPort == null)
 			{
@@ -117,6 +126,15 @@ namespace GraphProcessor
 					if (logWarnings)
 						Debug.LogWarning($"[NodeGraph] Edge {GUID} failed to deserialize due to invalid output port (fieldName: {outputFieldName}, id: {outputPortIdentifier}, owner: {graph})", graph);
 				}
+			}
+			else
+			{
+#if UNITY_EDITOR
+				if ((FromPort.portData.EditorOnly.Flags & EditorOnlyPortInfo.FieldFlags.Obsolete) != 0)
+				{
+					Debug.LogError($"[NodeGraph] Edge was connected to Obsolete port {FromPort.portData.EditorOnly.DisplayName} on {FromNode}.", graph);
+				}
+#endif
 			}
 
 			return result;
