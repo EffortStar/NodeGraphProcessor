@@ -529,11 +529,59 @@ namespace GraphProcessor
 			pinned.opened = false;
 		}
 
+		/// <summary>
+		/// Compares <see cref="SerializableEdge"/> serialized data, ignoring the <see cref="SerializableEdge.GUID"/>.
+		/// </summary>
+		private sealed class EdgeComparer : IEqualityComparer<SerializableEdge>
+		{
+			public bool Equals(SerializableEdge x, SerializableEdge y)
+			{
+				if (ReferenceEquals(x, y)) return true;
+				if (x is null) return false;
+				if (y is null) return false;
+				return x.FromNodeGuid == y.FromNodeGuid
+					&& x.ToNodeGuid == y.ToNodeGuid
+					&& x.inputFieldName == y.inputFieldName
+					&& x.outputFieldName == y.outputFieldName
+					&& x.inputPortIdentifier == y.inputPortIdentifier
+					&& x.outputPortIdentifier == y.outputPortIdentifier;
+			}
+
+			public int GetHashCode(SerializableEdge obj)
+			{
+				var hashCode = new HashCode();
+				hashCode.Add(obj.FromNodeGuid);
+				hashCode.Add(obj.ToNodeGuid);
+				hashCode.Add(obj.inputFieldName);
+				hashCode.Add(obj.outputFieldName);
+				hashCode.Add(obj.inputPortIdentifier);
+				hashCode.Add(obj.outputPortIdentifier);
+				return hashCode.ToHashCode();
+			}
+		}
+
+		private static readonly HashSet<SerializableEdge> s_edgeSet = new(new EdgeComparer());
+		
 		public void OnBeforeSerialize()
 		{
 			// Cleanup broken elements
 			stackNodes.RemoveAll(s => s == null);
 			nodes.RemoveAll(n => n == null);
+			RemoveDuplicateEdges();
+			return;
+
+			void RemoveDuplicateEdges()
+			{
+				for (int i = edges.Count - 1; i >= 0; i--)
+				{
+					if (!s_edgeSet.Add(edges[i]))
+					{
+						edges.RemoveAt(i);
+					}
+				}
+
+				s_edgeSet.Clear();
+			}
 		}
 
 		// We can deserialize data here because it's called in a unity context
