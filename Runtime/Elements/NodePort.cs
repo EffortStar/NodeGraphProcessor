@@ -6,11 +6,79 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using JetBrains.Annotations;
 using UnityEngine;
 
 namespace GraphProcessor
 {
+#if UNITY_EDITOR
+	public struct EditorOnlyPortInfo : IEquatable<EditorOnlyPortInfo>
+	{
+		[Flags]
+		public enum FieldFlags
+		{
+			None = 0,
+			Obsolete = 1 << 0
+		}
+			
+		/// <summary>
+		/// Display name on the node
+		/// </summary>
+		public string DisplayName;
+		public string Tooltip;
+		public FieldFlags Flags;
+
+		public EditorOnlyPortInfo(
+			string displayName,
+			string tooltip,
+			FieldFlags flags
+		)
+		{
+			Tooltip = tooltip;
+			Flags = flags;
+			DisplayName = displayName;
+		}
+
+		public EditorOnlyPortInfo(FieldInfo field)
+		{
+			if (Attribute.IsDefined(field, typeof(InputAttribute)) && field.GetCustomAttribute<InputAttribute>() is { name: { } inName })
+				DisplayName = inName;
+			else if (Attribute.IsDefined(field, typeof(OutputAttribute)) && field.GetCustomAttribute<OutputAttribute>() is { name: { } outName })
+				DisplayName = outName;
+			else
+			{
+				DisplayName = PascalToSentenceCase(field.Name);
+			}
+
+			Tooltip = Attribute.IsDefined(field, typeof(TooltipAttribute))
+				? $"<b>{TypeUtility.FormatTypeName(field.FieldType)}</b>: {((TooltipAttribute)Attribute.GetCustomAttribute(field, typeof(TooltipAttribute))).tooltip}"
+				: $"<b>{TypeUtility.FormatTypeName(field.FieldType)}</b>";
+			
+			Flags = FieldFlags.None;
+			if (Attribute.IsDefined(field, typeof(ObsoleteAttribute)))
+			{
+				Flags |= FieldFlags.Obsolete;
+			}
+
+			return;
+
+			static string PascalToSentenceCase(string str) =>
+				Regex.Replace(str, "[a-z][A-Z]", m => $"{m.Value[0]} {char.ToLower(m.Value[1])}");
+		}
+
+		public bool Equals(EditorOnlyPortInfo other) => Tooltip == other.Tooltip && Flags == other.Flags;
+
+		public override bool Equals(object obj) => obj is EditorOnlyPortInfo other && Equals(other);
+
+		public override int GetHashCode() => HashCode.Combine(Tooltip, (int)Flags);
+
+		public static bool operator ==(EditorOnlyPortInfo left, EditorOnlyPortInfo right) => left.Equals(right);
+
+		public static bool operator !=(EditorOnlyPortInfo left, EditorOnlyPortInfo right) => !left.Equals(right);
+	}
+#endif
+	
 	/// <summary>
 	/// Class that describe port attributes for it's creation
 	/// </summary>
@@ -20,11 +88,6 @@ namespace GraphProcessor
 		/// Unique identifier for the port
 		/// </summary>
 		public string identifier;
-
-		/// <summary>
-		/// Display name on the node
-		/// </summary>
-		public string displayName;
 
 		/// <summary>
 		/// The type that will be used for coloring with the type stylesheet
@@ -42,11 +105,6 @@ namespace GraphProcessor
 		public int sizeInPixel;
 
 		/// <summary>
-		/// Tooltip of the port
-		/// </summary>
-		public string tooltip;
-
-		/// <summary>
 		/// Is the port vertical
 		/// </summary>
 		public bool vertical;
@@ -56,15 +114,20 @@ namespace GraphProcessor
 		/// </summary>
 		public bool required;
 
+#if UNITY_EDITOR
+		public EditorOnlyPortInfo EditorOnly;
+#endif
+
 		public bool Equals(PortData other)
 		{
 			return other != null
 			       && identifier == other.identifier
-			       && displayName == other.displayName
 			       && displayType == other.displayType
 			       && acceptMultipleEdges == other.acceptMultipleEdges
 			       && sizeInPixel == other.sizeInPixel
-			       && tooltip == other.tooltip
+#if UNITY_EDITOR
+			       && EditorOnly == other.EditorOnly
+#endif
 			       && vertical == other.vertical
 			       && required == other.required;
 		}
@@ -72,13 +135,14 @@ namespace GraphProcessor
 		public void CopyFrom(PortData other)
 		{
 			identifier = other.identifier;
-			displayName = other.displayName;
 			displayType = other.displayType;
 			acceptMultipleEdges = other.acceptMultipleEdges;
 			sizeInPixel = other.sizeInPixel;
-			tooltip = other.tooltip;
 			vertical = other.vertical;
 			required = other.required;
+#if UNITY_EDITOR
+			EditorOnly = other.EditorOnly;
+#endif
 		}
 	}
 

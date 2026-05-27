@@ -64,7 +64,9 @@ namespace GraphProcessor
 				yield return new PortData
 				{
 					identifier = "output",
-					displayName = "Value",
+#if UNITY_EDITOR
+					EditorOnly = new EditorOnlyPortInfo("Value", null, EditorOnlyPortInfo.FieldFlags.None),
+#endif
 					displayType = Parameter.GetValueType(),
 					acceptMultipleEdges = true,
 					required = true
@@ -83,7 +85,9 @@ namespace GraphProcessor
 				yield return new PortData
 				{
 					identifier = "input",
-					displayName = "Value",
+#if UNITY_EDITOR
+					EditorOnly = new EditorOnlyPortInfo("Value", null, EditorOnlyPortInfo.FieldFlags.None),
+#endif
 					displayType = Parameter.GetValueType(),
 					required = true
 				};

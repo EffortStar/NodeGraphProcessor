@@ -1573,7 +1573,7 @@ namespace GraphProcessor
 			)
 			{
 				// Create a matching parameter.
-				string parameterGuid = subgraph.AddSubgraphParameter(port.portData.displayName, port.portType, isInputParameter ? ParameterDirection.Input : ParameterDirection.Output);
+				string parameterGuid = subgraph.AddSubgraphParameter(port.portData.EditorOnly.DisplayName, port.portType, isInputParameter ? ParameterDirection.Input : ParameterDirection.Output);
 
 				parameterLookup.Add(port, parameterGuid);
 

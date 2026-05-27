@@ -199,8 +199,9 @@ namespace GraphProcessor
 						new PortData
 						{
 							acceptMultipleEdges = nodeField.isMultiple,
-							displayName = nodeField.name,
-							tooltip = nodeField.tooltip,
+#if UNITY_EDITOR
+							EditorOnly = nodeField.EditorOnly,
+#endif
 							vertical = nodeField.vertical,
 							required = nodeField.isRequired
 						}

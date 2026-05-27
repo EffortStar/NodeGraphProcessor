@@ -26,6 +26,13 @@ namespace GraphProcessor
 			//
 			Striped = Obsolete | Prototype | SubgraphIncompatible
 		}
+
+		[Flags]
+		public enum PortFlags
+		{
+			None = 0,
+			Obsolete = 1 << 0
+		}
 		
 		private sealed class AllCachedNodeDetails
 		{
@@ -364,6 +371,8 @@ namespace GraphProcessor
 				cache.SetColor(type.GetCustomAttribute<NodeColorAttribute>(true).Color);
 			}
 		}
+		
+		
 
 		public struct PortDescription
 		{
@@ -401,7 +410,7 @@ namespace GraphProcessor
 					PortType = p.portData.displayType ?? p.fieldInfo.FieldType,
 					IsInput = input,
 					PortFieldName = p.fieldName,
-					PortDisplayName = p.portData.displayName ?? p.fieldName,
+					PortDisplayName = p.portData.EditorOnly.DisplayName ?? p.fieldName,
 					PortIdentifier = p.portData.identifier,
 				});
 			}

@@ -7,37 +7,43 @@ using UnityEngine.Pool;
 
 namespace GraphProcessor
 {
+	/// <summary>
+	/// Runtime only information used for ports.
+	/// </summary>
 	public class NodeFieldInformation
 	{
-		public readonly string name;
 		public readonly string fieldName;
 		public readonly FieldInfo info;
 		public readonly bool input;
 		public readonly bool isMultiple;
-		public readonly string tooltip;
 		public readonly bool isRequired;
 		public readonly bool vertical;
+#if UNITY_EDITOR
+		public readonly EditorOnlyPortInfo EditorOnly;
+#endif
 
 		public NodeFieldInformation(
 			FieldInfo info,
-			string name,
 			bool input,
 			bool isMultiple,
-			string tooltip,
 			bool vertical,
 			bool isRequired
+#if UNITY_EDITOR
+			, EditorOnlyPortInfo editorOnly
+#endif
 		)
 		{
 			this.input = input;
 			this.isMultiple = isMultiple;
 			this.info = info;
-			this.name = name;
 			// Intern this string as it's referenced
 			// across edges and ports many times.
 			fieldName = string.Intern(info.Name);
 			this.isRequired = isRequired;
-			this.tooltip = tooltip;
 			this.vertical = vertical;
+#if UNITY_EDITOR
+			EditorOnly = editorOnly;
+#endif
 		}
 
 		private static readonly Dictionary<Type, Dictionary<string, NodeFieldInformation>> s_cache = new();
@@ -91,26 +97,23 @@ namespace GraphProcessor
 
 				var isVertical = Attribute.IsDefined(field, typeof(VerticalAttribute));
 				var isRequired = Attribute.IsDefined(field, typeof(RequiredPortAttribute));
-				var tooltipAttribute = field.GetCustomAttribute<TooltipAttribute>();
-
 
 				// check if field is a collection type
 				bool isMultiple = inputAttribute?.allowMultiple ?? outputAttribute.allowMultiple;
 				bool input = inputAttribute != null;
-				var tooltip = $"<b>{TypeUtility.FormatTypeName(field.FieldType)}</b>";
-				if (tooltipAttribute != null)
-				{
-					tooltip += $"\n{tooltipAttribute.tooltip}";
-				}
-
-				string name = field.Name;
-				if (inputAttribute is { name: not null })
-					name = inputAttribute.name;
-				if (outputAttribute is { name: not null })
-					name = outputAttribute.name;
 
 				// By default, we set the behavior to null, if the field have a custom behavior, it will be set in the loop just below
-				infoGroup.Add(field.Name, new NodeFieldInformation(field, name, input, isMultiple, tooltip, isVertical, isRequired));
+				infoGroup.Add(field.Name,
+					new NodeFieldInformation(field,
+						input,
+						isMultiple,
+						isVertical,
+						isRequired
+#if UNITY_EDITOR
+						, new EditorOnlyPortInfo(field)
+#endif
+					)
+				);
 			}
 		}
 	}

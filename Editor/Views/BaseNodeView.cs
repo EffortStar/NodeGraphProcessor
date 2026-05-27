@@ -475,7 +475,7 @@ namespace GraphProcessor
 					outputContainer.Add(p);
 			}
 
-			p.Initialize(this, portData?.displayName);
+			p.Initialize(this, portData?.EditorOnly.DisplayName);
 
 			if (!portsPerFieldName.TryGetValue(p.fieldName, out List<PortView> ports))
 			{
@@ -687,6 +687,7 @@ namespace GraphProcessor
 
 			foreach (MethodInfo method in GetType().GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static))
 			{
+				// There's no better fallback, believe me I've tried (to find the constructor, the type, etc).
 				if (SourceUtility.OpenAtMethod(method))
 					return;
 			}

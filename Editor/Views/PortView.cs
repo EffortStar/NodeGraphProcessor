@@ -8,7 +8,7 @@ using UnityEditor.UIElements;
 
 namespace GraphProcessor
 {
-	public class PortView : Port
+	public sealed class PortView : Port
 	{
 		public string fieldName => fieldInfo.Name;
 		public Type fieldType => fieldInfo.FieldType;
@@ -16,15 +16,11 @@ namespace GraphProcessor
 		public BaseNodeView owner { get; private set; }
 		public PortData portData;
 
-		public event Action<PortView, Edge> OnConnected;
-		public event Action<PortView, Edge> OnDisconnected;
-
-		protected FieldInfo fieldInfo;
-		protected BaseEdgeConnectorListener listener;
+		private readonly FieldInfo fieldInfo;
 
 		public const string UserPortStyleFile = "PortViewTypes";
 
-		private readonly List<EdgeView> edges = new List<EdgeView>();
+		private readonly List<EdgeView> edges = new();
 
 		private const string PortStyle = "GraphProcessorStyles/PortView";
 		private const string PortRequirementMessage = "Port is required";
@@ -32,11 +28,10 @@ namespace GraphProcessor
 		private IconBadges badges;
 		private IVisualElementScheduledItem _scheduledBadgeEvent;
 
-		protected PortView(Direction direction, FieldInfo fieldInfo, PortData portData, BaseEdgeConnectorListener edgeConnectorListener)
+		private PortView(Direction direction, FieldInfo fieldInfo, PortData portData)
 			: base(portData.vertical ? Orientation.Vertical : Orientation.Horizontal, direction, Capacity.Multi, portData.displayType ?? fieldInfo.FieldType)
 		{
 			this.fieldInfo = fieldInfo;
-			listener = edgeConnectorListener;
 			portType = portData.displayType ?? fieldInfo.FieldType;
 			this.portData = portData;
 			portName = fieldName;
@@ -52,13 +47,17 @@ namespace GraphProcessor
 			if (portData.vertical)
 				AddToClassList("Vertical");
 
-			tooltip = portData.tooltip;
+#if UNITY_EDITOR
+			tooltip = portData.EditorOnly.Tooltip;
+#endif
 		}
 
 		public static PortView CreatePortView(Direction direction, FieldInfo fieldInfo, PortData portData, BaseEdgeConnectorListener edgeConnectorListener)
 		{
-			var pv = new PortView(direction, fieldInfo, portData, edgeConnectorListener);
-			pv.m_EdgeConnector = new BaseEdgeConnector(edgeConnectorListener);
+			var pv = new PortView(direction, fieldInfo, portData)
+			{
+				m_EdgeConnector = new BaseEdgeConnector(edgeConnectorListener)
+			};
 			pv.AddManipulator(pv.m_EdgeConnector);
 
 			// Force picking in the port label to enlarge the edge creation zone
@@ -97,7 +96,7 @@ namespace GraphProcessor
 			edges.ForEach(e => e.UpdateEdgeSize());
 		}
 
-		public virtual void Initialize(BaseNodeView nodeView, string name)
+		public void Initialize(BaseNodeView nodeView, string name)
 		{
 			owner = nodeView;
 			AddToClassList(fieldName);
@@ -112,17 +111,17 @@ namespace GraphProcessor
 			if (name != null)
 				portName = name;
 			visualClass = UssUtility.PortVisualClass(portType);
-			tooltip = portData.tooltip;
-
 			badges = new IconBadges(nodeView, m_ConnectorBoxCap);
+			
+#if UNITY_EDITOR
+			tooltip = portData.EditorOnly.Tooltip;
+#endif
 		}
 
 		public override void Connect(Edge edge)
 		{
 			bool wasPreviouslyConnected = edges.Count != 0;
-
-			OnConnected?.Invoke(this, edge);
-
+			
 			base.Connect(edge);
 
 			BaseNodeView inputNode = ((PortView)edge.input).owner;
@@ -142,8 +141,6 @@ namespace GraphProcessor
 
 		public override void Disconnect(Edge edge)
 		{
-			OnDisconnected?.Invoke(this, edge);
-
 			base.Disconnect(edge);
 
 			if (!((EdgeView)edge).isConnected)
@@ -225,6 +222,7 @@ namespace GraphProcessor
 
 		public void UpdatePortView(PortData data)
 		{
+			EditorOnlyPortInfo editorData = data.EditorOnly;
 			if (data.displayType != null)
 			{
 				base.portType = data.displayType;
@@ -232,8 +230,8 @@ namespace GraphProcessor
 				visualClass = UssUtility.PortVisualClass(portType);
 			}
 
-			if (!string.IsNullOrEmpty(data.displayName))
-				portName = data.displayName;
+			if (!string.IsNullOrEmpty(editorData.DisplayName))
+				portName = editorData.DisplayName;
 
 			portData = data;
 
