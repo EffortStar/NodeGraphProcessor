@@ -67,11 +67,14 @@ namespace GraphProcessor
 				Regex.Replace(str, "[a-z][A-Z]", m => $"{m.Value[0]} {char.ToLower(m.Value[1])}");
 		}
 
-		public bool Equals(EditorOnlyPortInfo other) => Tooltip == other.Tooltip && Flags == other.Flags;
+		public bool Equals(EditorOnlyPortInfo other)
+			=> DisplayName == other.DisplayName
+				&& Tooltip == other.Tooltip
+				&& Flags == other.Flags;
 
 		public override bool Equals(object obj) => obj is EditorOnlyPortInfo other && Equals(other);
 
-		public override int GetHashCode() => HashCode.Combine(Tooltip, (int)Flags);
+		public override int GetHashCode() => HashCode.Combine(Tooltip, (int)Flags, DisplayName);
 
 		public static bool operator ==(EditorOnlyPortInfo left, EditorOnlyPortInfo right) => left.Equals(right);
 
@@ -100,11 +103,6 @@ namespace GraphProcessor
 		public bool acceptMultipleEdges;
 
 		/// <summary>
-		/// Port size, will also affect the size of the connected edge
-		/// </summary>
-		public int sizeInPixel;
-
-		/// <summary>
 		/// Is the port vertical
 		/// </summary>
 		public bool vertical;
@@ -124,7 +122,6 @@ namespace GraphProcessor
 			       && identifier == other.identifier
 			       && displayType == other.displayType
 			       && acceptMultipleEdges == other.acceptMultipleEdges
-			       && sizeInPixel == other.sizeInPixel
 #if UNITY_EDITOR
 			       && EditorOnly == other.EditorOnly
 #endif
@@ -137,7 +134,6 @@ namespace GraphProcessor
 			identifier = other.identifier;
 			displayType = other.displayType;
 			acceptMultipleEdges = other.acceptMultipleEdges;
-			sizeInPixel = other.sizeInPixel;
 			vertical = other.vertical;
 			required = other.required;
 #if UNITY_EDITOR

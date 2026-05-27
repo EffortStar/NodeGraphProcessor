@@ -20,27 +20,6 @@ namespace GraphProcessor
 			RegisterCallback<MouseDownEvent>(OnMouseDown);
 		}
 
-		public override void OnPortChanged(bool isInput)
-		{
-			base.OnPortChanged(isInput);
-			UpdateEdgeSize();
-		}
-
-		public void UpdateEdgeSize()
-		{
-			if (input == null && output == null)
-				return;
-
-			PortData inputPortData = ((PortView)input)?.portData;
-			PortData outputPortData = ((PortView)output)?.portData;
-
-			for (var i = 1; i < 20; i++)
-				RemoveFromClassList($"edge_{i}");
-			int maxPortSize = Mathf.Max(inputPortData?.sizeInPixel ?? 0, outputPortData?.sizeInPixel ?? 0);
-			if (maxPortSize > 0)
-				AddToClassList($"edge_{Mathf.Max(1, maxPortSize - 6)}");
-		}
-
 		protected override void OnCustomStyleResolved(ICustomStyle styles)
 		{
 			base.OnCustomStyleResolved(styles);

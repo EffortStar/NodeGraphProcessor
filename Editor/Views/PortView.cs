@@ -84,16 +84,13 @@ namespace GraphProcessor
 		/// </summary>
 		public void UpdatePortSize()
 		{
-			int size = portData.sizeInPixel == 0 ? 8 : portData.sizeInPixel;
+			const int size = 8;
 			VisualElement connector = this.Q("connector");
 			VisualElement cap = connector.Q("cap");
 			connector.style.width = size;
 			connector.style.height = size;
 			cap.style.width = size - 4;
 			cap.style.height = size - 4;
-
-			// Update connected edge sizes:
-			edges.ForEach(e => e.UpdateEdgeSize());
 		}
 
 		public void Initialize(BaseNodeView nodeView, string name)
