@@ -844,7 +844,7 @@ namespace GraphProcessor
 			return true;
 		}
 
-		internal void InlineSubgraphNode(SubgraphNode subgraphNode) => InlineSubgraphNode(subgraphNode, 0, false);
+		public void InlineSubgraphNode(SubgraphNode subgraphNode) => InlineSubgraphNode(subgraphNode, 0, false);
 
 		private void InlineSubgraphNode(SubgraphNode subgraphNode, int depth, bool recursive)
 		{
@@ -858,7 +858,12 @@ namespace GraphProcessor
 				subgraph.Realize(depth + 1); // Realize any nested subgraphs
 
 #if UNITY_EDITOR
-			Vector2 zero = subgraph.nodes.Aggregate(Vector2.zero, (p, n) => p + n.position) / subgraph.nodes.Count;
+			Vector2 zero = subgraph.nodes.Aggregate(
+				Vector2.zero,
+				(p, n) => n is ParameterNode
+					? p
+					: new Vector2(Mathf.Min(p.x + n.position.x), Mathf.Min(p.y + n.position.y))
+			);
 #endif
 
 			foreach (BaseNode node in subgraph.nodes)
@@ -868,7 +873,7 @@ namespace GraphProcessor
 					continue;
 
 #if UNITY_EDITOR
-				node.position = node.position - zero + subgraphNode.position + new Vector2(0, -500);
+				node.position = node.position - zero + subgraphNode.position;
 #endif
 
 				AddNodeAndDontInitialize(node); // The node has already been initialized from the instantiation of the subgraph.

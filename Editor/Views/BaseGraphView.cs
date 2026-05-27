@@ -1648,6 +1648,7 @@ namespace GraphProcessor
 
 		private void UnpackSubgraph()
 		{
+			Undo.RegisterCompleteObjectUndo(graph, "Unpack Subgraph");
 			var subgraphNode = (SubgraphNode)selection.OfType<SubgraphNodeView>().First().nodeTarget;
 			graph.InlineSubgraphNode(subgraphNode);
 			graph.RemoveNode(subgraphNode);
