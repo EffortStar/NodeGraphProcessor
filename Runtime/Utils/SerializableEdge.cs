@@ -8,8 +8,8 @@ namespace GraphProcessor
 	public sealed class SerializableEdge : ISerializationCallbackReceiver
 	{
 		public string GUID;
-		[SerializeField] string inputNodeGUID;
-		[SerializeField] string outputNodeGUID;
+		[SerializeField] internal string inputNodeGUID;
+		[SerializeField] internal string outputNodeGUID;
 
 		public string FromNodeGuid => outputNodeGUID;
 		public string ToNodeGuid => inputNodeGUID;
@@ -160,6 +160,15 @@ namespace GraphProcessor
 			Deserialize(graph, false);
 		}
 
-		public override string ToString() => $"{FromNode.name}:{FromPort.fieldName} -> {ToNode.name}:{ToPort.fieldName}";
+		public override string ToString()
+			=> $"{FromNode?.name ?? FromNodeGuid}:{FromPort?.fieldName ?? outputFieldName}"
+#if UNITY_EDITOR
+				+ $" ({FromPort?.portData.EditorOnly.DisplayName})"
+#endif
+				+ $" -> {ToNode?.name ?? ToNodeGuid}:{ToPort?.fieldName ?? inputFieldName}"
+#if UNITY_EDITOR
+				+ $" ({ToPort?.portData.EditorOnly.DisplayName})"
+#endif
+		;
 	}
 }

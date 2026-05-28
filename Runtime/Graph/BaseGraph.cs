@@ -370,6 +370,7 @@ namespace GraphProcessor
 			}
 
 			edges.Add(edge);
+			edgesPerGUID[edge.GUID] = edge;
 
 			// Add the edge to the list of connected edges in the nodes
 			toPort.owner.OnEdgeConnected(edge);
@@ -412,7 +413,9 @@ namespace GraphProcessor
 		/// </summary>
 		public void Disconnect(SerializableEdge edge, bool updatePorts = true)
 		{
-			edges.Remove(edge); // Don't exit early, because we can have edges taken from other graphs during Realization/Inlining.
+			edges.Remove(edge);
+			edgesPerGUID.Remove(edge.GUID);
+			// Don't exit early, because we can have edges taken from other graphs during Realization/Inlining.
 			edge.ToNode?.OnEdgeDisconnected(edge, updatePorts);
 			edge.FromNode?.OnEdgeDisconnected(edge, updatePorts);
 			onGraphChanges?.Invoke(new GraphChanges { removedEdge = edge });
@@ -539,9 +542,29 @@ namespace GraphProcessor
 				if (ReferenceEquals(x, y)) return true;
 				if (x is null) return false;
 				if (y is null) return false;
-				return x.FromNodeGuid == y.FromNodeGuid
-					&& x.ToNodeGuid == y.ToNodeGuid
-					&& x.inputFieldName == y.inputFieldName
+				if (x.FromNode != null && y.FromNode != null)
+				{
+					if (x.FromNode != y.FromNode)
+						return false;
+				}
+				else
+				{
+					if (x.FromNodeGuid != y.FromNodeGuid)
+						return false;
+				}
+
+				if (x.ToNode != null && y.ToNode != null)
+				{
+					if (x.ToNode != y.ToNode)
+						return false;
+				}
+				else
+				{
+					if (x.ToNodeGuid != y.ToNodeGuid)
+						return false;
+				}
+
+				return x.inputFieldName == y.inputFieldName
 					&& x.outputFieldName == y.outputFieldName
 					&& x.inputPortIdentifier == y.inputPortIdentifier
 					&& x.outputPortIdentifier == y.outputPortIdentifier;
@@ -854,10 +877,15 @@ namespace GraphProcessor
 			// So it's necessary to instantiate the subgraph to pull out that serialized data into a new instance.
 			// TODO consider whether we can employ the GraphPool, and share runtime instances of the subgraphs.
 			subgraph = Instantiate(subgraph);
+			// Make sure the same GUIDs don't exist in the parent graph.
+			subgraph.CreateNewGuids();
 			if (recursive)
+			{
 				subgraph.Realize(depth + 1); // Realize any nested subgraphs
+			}
 
 #if UNITY_EDITOR
+			// Min position of non-parameter nodes.
 			Vector2 zero = subgraph.nodes.Aggregate(
 				Vector2.zero,
 				(p, n) => n is ParameterNode
@@ -883,7 +911,7 @@ namespace GraphProcessor
 			{
 				SerializableEdge edge = subgraph.edges[i];
 				// Wire up parameter edges with new ones that connect to nodes in this graph.
-				if (ReconnectParameterEdges(edge, subgraphNode))
+				if (TryReconnectParameterEdges(edge, subgraphNode))
 				{
 					Disconnect(edge);
 					continue;
@@ -906,7 +934,8 @@ namespace GraphProcessor
 #endif
 			return;
 
-			bool ReconnectParameterEdges(SerializableEdge edge, SubgraphNode subgraphNode)
+			// Wire up parameter edges with new ones that connect to nodes in this graph.
+			bool TryReconnectParameterEdges(SerializableEdge edge, SubgraphNode subgraphNode)
 			{
 				// inputNode <- edge ->
 				if (edge.FromNode is ParameterNode inputParameter)
@@ -927,8 +956,7 @@ namespace GraphProcessor
 
 					return true;
 				}
-
-				// Wire up parameter edges with new ones that connect to nodes in this graph.
+				
 				// <- edge -> outputNode
 				if (edge.ToNode is ParameterNode outputParameter)
 				{
@@ -950,6 +978,34 @@ namespace GraphProcessor
 				}
 
 				return false;
+			}
+		}
+
+		private void CreateNewGuids()
+		{
+			using var _ = DictionaryPool<string, string>.Get(out Dictionary<string, string> guidLookup);
+			foreach (BaseNode node in nodes)
+			{
+				var newGuid = Guid.NewGuid().ToString();
+				guidLookup.Add(node.GUID, newGuid);
+				nodesPerGUID.Remove(node.GUID);
+				node.GUID = newGuid;
+				nodesPerGUID.Add(node.GUID, node);
+			}
+
+			foreach (SerializableEdge edge in edges)
+			{
+				var newGuid = Guid.NewGuid().ToString();
+				guidLookup.Add(edge.GUID, newGuid);
+				edgesPerGUID.Remove(edge.GUID);
+				edge.GUID = newGuid;
+				edgesPerGUID.Add(edge.GUID, edge);
+			}
+			
+			foreach (SerializableEdge edge in edges)
+			{
+				edge.inputNodeGUID = guidLookup[edge.inputNodeGUID];
+				edge.outputNodeGUID = guidLookup[edge.outputNodeGUID];
 			}
 		}
 

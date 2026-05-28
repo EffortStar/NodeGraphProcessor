@@ -65,7 +65,7 @@ namespace GraphProcessor
 				{
 					identifier = "output",
 #if UNITY_EDITOR
-					EditorOnly = new EditorOnlyPortInfo("Value", null, EditorOnlyPortInfo.FieldFlags.None),
+					EditorOnly = new EditorOnlyPortInfo(Graph?.GetSubgraphParameterFromGuid(parameterGUID).Name ?? "Value", null, EditorOnlyPortInfo.FieldFlags.None),
 #endif
 					displayType = Parameter.GetValueType(),
 					acceptMultipleEdges = true,
@@ -86,7 +86,7 @@ namespace GraphProcessor
 				{
 					identifier = "input",
 #if UNITY_EDITOR
-					EditorOnly = new EditorOnlyPortInfo("Value", null, EditorOnlyPortInfo.FieldFlags.None),
+					EditorOnly = new EditorOnlyPortInfo(Graph?.GetSubgraphParameterFromGuid(parameterGUID).Name ?? "Value", null, EditorOnlyPortInfo.FieldFlags.None),
 #endif
 					displayType = Parameter.GetValueType(),
 					required = true

@@ -538,6 +538,21 @@ namespace GraphProcessor
 				foreach (KeyValuePair<Type, PinnedElementView> kp in pinnedElements)
 					kp.Value.ResetPosition();
 			});
+			
+			evt.menu.AppendAction("Help/Debug Selected Elements", e =>
+			{
+				foreach (BaseNodeView baseNodeView in selection.OfType<BaseNodeView>())
+				{
+					BaseNode node = baseNodeView.nodeTarget;
+					Debug.Log($"{node} {node.GUID}");
+				}
+				
+				foreach (EdgeView edgeView in selection.OfType<EdgeView>())
+				{
+					SerializableEdge edge = edgeView.serializedEdge;
+					Debug.Log($"{edge} {edge.GUID}");
+				}
+			});
 		}
 
 		protected virtual void KeyDownCallback(KeyDownEvent e)

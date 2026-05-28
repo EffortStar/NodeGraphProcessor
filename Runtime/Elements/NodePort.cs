@@ -43,9 +43,13 @@ namespace GraphProcessor
 		public EditorOnlyPortInfo(FieldInfo field)
 		{
 			if (Attribute.IsDefined(field, typeof(InputAttribute)) && field.GetCustomAttribute<InputAttribute>() is { name: { } inName })
+			{
 				DisplayName = inName;
+			}
 			else if (Attribute.IsDefined(field, typeof(OutputAttribute)) && field.GetCustomAttribute<OutputAttribute>() is { name: { } outName })
+			{
 				DisplayName = outName;
+			}
 			else
 			{
 				DisplayName = PascalToSentenceCase(field.Name);
@@ -453,6 +457,13 @@ namespace GraphProcessor
 				fieldInfo.SetValue(owner, passThroughObject);
 			}
 		}
+
+		public override string ToString()
+			=> $"{fieldName} "
+#if UNITY_EDITOR
+				+ $"({portData.EditorOnly.DisplayName}) "
+#endif
+				+ "edges:\n\t" + string.Join("\n\t", _edges.Select(e => e.ToString()));
 	}
 
 	/// <summary>
