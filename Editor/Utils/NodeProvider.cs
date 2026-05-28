@@ -278,6 +278,58 @@ namespace GraphProcessor
 				}
 			}
 			
+			// Collect node menu details
+			foreach (Type type in TypeCache.GetTypesWithAttribute<GenericNodeMenuItemAttribute>())
+			{
+				if (!s_nodeCache.NodesByType.ContainsKey(type))
+				{
+					Debug.LogError($"{type} was decorated with {nameof(GenericNodeMenuItemAttribute)} but it doesn't inherit from {nameof(BaseNode)} or is abstract.");
+					continue;
+				}
+				
+				foreach (GenericNodeMenuItemAttribute attribute in type.GetCustomAttributes<GenericNodeMenuItemAttribute>())
+				{
+					Type genericType;
+					try
+					{
+						genericType = type.MakeGenericType(attribute.TypeParameters);
+					}
+					catch (Exception)
+					{
+						Debug.LogError(
+							$"{nameof(GenericNodeMenuItemAttribute)} on {type.Name} could not be solidified " +
+							$"using types {string.Join(',', attribute.TypeParameters.Select(t => t.Name))}"
+						);
+						continue;
+					}
+
+					CachedNodeDetails cache;
+					if (!s_nodeCache.NodesByType.TryAdd(genericType, cache = new CachedNodeDetails(genericType)))
+					{
+						Debug.LogError($"{nameof(GenericNodeMenuItemAttribute)}: Multiple nodes of type {genericType} were attempted to be registered from {type}.");
+						continue;
+					}
+					
+					if (!string.IsNullOrEmpty(attribute.MenuTitle))
+					{
+						cache.AddMenuPath(attribute.MenuTitle);
+					}
+
+					foreach (NodeMenuItemAttribute menuAttribute in type.GetCustomAttributes<NodeMenuItemAttribute>())
+					{
+						if (menuAttribute.OnlyCompatibleWithGraph != null)
+						{
+							cache.AddCompatibleGraphType(menuAttribute.OnlyCompatibleWithGraph);
+						}
+
+						if (!menuAttribute.SubgraphSupport)
+						{
+							cache.Flags |= NodeFlags.SubgraphIncompatible;
+						}
+					}
+				}
+			}
+			
 			foreach (MethodInfo methodInfo in TypeCache.GetMethodsWithAttribute<NodeMenuItemProducerAttribute>())
 			{
 				if (!methodInfo.IsStatic)

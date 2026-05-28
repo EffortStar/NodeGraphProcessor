@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Linq;
 using JetBrains.Annotations;
 using UnityEngine;
 
@@ -113,6 +112,31 @@ namespace GraphProcessor
 			BaseConstraintType = baseConstraintType ?? typeof(object);
 			ExcludedTypes = excludedTypes;
 			Reasons = excludedReasons;
+		}
+	}
+	
+	
+	/// <summary>
+	/// Register the node in the NodeProvider class. The node will also be available in the node creation window.
+	/// </summary>
+	[AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
+	public sealed class GenericNodeMenuItemAttribute : Attribute
+	{
+		public readonly string MenuTitle;
+		public readonly Type[] TypeParameters;
+
+		/// <summary>
+		/// Register the node in the NodeProvider class. The node will also be available in the node creation window.
+		/// </summary>
+		/// <param name="menuTitle">Path in the menu, use / as folder separators</param>
+		/// <param name="typeParameters">The type parameters that create the solid generic node type.</param>
+		public GenericNodeMenuItemAttribute(
+			string menuTitle = null,
+			params Type[] typeParameters
+		)
+		{
+			MenuTitle = menuTitle;
+			TypeParameters = typeParameters;
 		}
 	}
 
