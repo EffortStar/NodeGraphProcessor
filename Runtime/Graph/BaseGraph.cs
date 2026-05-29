@@ -264,14 +264,14 @@ namespace GraphProcessor
 
 		private void RemoveNode(BaseNode node, bool skipPortUpdate)
 		{
-			// Disconnect all edges:
+			// Remove edge references to this node
+			// to prevent callbacks changing ports during removal.
 			foreach (NodePort port in node.inputPorts)
 			{
 				foreach (SerializableEdge edge in port.Edges)
 				{
 					edge.ToNode = null;
 					edge.ToPort = null;
-					Disconnect(edge, !skipPortUpdate);
 				}
 			}
 
@@ -281,6 +281,22 @@ namespace GraphProcessor
 				{
 					edge.FromNode = null;
 					edge.FromPort = null;
+				}
+			}
+			
+			// Disconnect all edges:
+			foreach (NodePort port in node.inputPorts)
+			{
+				foreach (SerializableEdge edge in port.Edges)
+				{
+					Disconnect(edge, !skipPortUpdate);
+				}
+			}
+
+			foreach (NodePort port in node.outputPorts)
+			{
+				foreach (SerializableEdge edge in port.Edges)
+				{
 					Disconnect(edge, !skipPortUpdate);
 				}
 			}
