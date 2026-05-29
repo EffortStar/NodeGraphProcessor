@@ -425,8 +425,11 @@ namespace GraphProcessor
 						foreach (SerializableEdge edge in port.Edges)
 						{
 							BaseNode edgeNode = node.IsFieldInput(field) ? edge.FromNode : edge.ToNode;
-							List<string> fieldsWithBehavior = edgeNode.nodeFields.Values.Where(HasCustomBehavior).Select(f => f.fieldName).ToList();
-							fieldsToUpdate.Push(new PortUpdate { fieldNames = fieldsWithBehavior, node = edgeNode });
+							if (edgeNode != null)
+							{
+								List<string> fieldsWithBehavior = edgeNode.nodeFields.Values.Where(HasCustomBehavior).Select(f => f.fieldName).ToList();
+								fieldsToUpdate.Push(new PortUpdate { fieldNames = fieldsWithBehavior, node = edgeNode });
+							}
 						}
 					}
 
