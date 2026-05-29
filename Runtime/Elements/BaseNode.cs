@@ -475,10 +475,14 @@ namespace GraphProcessor
 			if (edge == null)
 				return;
 
-			bool input = edge.ToNode == this;
-			NodePortContainer portCollection = input ? inputPorts : outputPorts;
-
-			portCollection.Remove(edge);
+			if (edge.ToNode == this)
+			{
+				inputPorts.Remove(edge);
+			}
+			else if (edge.FromNode == this)
+			{
+				outputPorts.Remove(edge);
+			}
 
 			// Reset default values of input port:
 			if (edge.ToNode != null)
