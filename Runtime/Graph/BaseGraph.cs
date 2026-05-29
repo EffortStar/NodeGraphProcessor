@@ -173,8 +173,13 @@ namespace GraphProcessor
 				requiresReserialization |= edge.Deserialize(this) == SerializableEdge.DeserializationResult.Changed;
 
 				// Sanity check for the edge:
-				if (edge.ToPort == null || edge.FromPort == null)
+				if (
+					edge.FromPort == null
+					|| edge.ToPort == null
+					|| !edge.FromPort.portData.acceptMultipleEdges && edge.FromPort.Edges.Count >= 1
+					|| !edge.ToPort.portData.acceptMultipleEdges && edge.ToPort.Edges.Count >= 1)
 				{
+					Debug.Log($"[NodeGraph] Destroyed edge \"{edge}\" because a port wasn't found or a ports couldn't accept multiple edges.", this);
 					Disconnect(edge.GUID);
 					continue;
 				}

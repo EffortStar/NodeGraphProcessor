@@ -873,14 +873,22 @@ namespace GraphProcessor
 		private void InitializeEdgeViews()
 		{
 			// Sanitize edges in case a node broke something while loading
-			graph.edges.RemoveAll(edge => edge == null || edge.ToNode == null || edge.FromNode == null);
+			int removedEdges = graph.edges.RemoveAll(edge => edge == null || edge.ToNode == null || edge.FromNode == null);
+			if (removedEdges > 0)
+			{
+				Debug.LogWarning($"[NodeGraph] {removedEdges} invalid edges were removed from {graph}.", graph);
+				EditorUtility.SetDirty(graph);
+			}
 
 			foreach (SerializableEdge serializedEdge in graph.edges)
 			{
 				nodeViewsPerNode.TryGetValue(serializedEdge.ToNode, out BaseNodeView inputNodeView);
 				nodeViewsPerNode.TryGetValue(serializedEdge.FromNode, out BaseNodeView outputNodeView);
 				if (inputNodeView == null || outputNodeView == null)
+				{
+					Debug.LogWarning($"[NodeGraph] The node for the edge {serializedEdge} could not be found.", graph);
 					continue;
+				}
 
 				EdgeView edgeView = new()
 				{
@@ -891,6 +899,15 @@ namespace GraphProcessor
 
 
 				ConnectView(edgeView);
+			}
+
+			if (edgeViews.Count != graph.edges.Count)
+			{
+				Debug.LogWarning(
+					"[NodeGraph] The amount of edges visible in the graph is not the same as the real amount.\n" +
+					$"{edgeViews.Count} views to {graph.edges.Count} edges.",
+					graph
+				);
 			}
 		}
 
