@@ -176,9 +176,9 @@ namespace GraphProcessor
 					);
 			}
 			var required = false;
-			var acceptMultipleEdges = false;
 			
 #if UNITY_EDITOR
+			var acceptMultipleEdges = false;
 			EditorOnlyPortInfo? editorOnly = null;
 			s_stack.Clear();
 			foreach (ParameterNode parameterNode in nodes)
@@ -232,6 +232,9 @@ namespace GraphProcessor
 					}
 				}
 			}
+#else
+			// Never clean up SubgraphNode in builds.
+			var acceptMultipleEdges = true;
 #endif
 
 			return (required, acceptMultipleEdges

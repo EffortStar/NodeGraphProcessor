@@ -27,9 +27,9 @@ namespace GraphProcessor
 		[CustomPortBehavior(nameof(In)), UsedImplicitly]
 		private IEnumerable<PortData> InputPortBehavior()
 		{
-			var acceptMultipleEdges = false;
 			Type type = GetRelayType();
 #if UNITY_EDITOR
+			var acceptMultipleEdges = false;
 			if (type != typeof(object) && Attribute.IsDefined(type, typeof(MultipleInputsRelayTypeAttribute)))
 				acceptMultipleEdges = true;
 #endif
@@ -37,7 +37,12 @@ namespace GraphProcessor
 			yield return new PortData
 			{
 				displayType = type,
+#if UNITY_EDITOR
 				acceptMultipleEdges = acceptMultipleEdges,
+#else
+				// Never clean up SimplifiedRelayNode in builds.
+				acceptMultipleEdges = true,
+#endif
 				required = true
 			};
 		}
