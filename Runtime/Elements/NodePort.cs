@@ -176,36 +176,61 @@ namespace GraphProcessor
 		public readonly PortData portData;
 
 		private readonly List<SerializableEdge> _edges = new();
-		private readonly Dictionary<SerializableEdge, PushDataDelegate> _pushDataDelegates = new();
+		private static readonly Dictionary<PushDataDelegateKey, PushDataDelegate> s_pushDataDelegates = new();
 		[CanBeNull] private List<SerializableEdge> _edgeWithRemoteCustomIO;
 
-		private bool GetPushDataDelegate(SerializableEdge edge, out PushDataDelegate edgeDelegate)
+		private readonly struct PushDataDelegateKey : IEquatable<PushDataDelegateKey>
 		{
-			if (_pushDataDelegates.TryGetValue(edge, out edgeDelegate))
+			private readonly FieldInfo _from;
+			private readonly FieldInfo _to;
+
+			public PushDataDelegateKey(FieldInfo from, FieldInfo to)
+			{
+				_from = from;
+				_to = to;
+			}
+
+			public bool Equals(PushDataDelegateKey other) => Equals(_from, other._from) && Equals(_to, other._to);
+
+			public override bool Equals(object obj) => obj is PushDataDelegateKey other && Equals(other);
+
+			public override int GetHashCode() => HashCode.Combine(_from, _to);
+
+			public static bool operator ==(PushDataDelegateKey left, PushDataDelegateKey right) => left.Equals(right);
+
+			public static bool operator !=(PushDataDelegateKey left, PushDataDelegateKey right) => !left.Equals(right);
+
+			public override string ToString() => $"{_from} -> {_to}";
+		}
+		
+		/// <summary>
+		/// Delegate that is made to send the data from this port to another port connected through an edge
+		/// This is an optimization compared to dynamically setting values using Reflection (which is really slow)
+		/// More info: https://codeblog.jonskeet.uk/2008/08/09/making-reflection-fly-and-exploring-delegates/
+		/// </summary>
+		private delegate void PushDataDelegate(BaseNode from, BaseNode to);
+		
+		private static bool GetPushDataDelegate(SerializableEdge edge, out PushDataDelegate edgeDelegate)
+		{
+			PushDataDelegateKey key = new(edge.FromPort.fieldInfo, edge.ToPort.fieldInfo);
+			if (s_pushDataDelegates.TryGetValue(key, out edgeDelegate))
 			{
 				return true;
 			}
 
 			edgeDelegate = CreatePushDataDelegateForEdge(edge);
 
-			if (edgeDelegate != null)
+			if (edgeDelegate == null)
 			{
-				_pushDataDelegates[edge] = edgeDelegate;
-				return true;
+				return false;
 			}
 
-			return false;
+			s_pushDataDelegates.Add(key, edgeDelegate);
+			return true;
+
 		}
 
 		private readonly CustomPortIODelegate _customPortIOMethod;
-
-		/// <summary>
-		/// Delegate that is made to send the data from this port to another port connected through an edge
-		/// This is an optimization compared to dynamically setting values using Reflection (which is really slow)
-		/// More info: https://codeblog.jonskeet.uk/2008/08/09/making-reflection-fly-and-exploring-delegates/
-		/// </summary>
-		public delegate void PushDataDelegate();
-
 
 		/// <summary>
 		/// Constructor
@@ -264,95 +289,64 @@ namespace GraphProcessor
 #endif*/
 		}
 
-		PushDataDelegate CreatePushDataDelegateForEdge(SerializableEdge edge)
+		private static readonly ParameterExpression[] s_params = new ParameterExpression[2];
+
+		private static PushDataDelegate CreatePushDataDelegateForEdge(SerializableEdge edge)
 		{
-			static FieldInfo GetFieldInfo(BaseNode node, string name)
-			{
-				Type type = node.GetType();
-				do
-				{
-					FieldInfo result = type.GetField(name,
-						BindingFlags.Public
-						| BindingFlags.NonPublic
-						| BindingFlags.Instance
-						| BindingFlags.DeclaredOnly
-					);
-					if (result != null)
-					{
-						return result;
-					}
-					
-					type = type.BaseType;
-				} while (type != null && type != typeof(BaseNode));
-				
-				throw new ArgumentException($"Field of name \"{name}\" could not be found in {node}.");
-			}
-			
 			try
 			{
-				//Creation of the delegate to move the data from the input node to the output node:
-				FieldInfo inputField = GetFieldInfo(edge.ToNode, edge.inputFieldName);
-				FieldInfo outputField = GetFieldInfo(edge.FromNode, edge.outputFieldName);
+				FieldInfo fromFieldInfo = edge.FromPort.fieldInfo;
+				FieldInfo toFieldFieldInfo = edge.ToPort.fieldInfo;
 
-				// ReSharper disable JoinDeclarationAndInitializer
-				Type inType, outType;
-				// ReSharper restore JoinDeclarationAndInitializer
-
-#if DEBUG_LAMBDA
-				return new PushDataDelegate(() => {
-					var outValue = outputField.GetValue(edge.outputNode);
-					inType = edge.inputPort.portData.displayType ?? inputField.FieldType;
-					outType = edge.outputPort.portData.displayType ?? outputField.FieldType;
-					Debug.Log($"Push: {inType}({outValue}) -> {outType} | {owner.name}");
-
-					object convertedValue = outValue;
-					if (TypeAdapter.AreAssignable(outType, inType))
-					{
-						var conversionMethod = TypeAdapter.GetConversionMethod(outType, inType);
-						Debug.Log("Conversion method: " + conversionMethod.Name);
-						convertedValue = conversionMethod.Invoke(null, new object[]{ outValue });
-					}
-
-					inputField.SetValue(edge.inputNode, convertedValue);
-				});
-#endif
-
-// We keep slow checks inside the editor
+				// We keep slow checks inside the editor
 #if UNITY_EDITOR
-				if (!BaseGraph.TypesAreConnectable(outputField.FieldType, inputField.FieldType))
+				if (!BaseGraph.TypesAreConnectable(fromFieldInfo.FieldType, toFieldFieldInfo.FieldType))
 				{
-					Debug.LogError($"[NodeGraph] Can't convert from {outputField.FieldType} to {inputField.FieldType}, " +
+					Debug.LogError($"[NodeGraph] Can't convert from {fromFieldInfo.FieldType} to {toFieldFieldInfo.FieldType}, " +
 					               "you must specify a custom port function (i.e CustomPortInput or CustomPortOutput) for non-implicit conversions. " +
 					               $" {edge.FromNode} -> {edge.ToNode}");
 					return null;
 				}
 #endif
+				
+				ParameterExpression fromParam = Expression.Parameter(typeof(BaseNode), "from");
+				ParameterExpression toParam = Expression.Parameter(typeof(BaseNode), "to");
+				s_params[0] = fromParam;
+				s_params[1] = toParam;
+				
+				UnaryExpression fromConverted = Expression.Convert(fromParam, fromFieldInfo.DeclaringType!);
+				UnaryExpression toConverted = Expression.Convert(toParam, toFieldFieldInfo.DeclaringType!);
 
-				Expression inputParamField = Expression.Field(Expression.Constant(edge.ToNode), inputField);
-				Expression outputParamField = Expression.Field(Expression.Constant(edge.FromNode), outputField);
+				Expression fromParamField = Expression.Field(fromConverted, fromFieldInfo);
+				Expression toParamField = Expression.Field(toConverted, toFieldFieldInfo);
 
-				inType = edge.ToPort.portData.displayType ?? inputField.FieldType;
-				outType = edge.FromPort.portData.displayType ?? outputField.FieldType;
+				Type toType = edge.ToPort.portData.displayType ?? toFieldFieldInfo.FieldType;
+				Type fromType = edge.FromPort.portData.displayType ?? fromFieldInfo.FieldType;
 
-				// If there is a user defined conversion function, then we call it
-				if (TypeAdapter.AreAssignable(outType, inType))
+				if (fromType != toType)
 				{
-					// We add a cast in case there we're calling the conversion method with a base class parameter (like object)
-					UnaryExpression convertedParam = Expression.Convert(outputParamField, outType);
-					outputParamField = Expression.Call(TypeAdapter.GetConversionMethod(outType, inType), convertedParam);
-					// In case there is a custom port behavior in the output, then we need to re-cast to the base type because
-					// the conversion method return type is not always assignable directly:
-					outputParamField = Expression.Convert(outputParamField, inputField.FieldType);
+					// If there is a user defined conversion function, then we call it
+					if (TypeAdapter.AreAssignable(fromType, toType))
+					{
+						// We add a cast in case there we're calling the conversion method with a base class parameter (like object)
+						UnaryExpression convertedParam = Expression.Convert(fromParamField, fromType);
+						fromParamField = Expression.Call(TypeAdapter.GetConversionMethod(fromType, toType), convertedParam);
+						// In case there is a custom port behavior in the output, then we need to re-cast to the base type because
+						// the conversion method return type is not always assignable directly:
+						fromParamField = Expression.Convert(fromParamField, toFieldFieldInfo.FieldType);
+					}
+					else // otherwise we cast
+					{
+						fromParamField = Expression.Convert(fromParamField, toFieldFieldInfo.FieldType);
+					}
 				}
-				else // otherwise we cast
-					outputParamField = Expression.Convert(outputParamField, inputField.FieldType);
 
-				BinaryExpression assign = Expression.Assign(inputParamField, outputParamField);
-				return Expression.Lambda<PushDataDelegate>(assign).Compile();
+				BinaryExpression assign = Expression.Assign(toParamField, fromParamField);
+				return Expression.Lambda<PushDataDelegate>(assign, s_params).Compile();
 			}
 			catch (Exception e)
 			{
-				Debug.LogError(e);
+				Debug.LogException(e);
 				return null;
 			}
 		}
@@ -366,7 +360,6 @@ namespace GraphProcessor
 			if (!_edges.Contains(edge))
 				return;
 
-			_pushDataDelegates.Remove(edge);
 			_edgeWithRemoteCustomIO?.Remove(edge);
 			_edges.Remove(edge);
 		}
@@ -392,7 +385,9 @@ namespace GraphProcessor
 			foreach (SerializableEdge edge in _edges)
 			{
 				if (GetPushDataDelegate(edge, out PushDataDelegate edgeDelegate))
-					edgeDelegate();
+				{
+					edgeDelegate(edge.FromNode, edge.ToNode);
+				}
 			}
 
 			if (_edgeWithRemoteCustomIO == null || _edgeWithRemoteCustomIO.Count == 0)
