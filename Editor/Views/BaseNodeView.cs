@@ -276,7 +276,7 @@ namespace GraphProcessor
 			// other
 			bottomPortContainer.Clear();
 			controlsContainer.Clear();
-			fieldControlsMap.Clear();
+			_fieldControlsMap.Clear();
 			UpdateTitle();
 			InitializePorts();
 			DrawDefaultInspector();
@@ -290,7 +290,7 @@ namespace GraphProcessor
 				{
 					foreach (PortView newPortView in newPortViews)
 					{
-						if (oldPortView.fieldName != newPortView.fieldName || oldPortView.portData.identifier != newPortView.portData.identifier) continue;
+						if (oldPortView.FieldPath != newPortView.FieldPath || oldPortView.PortData.identifier != newPortView.PortData.identifier) continue;
 						foreach (EdgeView edgeView in oldPortView.GetEdges())
 						{
 							newPortView.Connect(edgeView);
@@ -444,15 +444,15 @@ namespace GraphProcessor
 		public PortView GetPortViewFromFieldName(string fieldName, string identifier)
 			=> GetPortViewsFromFieldName(fieldName)?
 				.FirstOrDefault(
-					pv => pv.portData.identifier == identifier
+					pv => pv.PortData.identifier == identifier
 					      || (
-						      string.IsNullOrEmpty(pv.portData.identifier)
+						      string.IsNullOrEmpty(pv.PortData.identifier)
 						      && string.IsNullOrEmpty(identifier)
 					      )
 				);
 
 
-		public PortView AddPort(FieldInfo fieldInfo, Direction direction, BaseEdgeConnectorListener listener, PortData portData)
+		public PortView AddPort(NodeFieldInformation fieldInfo, Direction direction, BaseEdgeConnectorListener listener, PortData portData)
 		{
 			PortView p = CreatePortView(direction, fieldInfo, portData, listener);
 
@@ -477,10 +477,10 @@ namespace GraphProcessor
 
 			p.Initialize(this, portData?.EditorOnly.DisplayName);
 
-			if (!portsPerFieldName.TryGetValue(p.fieldName, out List<PortView> ports))
+			if (!portsPerFieldName.TryGetValue(p.FieldPath, out List<PortView> ports))
 			{
 				ports = new List<PortView>();
-				portsPerFieldName[p.fieldName] = ports;
+				portsPerFieldName[p.FieldPath] = ports;
 			}
 
 			ports.Add(p);
@@ -488,7 +488,7 @@ namespace GraphProcessor
 			return p;
 		}
 
-		protected virtual PortView CreatePortView(Direction direction, FieldInfo fieldInfo, PortData portData, BaseEdgeConnectorListener listener)
+		protected virtual PortView CreatePortView(Direction direction, NodeFieldInformation fieldInfo, PortData portData, BaseEdgeConnectorListener listener)
 			=> PortView.CreatePortView(direction, fieldInfo, portData, listener);
 
 		public void InsertPort(PortView portView, int index)
@@ -497,7 +497,7 @@ namespace GraphProcessor
 			{
 				if (portView.direction == Direction.Input)
 				{
-					if (portView.portData.vertical)
+					if (portView.PortData.vertical)
 					{
 						if (IsAlreadyAtIndex(topPortContainer))
 							return;
@@ -512,7 +512,7 @@ namespace GraphProcessor
 				}
 				else
 				{
-					if (portView.portData.vertical)
+					if (portView.PortData.vertical)
 					{
 						if (IsAlreadyAtIndex(bottomPortContainer))
 							return;
@@ -554,7 +554,7 @@ namespace GraphProcessor
 					p.RemoveFromHierarchy();
 			}
 
-			List<PortView> ports = portsPerFieldName[p.fieldName];
+			List<PortView> ports = portsPerFieldName[p.FieldPath];
 			ports.Remove(p);
 		}
 
@@ -769,13 +769,13 @@ namespace GraphProcessor
 		{
 		}
 
-		private readonly Dictionary<string, List<(object value, VisualElement target)>> visibleConditions = new();
-		private readonly Dictionary<string, VisualElement> hideElementIfConnected = new();
-		private readonly Dictionary<FieldInfo, List<VisualElement>> fieldControlsMap = new();
+		private readonly Dictionary<string, List<(object value, VisualElement target)>> _visibleConditions = new();
+		private readonly Dictionary<string, VisualElement> _hideElementIfConnected = new();
+		private readonly Dictionary<FieldInfo, List<VisualElement>> _fieldControlsMap = new();
 
 		public bool TryGetAssociatedControlField(PortView port, out PropertyField field)
 		{
-			if (!hideElementIfConnected.TryGetValue(port.fieldName, out VisualElement element) || element is not PropertyField result)
+			if (!_hideElementIfConnected.TryGetValue(port.FieldPath, out VisualElement element) || element is not PropertyField result)
 			{
 				field = null;
 				return false;
@@ -867,7 +867,7 @@ namespace GraphProcessor
 				VisualElement elem = AddControlField(field, displayName, showInputDrawer);
 				if (hasInputAttribute)
 				{
-					hideElementIfConnected[field.Name] = elem;
+					_hideElementIfConnected[field.Name] = elem;
 
 					// Hide the field right away if there is already a connection:
 					if (portsPerFieldName.TryGetValue(field.Name, out List<PortView> pvs))
@@ -895,7 +895,7 @@ namespace GraphProcessor
 		{
 			if (newValue == null)
 				return;
-			if (visibleConditions.TryGetValue(fieldName, out List<(object value, VisualElement target)> list))
+			if (_visibleConditions.TryGetValue(fieldName, out List<(object value, VisualElement target)> list))
 			{
 				foreach ((object value, VisualElement target) elem in list)
 				{
@@ -909,7 +909,7 @@ namespace GraphProcessor
 
 		private void UpdateOtherFieldValueSpecific<T>(FieldInfo field, object newValue)
 		{
-			foreach (VisualElement inputField in fieldControlsMap[field])
+			foreach (VisualElement inputField in _fieldControlsMap[field])
 			{
 				if (inputField is INotifyValueChanged<T> notify)
 					notify.SetValueWithoutNotify((T)newValue);
@@ -924,12 +924,12 @@ namespace GraphProcessor
 			Type fieldType = info.FieldType.IsSubclassOf(typeof(UnityEngine.Object)) ? typeof(UnityEngine.Object) : info.FieldType;
 			MethodInfo genericUpdate = specificUpdateOtherFieldValue.MakeGenericMethod(fieldType);
 
-			genericUpdate.Invoke(this, new object[] { info, newValue });
+			genericUpdate.Invoke(this, new[] { info, newValue });
 		}
 
 		private object GetInputFieldValueSpecific<T>(FieldInfo field)
 		{
-			if (fieldControlsMap.TryGetValue(field, out List<VisualElement> list))
+			if (_fieldControlsMap.TryGetValue(field, out List<VisualElement> list))
 			{
 				foreach (VisualElement inputField in list)
 				{
@@ -1020,8 +1020,8 @@ namespace GraphProcessor
 					objectField.allowSceneObjects = false;
 			}
 
-			if (!fieldControlsMap.TryGetValue(field, out List<VisualElement> inputFieldList))
-				inputFieldList = fieldControlsMap[field] = new List<VisualElement>();
+			if (!_fieldControlsMap.TryGetValue(field, out List<VisualElement> inputFieldList))
+				inputFieldList = _fieldControlsMap[field] = new List<VisualElement>();
 			inputFieldList.Add(element);
 
 			if (showInputDrawer)
@@ -1046,8 +1046,8 @@ namespace GraphProcessor
 					Debug.LogError($"[VisibleIf] Field {visibleCondition.fieldName} does not exists in node {nodeTarget.GetType()}");
 				else
 				{
-					visibleConditions.TryGetValue(visibleCondition.fieldName, out List<(object value, VisualElement target)> list);
-					list ??= visibleConditions[visibleCondition.fieldName] = new List<(object value, VisualElement target)>();
+					_visibleConditions.TryGetValue(visibleCondition.fieldName, out List<(object value, VisualElement target)> list);
+					list ??= _visibleConditions[visibleCondition.fieldName] = new List<(object value, VisualElement target)>();
 					list.Add((visibleCondition.value, element));
 					UpdateFieldVisibility(visibleCondition.fieldName, conditionField.GetValue(nodeTarget));
 				}
@@ -1058,7 +1058,7 @@ namespace GraphProcessor
 
 		private void UpdateFieldValues()
 		{
-			foreach (KeyValuePair<FieldInfo, List<VisualElement>> kp in fieldControlsMap)
+			foreach (KeyValuePair<FieldInfo, List<VisualElement>> kp in _fieldControlsMap)
 				UpdateOtherFieldValue(kp.Key, kp.Key.GetValue(nodeTarget));
 		}
 
@@ -1080,31 +1080,31 @@ namespace GraphProcessor
 
 		internal void OnPortConnected(PortView port)
 		{
-			if (port.direction == Direction.Input && inputContainerElement?.Q(port.fieldName) != null)
-				inputContainerElement.Q(port.fieldName).AddToClassList("empty");
+			if (port.direction == Direction.Input && inputContainerElement?.Q(port.FieldPath) != null)
+				inputContainerElement.Q(port.FieldPath).AddToClassList("empty");
 
-			if (hideElementIfConnected.TryGetValue(port.fieldName, out VisualElement elem))
+			if (_hideElementIfConnected.TryGetValue(port.FieldPath, out VisualElement elem))
 				elem.style.display = DisplayStyle.None;
 		}
 
 		internal void OnPortDisconnected(PortView port)
 		{
-			if (port.direction == Direction.Input && inputContainerElement?.Q(port.fieldName) != null)
+			if (port.direction == Direction.Input && inputContainerElement?.Q(port.FieldPath) != null)
 			{
-				inputContainerElement.Q(port.fieldName).RemoveFromClassList("empty");
+				inputContainerElement.Q(port.FieldPath).RemoveFromClassList("empty");
 				
-				if (NodeInformation.TryGetInfo(nodeTarget.GetType(), port.fieldName, out NodeFieldInformation fieldInfo))
+				if (NodeInformation.TryGetInfo(nodeTarget.GetType(), port.FieldPath, out NodeFieldInformation fieldInfo))
 				{
-					object valueBeforeConnection = GetInputFieldValue(fieldInfo.FieldInfo);
+					object valueBeforeConnection = fieldInfo.GetValue(nodeTarget);
 
 					if (valueBeforeConnection != null)
 					{
-						fieldInfo.FieldInfo.SetValue(nodeTarget, valueBeforeConnection);
+						fieldInfo.SetValue(nodeTarget, valueBeforeConnection);
 					}
 				}
 			}
 
-			if (hideElementIfConnected.TryGetValue(port.fieldName, out VisualElement elem))
+			if (_hideElementIfConnected.TryGetValue(port.FieldPath, out VisualElement elem))
 				elem.style.display = DisplayStyle.Flex;
 		}
 
@@ -1190,7 +1190,7 @@ namespace GraphProcessor
 				PortView pv = portViewList[index];
 				// If the port have disappeared from the node data, we remove the view:
 				// We can use the identifier here because this function will only be called when there is a custom port behavior
-				if (!ports.Any(p => p.PortData.identifier == pv.portData.identifier))
+				if (!ports.Any(p => p.PortData.identifier == pv.PortData.identifier))
 				{
 					RemovePort(pv);
 					portViewList.Remove(pv);
@@ -1200,9 +1200,9 @@ namespace GraphProcessor
 			foreach (NodePort p in ports)
 			{
 				// Add missing port views
-				if (portViewList.All(pv => p.PortData.identifier != pv.portData.identifier))
+				if (portViewList.All(pv => p.PortData.identifier != pv.PortData.identifier))
 				{
-					Direction portDirection = nodeTarget.IsFieldInput(p.FieldName) ? Direction.Input : Direction.Output;
+					Direction portDirection = p.FieldInfo.IsInput ? Direction.Input : Direction.Output;
 					PortView pv = AddPort(p.FieldInfo, portDirection, listener, p.PortData);
 					portViewList.Add(pv);
 				}
@@ -1221,7 +1221,7 @@ namespace GraphProcessor
 			{
 				string id = portsList[i].PortData.identifier;
 
-				PortView pv = portViewList.FirstOrDefault(p => p.portData.identifier == id);
+				PortView pv = portViewList.FirstOrDefault(p => p.PortData.identifier == id);
 				if (pv != null)
 					InsertPort(pv, i);
 			}
@@ -1299,7 +1299,7 @@ namespace GraphProcessor
 			{
 				foreach (EdgeView edgeView in portView.GetEdges())
 				{
-					edgeView.output = GetPortViewFromFieldName(portView.fieldName, portView.portData.identifier);
+					edgeView.output = GetPortViewFromFieldName(portView.FieldPath, portView.PortData.identifier);
 					edgeView.OnPortChanged(false);
 				}
 			}
@@ -1308,7 +1308,7 @@ namespace GraphProcessor
 			{
 				foreach (EdgeView edgeView in portView.GetEdges())
 				{
-					edgeView.input = GetPortViewFromFieldName(portView.fieldName, portView.portData.identifier);
+					edgeView.input = GetPortViewFromFieldName(portView.FieldPath, portView.PortData.identifier);
 					edgeView.OnPortChanged(true);
 				}
 			}
@@ -1385,8 +1385,8 @@ namespace GraphProcessor
 					SyncPortCounts(ports, portViews);
 				else
 				{
-					IEnumerable<IGrouping<string, NodePort>> p = ports.GroupBy(n => n.FieldName);
-					IEnumerable<IGrouping<string, PortView>> pv = portViews.GroupBy(v => v.fieldName);
+					IEnumerable<IGrouping<string, NodePort>> p = ports.GroupBy(n => n.FieldPath);
+					IEnumerable<IGrouping<string, PortView>> pv = portViews.GroupBy(v => v.FieldPath);
 					p.Zip(pv, (portPerFieldName, portViewPerFieldName) =>
 					{
 						IEnumerable<PortView> portViewsList = portViewPerFieldName;

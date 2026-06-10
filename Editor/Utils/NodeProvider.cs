@@ -461,8 +461,8 @@ namespace GraphProcessor
 					NodeType = nodeType,
 					PortType = p.PortData.displayType ?? p.FieldInfo.FieldType,
 					IsInput = input,
-					PortFieldName = p.FieldName,
-					PortDisplayName = p.PortData.EditorOnly.DisplayName ?? p.FieldName,
+					PortFieldName = p.FieldPath,
+					PortDisplayName = p.PortData.EditorOnly.DisplayName ?? p.FieldPath,
 					PortIdentifier = p.PortData.identifier,
 				});
 			}
@@ -573,7 +573,7 @@ namespace GraphProcessor
 				if ((portView.direction == Direction.Input && description.IsInput) || (portView.direction == Direction.Output && !description.IsInput))
 					return false;
 
-				if (!BaseGraph.TypesAreConnectable(description.PortType, portView.portType))
+				if (!BaseGraph.TypesAreConnectable(description.PortType, portView.PortType))
 					return false;
 
 				return true;

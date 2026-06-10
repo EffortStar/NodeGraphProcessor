@@ -7,7 +7,6 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text.RegularExpressions;
-using JetBrains.Annotations;
 using UnityEngine;
 
 namespace GraphProcessor
@@ -21,11 +20,12 @@ namespace GraphProcessor
 			None = 0,
 			Obsolete = 1 << 0
 		}
-			
+
 		/// <summary>
 		/// Display name on the node
 		/// </summary>
 		public string DisplayName;
+
 		public string Tooltip;
 		public FieldFlags Flags;
 
@@ -58,7 +58,7 @@ namespace GraphProcessor
 			Tooltip = Attribute.IsDefined(field, typeof(TooltipAttribute))
 				? $"<b>{TypeUtility.FormatTypeName(field.FieldType)}</b>: {((TooltipAttribute)Attribute.GetCustomAttribute(field, typeof(TooltipAttribute))).tooltip}"
 				: $"<b>{TypeUtility.FormatTypeName(field.FieldType)}</b>";
-			
+
 			Flags = FieldFlags.None;
 			if (Attribute.IsDefined(field, typeof(ObsoleteAttribute)))
 			{
@@ -89,7 +89,7 @@ namespace GraphProcessor
 		public static bool operator !=(EditorOnlyPortInfo left, EditorOnlyPortInfo right) => !left.Equals(right);
 	}
 #endif
-	
+
 	/// <summary>
 	/// Class that describe port attributes for it's creation
 	/// </summary>
@@ -127,14 +127,14 @@ namespace GraphProcessor
 		public bool Equals(PortData other)
 		{
 			return other != null
-			       && identifier == other.identifier
-			       && displayType == other.displayType
-			       && acceptMultipleEdges == other.acceptMultipleEdges
+				&& identifier == other.identifier
+				&& displayType == other.displayType
+				&& acceptMultipleEdges == other.acceptMultipleEdges
 #if UNITY_EDITOR
-			       && EditorOnly == other.EditorOnly
+				&& EditorOnly == other.EditorOnly
 #endif
-			       && vertical == other.vertical
-			       && required == other.required;
+				&& vertical == other.vertical
+				&& required == other.required;
 		}
 	}
 
@@ -146,13 +146,13 @@ namespace GraphProcessor
 		/// <summary>
 		/// The actual name of the property behind the port (must be exact, it is used for Reflection)
 		/// </summary>
-		public readonly string FieldName;
+		public string FieldPath => FieldInfo.Path.FieldPath;
 
 		/// <summary>
 		/// The node on which the port is
 		/// </summary>
 		public readonly BaseNode Owner;
-		
+
 		public readonly NodeFieldInformation FieldInfo;
 
 		/// <summary>
@@ -165,67 +165,49 @@ namespace GraphProcessor
 
 		private readonly struct PushDataDelegateKey : IEquatable<PushDataDelegateKey>
 		{
-			private readonly FieldInfo _from;
-			private readonly FieldInfo[] _fromChildren;
-			private readonly FieldInfo _to;
-			private readonly FieldInfo[] _toChildren;
+			private readonly FieldInfo _fromRoot;
+			private readonly FieldInfo _fromLeaf;
+			private readonly FieldInfo _toRoot;
+			private readonly FieldInfo _toLeaf;
 
 			public PushDataDelegateKey(
-				FieldInfo from,
-				[CanBeNull] FieldInfo[] fromChildren,
-				FieldInfo to,
-				[CanBeNull] FieldInfo[] toChildren
+				NodeFieldInformation from,
+				NodeFieldInformation to
 			)
 			{
-				_to = to;
-				_from = from;
-				_fromChildren = fromChildren ?? Array.Empty<FieldInfo>();
-				_toChildren = toChildren ?? Array.Empty<FieldInfo>();
+				_fromRoot = from.Path.Root.FieldInfo;
+				_toRoot = to.Path.Root.FieldInfo;
+				_fromLeaf = from.Path.FieldInfo;
+				_toLeaf = to.Path.FieldInfo;
 			}
 
 			public bool Equals(PushDataDelegateKey other) =>
-				_from.Equals(other._from)
-				&& _to.Equals(other._to)
-				&& _fromChildren.SequenceEqual(other._fromChildren)
-				&& _toChildren.SequenceEqual(other._toChildren);
+				_fromRoot.Equals(other._fromRoot)
+				&& _toRoot.Equals(other._toRoot)
+				&& _fromLeaf.Equals(other._fromLeaf)
+				&& _toLeaf.Equals(other._toLeaf);
 
 			public override bool Equals(object obj) => obj is PushDataDelegateKey other && Equals(other);
 
-			public override int GetHashCode()
-			{
-				int hashCode = HashCode.Combine(_from, _to);
-				foreach (FieldInfo fieldInfo in _fromChildren)
-				{
-					hashCode = HashCode.Combine(hashCode, fieldInfo);
-				}
-				
-				foreach (FieldInfo fieldInfo in _toChildren)
-				{
-					hashCode = HashCode.Combine(hashCode, fieldInfo);
-				}
-
-				return hashCode;
-			}
+			public override int GetHashCode() => HashCode.Combine(_fromRoot, _toRoot, _fromLeaf, _toLeaf);
 
 			public static bool operator ==(PushDataDelegateKey left, PushDataDelegateKey right) => left.Equals(right);
 
 			public static bool operator !=(PushDataDelegateKey left, PushDataDelegateKey right) => !left.Equals(right);
 		}
-		
+
 		/// <summary>
 		/// Delegate that is made to send the data from this port to another port connected through an edge
 		/// This is an optimization compared to dynamically setting values using Reflection (which is really slow)
 		/// More info: https://codeblog.jonskeet.uk/2008/08/09/making-reflection-fly-and-exploring-delegates/
 		/// </summary>
 		private delegate void PushDataDelegate(BaseNode from, BaseNode to);
-		
+
 		private static bool GetPushDataDelegate(SerializableEdge edge, out PushDataDelegate edgeDelegate)
 		{
 			PushDataDelegateKey key = new(
 				edge.FromPort.FieldInfo,
-				edge.FromPort.FieldInfoChildren,
-				edge.ToPort.FieldInfo,
-				edge.ToPort.FieldInfoChildren
+				edge.ToPort.FieldInfo
 			);
 			if (s_pushDataDelegates.TryGetValue(key, out edgeDelegate))
 			{
@@ -241,9 +223,8 @@ namespace GraphProcessor
 
 			s_pushDataDelegates.Add(key, edgeDelegate);
 			return true;
-
 		}
-		
+
 		/// <summary>
 		/// Constructor
 		/// </summary>
@@ -252,16 +233,9 @@ namespace GraphProcessor
 		/// <param name="portData">Data of the port</param>
 		public NodePort(BaseNode owner, NodeFieldInformation nodeFieldInfo, PortData portData)
 		{
-			FieldName = nodeFieldInfo.Path.FieldName;
 			Owner = owner;
 			PortData = portData;
-
-			FieldInfo = nodeFieldInfo.FieldInfo;
-		}
-
-		public NodePort(FieldInfo fieldInfo)
-		{
-			FieldInfo = fieldInfo;
+			FieldInfo = nodeFieldInfo;
 		}
 
 		/// <summary>
@@ -280,33 +254,64 @@ namespace GraphProcessor
 		{
 			try
 			{
-				FieldInfo fromFieldInfo = edge.FromPort.FieldInfo;
-				FieldInfo toFieldFieldInfo = edge.ToPort.FieldInfo;
+				NodeFieldInformation fromFieldInfo = edge.FromPort.FieldInfo;
+				NodeFieldInformation toFieldInfo = edge.ToPort.FieldInfo;
 
 				// We keep slow checks inside the editor
 #if UNITY_EDITOR
-				if (!BaseGraph.TypesAreConnectable(fromFieldInfo.FieldType, toFieldFieldInfo.FieldType))
+				if (!BaseGraph.TypesAreConnectable(fromFieldInfo.FieldType, toFieldInfo.FieldType))
 				{
-					Debug.LogError($"[NodeGraph] Can't convert from {fromFieldInfo.FieldType} to {toFieldFieldInfo.FieldType}, " +
-					               "you must specify a custom port function (i.e CustomPortInput or CustomPortOutput) for non-implicit conversions. " +
-					               $" {edge.FromNode} -> {edge.ToNode}");
+					Debug.LogError($"[NodeGraph] Can't convert from {fromFieldInfo.FieldType} to {toFieldInfo.FieldType}, " +
+						"you must specify a custom port function (i.e CustomPortInput or CustomPortOutput) for non-implicit conversions. " +
+						$" {edge.FromNode} -> {edge.ToNode}"
+					);
 					return null;
 				}
 #endif
+
+				if (toFieldInfo.Path.Parent != null)
+				{
+					// NOTE: This says "OutputObjectAttribute", because there isn't an InputObjectAttribute yet.
+					Debug.LogError($"[NodeProcessor] {nameof(OutputObjectAttribute)} is not yet supported on input ports.");
+					return null;
+				}
 				
+				// Take the node in as a parameter.
 				ParameterExpression fromParam = Expression.Parameter(typeof(BaseNode), "from");
 				ParameterExpression toParam = Expression.Parameter(typeof(BaseNode), "to");
 				s_params[0] = fromParam;
 				s_params[1] = toParam;
 				
-				UnaryExpression fromConverted = Expression.Convert(fromParam, fromFieldInfo.DeclaringType!);
-				UnaryExpression toConverted = Expression.Convert(toParam, toFieldFieldInfo.DeclaringType!);
+				// Convert the parameter to their real types.
+				NodeFieldPath fromLeaf = fromFieldInfo.Path;
+				NodeFieldPath fromRoot = fromLeaf.Root;
+				UnaryExpression fromConverted = Expression.Convert(fromParam, fromRoot.FieldInfo.DeclaringType!);
 
-				Expression fromParamField = Expression.Field(fromConverted, fromFieldInfo);
-				Expression toParamField = Expression.Field(toConverted, toFieldFieldInfo);
+				Expression fromParamField;
+				if (fromLeaf != fromRoot)
+				{
+					Stack<NodeFieldPath> pathStack = new();
+					for (NodeFieldPath from = fromLeaf; from != null; from = from.Parent)
+					{
+						pathStack.Push(from);
+					}
 
-				Type toType = edge.ToPort.PortData.displayType ?? toFieldFieldInfo.FieldType;
+					fromParamField = fromConverted;
+					while (pathStack.TryPop(out NodeFieldPath path))
+					{
+						fromParamField = Expression.Field(fromParamField, path.FieldInfo);
+					}
+				}
+				else
+				{
+					fromParamField = Expression.Field(fromConverted, fromLeaf.FieldInfo);
+				}
+				
 				Type fromType = edge.FromPort.PortData.displayType ?? fromFieldInfo.FieldType;
+				
+				UnaryExpression toConverted = Expression.Convert(toParam, toFieldInfo.Path.FieldInfo.DeclaringType!);
+				Expression toParamField = Expression.Field(toConverted, toFieldInfo.Path.FieldInfo);
+				Type toType = edge.ToPort.PortData.displayType ?? toFieldInfo.FieldType;
 
 				if (fromType != toType)
 				{
@@ -318,11 +323,11 @@ namespace GraphProcessor
 						fromParamField = Expression.Call(TypeAdapter.GetConversionMethod(fromType, toType), convertedParam);
 						// In case there is a custom port behavior in the output, then we need to re-cast to the base type because
 						// the conversion method return type is not always assignable directly:
-						fromParamField = Expression.Convert(fromParamField, toFieldFieldInfo.FieldType);
+						fromParamField = Expression.Convert(fromParamField, toFieldInfo.FieldType);
 					}
 					else // otherwise we cast
 					{
-						fromParamField = Expression.Convert(fromParamField, toFieldFieldInfo.FieldType);
+						fromParamField = Expression.Convert(fromParamField, toFieldInfo.FieldType);
 					}
 				}
 
@@ -393,7 +398,7 @@ namespace GraphProcessor
 		}
 
 		public override string ToString()
-			=> $"{FieldName} "
+			=> $"{FieldPath} "
 #if UNITY_EDITOR
 				+ $"({PortData.EditorOnly.DisplayName}) "
 #endif
@@ -434,7 +439,7 @@ namespace GraphProcessor
 			if (string.IsNullOrEmpty(portIdentifier))
 				portIdentifier = null;
 
-			NodePort port = this.FirstOrDefault(p => p.FieldName == portFieldName && p.PortData.identifier == portIdentifier);
+			NodePort port = this.FirstOrDefault(p => p.FieldPath == portFieldName && p.PortData.identifier == portIdentifier);
 
 			if (port == null)
 			{
@@ -449,17 +454,13 @@ namespace GraphProcessor
 	/// <inheritdoc/>
 	public class NodeInputPortContainer : NodePortContainer
 	{
-		public NodeInputPortContainer(BaseNode node) : base(node)
-		{
-		}
+		public NodeInputPortContainer(BaseNode node) : base(node) { }
 	}
 
 	/// <inheritdoc/>
 	public class NodeOutputPortContainer : NodePortContainer
 	{
-		public NodeOutputPortContainer(BaseNode node) : base(node)
-		{
-		}
+		public NodeOutputPortContainer(BaseNode node) : base(node) { }
 
 		public void PushDatas()
 		{

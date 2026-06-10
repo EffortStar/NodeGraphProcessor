@@ -47,9 +47,9 @@ namespace GraphProcessor
 			{
 				GUID = Guid.NewGuid().ToString(),
 				ToNode = toPort.Owner,
-				inputFieldName = toPort.FieldName,
+				inputFieldName = toPort.FieldPath,
 				FromNode = fromPort.Owner,
-				outputFieldName = fromPort.FieldName,
+				outputFieldName = fromPort.FieldPath,
 				ToPort = toPort,
 				FromPort = fromPort,
 				inputPortIdentifier = toPort.PortData.identifier,
@@ -158,11 +158,11 @@ namespace GraphProcessor
 		}
 
 		public override string ToString()
-			=> $"{FromNode?.name ?? FromNodeGuid}:{FromPort?.FieldName ?? outputFieldName}"
+			=> $"{FromNode?.name ?? FromNodeGuid}:{FromPort?.FieldPath ?? outputFieldName}"
 #if UNITY_EDITOR
 				+ $" ({FromPort?.PortData.EditorOnly.DisplayName})"
 #endif
-				+ $" -> {ToNode?.name ?? ToNodeGuid}:{ToPort?.FieldName ?? inputFieldName}"
+				+ $" -> {ToNode?.name ?? ToNodeGuid}:{ToPort?.FieldPath ?? inputFieldName}"
 #if UNITY_EDITOR
 				+ $" ({ToPort?.PortData.EditorOnly.DisplayName})"
 #endif

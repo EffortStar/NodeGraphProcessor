@@ -10,31 +10,31 @@ namespace GraphProcessor
 {
 	public sealed class PortView : Port
 	{
-		public string fieldName => fieldInfo.Name;
-		public Type fieldType => fieldInfo.FieldType;
-		public new Type portType;
-		public BaseNodeView owner { get; private set; }
-		public PortData portData;
+		public string FieldPath => _fieldInfo.Path.FieldPath;
+		public Type FieldType => _fieldInfo.FieldType;
+		public Type PortType;
+		public BaseNodeView Owner { get; private set; }
+		public PortData PortData;
 
-		private readonly FieldInfo fieldInfo;
+		private readonly NodeFieldInformation _fieldInfo;
 
 		public const string UserPortStyleFile = "PortViewTypes";
 
-		private readonly List<EdgeView> edges = new();
+		private readonly List<EdgeView> _edges = new();
 
 		private const string PortStyle = "GraphProcessorStyles/PortView";
 		private const string PortRequirementMessage = "Port is required";
 
-		private IconBadges badges;
+		private IconBadges _badges;
 		private IVisualElementScheduledItem _scheduledBadgeEvent;
 
-		private PortView(Direction direction, FieldInfo fieldInfo, PortData portData)
+		private PortView(Direction direction, NodeFieldInformation fieldInfo, PortData portData)
 			: base(portData.vertical ? Orientation.Vertical : Orientation.Horizontal, direction, Capacity.Multi, portData.displayType ?? fieldInfo.FieldType)
 		{
-			this.fieldInfo = fieldInfo;
-			portType = portData.displayType ?? fieldInfo.FieldType;
-			this.portData = portData;
-			portName = fieldName;
+			_fieldInfo = fieldInfo;
+			PortType = portData.displayType ?? fieldInfo.FieldType;
+			PortData = portData;
+			portName = FieldPath;
 
 			styleSheets.Add(Resources.Load<StyleSheet>(PortStyle));
 
@@ -52,7 +52,7 @@ namespace GraphProcessor
 #endif
 		}
 
-		public static PortView CreatePortView(Direction direction, FieldInfo fieldInfo, PortData portData, BaseEdgeConnectorListener edgeConnectorListener)
+		public static PortView CreatePortView(Direction direction, NodeFieldInformation fieldInfo, PortData portData, BaseEdgeConnectorListener edgeConnectorListener)
 		{
 			var pv = new PortView(direction, fieldInfo, portData)
 			{
@@ -95,46 +95,46 @@ namespace GraphProcessor
 
 		public void Initialize(BaseNodeView nodeView, string name)
 		{
-			owner = nodeView;
-			AddToClassList(fieldName);
+			Owner = nodeView;
+			AddToClassList(FieldPath);
 
 			// Correct port type if port accept multiple values (and so is a container)
-			if (direction == Direction.Input && portData.acceptMultipleEdges && portType == fieldType) // If the user haven't set a custom field type
+			if (direction == Direction.Input && PortData.acceptMultipleEdges && PortType == FieldType) // If the user haven't set a custom field type
 			{
-				if (fieldType.GetGenericArguments().Length > 0)
-					portType = fieldType.GetGenericArguments()[0];
+				if (FieldType.GetGenericArguments().Length > 0)
+					PortType = FieldType.GetGenericArguments()[0];
 			}
 
 			if (name != null)
 				portName = name;
-			visualClass = UssUtility.PortVisualClass(portType);
-			badges = new IconBadges(nodeView, m_ConnectorBoxCap);
+			visualClass = UssUtility.PortVisualClass(PortType);
+			_badges = new IconBadges(nodeView, m_ConnectorBoxCap);
 			
 #if UNITY_EDITOR
-			tooltip = portData.EditorOnly.Tooltip;
-			if ((portData.EditorOnly.Flags & EditorOnlyPortInfo.FieldFlags.Obsolete) != 0)
+			tooltip = PortData.EditorOnly.Tooltip;
+			if ((PortData.EditorOnly.Flags & EditorOnlyPortInfo.FieldFlags.Obsolete) != 0)
 			{
 				this.Q<Label>().style.color = Color.indianRed;
-				badges.AddBadge("Obsolete", BadgeMessageType.Warning, SpriteAlignment.RightCenter);
+				_badges.AddBadge("Obsolete", BadgeMessageType.Warning, SpriteAlignment.RightCenter);
 			}
 #endif
 		}
 
 		public override void Connect(Edge edge)
 		{
-			bool wasPreviouslyConnected = edges.Count != 0;
+			bool wasPreviouslyConnected = _edges.Count != 0;
 			
 			base.Connect(edge);
 
-			BaseNodeView inputNode = ((PortView)edge.input).owner;
-			BaseNodeView outputNode = ((PortView)edge.output).owner;
+			BaseNodeView inputNode = ((PortView)edge.input).Owner;
+			BaseNodeView outputNode = ((PortView)edge.output).Owner;
 
-			edges.Add(edge as EdgeView);
+			_edges.Add(edge as EdgeView);
 
 			inputNode.OnPortConnected((PortView)edge.input);
 			outputNode.OnPortConnected((PortView)edge.output);
 
-			if (!wasPreviouslyConnected && portData.required)
+			if (!wasPreviouslyConnected && PortData.required)
 			{
 				_scheduledBadgeEvent?.Pause();
 				_scheduledBadgeEvent = schedule.Execute(() => RemoveBadge(PortRequirementMessage));
@@ -148,15 +148,15 @@ namespace GraphProcessor
 			if (!((EdgeView)edge).isConnected)
 				return;
 
-			BaseNodeView inputNode = (edge.input as PortView)?.owner;
-			BaseNodeView outputNode = (edge.output as PortView)?.owner;
+			BaseNodeView inputNode = (edge.input as PortView)?.Owner;
+			BaseNodeView outputNode = (edge.output as PortView)?.Owner;
 
 			inputNode?.OnPortDisconnected(edge.input as PortView);
 			outputNode?.OnPortDisconnected(edge.output as PortView);
 
-			edges.Remove((EdgeView)edge);
+			_edges.Remove((EdgeView)edge);
 
-			if (FailedPortRequirement(out _) && portData.required)
+			if (FailedPortRequirement(out _) && PortData.required)
 			{
 				_scheduledBadgeEvent?.Pause();
 				_scheduledBadgeEvent = schedule.Execute(() => AddBadge(PortRequirementMessage, BadgeMessageType.Error));
@@ -173,10 +173,10 @@ namespace GraphProcessor
 		private bool FailedPortRequirement(out FailureReason reason)
 		{
 			reason = FailureReason.NoEdges;
-			if (edges.Count != 0)
+			if (_edges.Count != 0)
 				return false;
 			
-			if (!owner.TryGetAssociatedControlField(this, out PropertyField field))
+			if (!Owner.TryGetAssociatedControlField(this, out PropertyField field))
 				return true;
 
 			if (field.childCount == 0)
@@ -206,7 +206,7 @@ namespace GraphProcessor
 
 		public void PortViewValueChanged()
 		{
-			if (portData.required)
+			if (PortData.required)
 			{
 				_scheduledBadgeEvent = schedule.Execute(() =>
 				{
@@ -227,20 +227,20 @@ namespace GraphProcessor
 			EditorOnlyPortInfo editorData = data.EditorOnly;
 			if (data.displayType != null)
 			{
-				base.portType = data.displayType;
 				portType = data.displayType;
-				visualClass = UssUtility.PortVisualClass(portType);
+				PortType = data.displayType;
+				visualClass = UssUtility.PortVisualClass(PortType);
 			}
 
 			if (!string.IsNullOrEmpty(editorData.DisplayName))
 				portName = editorData.DisplayName;
 
-			portData = data;
+			PortData = data;
 
 			// Update the edge in case the port color have changed
 			schedule.Execute(() =>
 			{
-				foreach (EdgeView edge in edges)
+				foreach (EdgeView edge in _edges)
 				{
 					edge.UpdateEdgeControl();
 					edge.MarkDirtyRepaint();
@@ -249,7 +249,7 @@ namespace GraphProcessor
 
 			UpdatePortSize();
 			
-			if (portData.required)
+			if (PortData.required)
 			{
 				RetryPortReqsUntilExists();
 			}
@@ -272,7 +272,7 @@ namespace GraphProcessor
 			}
 		}
 
-		public List<EdgeView> GetEdges() => edges;
+		public List<EdgeView> GetEdges() => _edges;
 
 		/// <summary>
 		/// Adds a badge (an attached icon and message) to this port.
@@ -281,7 +281,7 @@ namespace GraphProcessor
 		{
 			RemoveBadge(message);
 			
-			SpriteAlignment alignment = (direction, portData.vertical) switch
+			SpriteAlignment alignment = (direction, PortData.vertical) switch
 			{
 				(Direction.Input, true) => SpriteAlignment.TopCenter,
 				(Direction.Input, false) => SpriteAlignment.LeftCenter,
@@ -290,22 +290,22 @@ namespace GraphProcessor
 				_ => throw new ArgumentOutOfRangeException()
 			};
 
-			badges.AddBadge(message, messageType, alignment);
+			_badges.AddBadge(message, messageType, alignment);
 		}
 
 		/// <summary>
 		/// Removes a badge matching the provided <paramref name="message" /> from the port.
 		/// </summary>
-		public void RemoveBadge(string message) => badges.RemoveBadge(message);
+		public void RemoveBadge(string message) => _badges.RemoveBadge(message);
 
 		/// <summary>
 		/// Removes all badges from the port.
 		/// </summary>
-		public void RemoveAllBadges() => badges.RemoveAllBadges();
+		public void RemoveAllBadges() => _badges.RemoveAllBadges();
 
 		/// <summary>
 		/// Tests whether a badge has been added to this element.
 		/// </summary>
-		public bool HasBadge(IconBadge badge) => badges.Contains(badge);
+		public bool HasBadge(IconBadge badge) => _badges.Contains(badge);
 	}
 }

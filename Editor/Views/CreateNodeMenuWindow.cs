@@ -161,7 +161,7 @@ namespace GraphProcessor
 					if (parameter.Direction != (isInput ? ParameterDirection.Output : ParameterDirection.Input))
 						continue;
 					
-					if (!BaseGraph.TypesAreConnectable(parameter.GetValueType(), originPortView.portType))
+					if (!BaseGraph.TypesAreConnectable(parameter.GetValueType(), originPortView.PortType))
 						continue;
 					
 					yield return (new NodeProvider.PortDescription

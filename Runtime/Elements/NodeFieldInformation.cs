@@ -9,10 +9,36 @@ namespace GraphProcessor
 	public sealed class NodeInformation
 	{
 		private static readonly Dictionary<Type, NodeInformation> s_cache = new();
-		
-		public readonly NodeFieldPath[] Ports;
-		
-		private NodeInformation(NodeFieldPath[] ports) => Ports = ports;
+
+		private readonly NodeFieldPath[] _paths;
+
+		public readonly IReadOnlyDictionary<string, NodeFieldInformation> Ports;
+
+		private NodeInformation(List<NodeFieldPath> paths)
+		{
+			_paths = paths.ToArray();
+			
+			Dictionary<string, NodeFieldInformation> ports = new();
+			GatherPorts(paths);
+			Ports = ports;
+			return;
+
+			void GatherPorts(IList<NodeFieldPath> parent)
+			{
+				foreach (NodeFieldPath path in parent)
+				{
+					if (path.Children != null)
+						
+					{
+						GatherPorts(path.Children);
+					}
+					else if (path.Info != null)
+					{
+						ports.Add(path.FieldPath, path.Info);
+					}
+				}
+			}
+		}
 
 
 		public static bool TryGetInfo(Type type, string fieldPath, [NotNullWhen(true)] out NodeFieldInformation info)
@@ -26,7 +52,7 @@ namespace GraphProcessor
 			int indexOfSeparator = path.IndexOf(NodeFieldPath.Separator);
 			if (indexOfSeparator < 0)
 			{
-				foreach (NodeFieldPath port in Ports)
+				foreach (NodeFieldPath port in _paths)
 				{
 					if (!path.SequenceEqual(port.FieldPath))
 					{
@@ -41,7 +67,7 @@ namespace GraphProcessor
 			{
 				ReadOnlySpan<char> query = path[..indexOfSeparator];
 				ReadOnlySpan<char> remaining = path[(indexOfSeparator + 1)..];
-				foreach (NodeFieldPath port in Ports)
+				foreach (NodeFieldPath port in _paths)
 				{
 					if (!query.SequenceEqual(port.FieldPath))
 					{
@@ -68,7 +94,7 @@ namespace GraphProcessor
 
 		private static NodeInformation CreateInfoGroup(Type type)
 		{
-			return new NodeInformation(ProcessFields(type, null).ToArray());
+			return new NodeInformation(ProcessFields(type, null));
 
 			static List<NodeFieldPath> ProcessFields(Type type, [CanBeNull] NodeFieldPath parent)
 			{
@@ -86,7 +112,7 @@ namespace GraphProcessor
 						{
 							// OutputObject
 							NodeInformation info = GetInfoGroup(field.FieldType);
-							ports.Add(new NodeFieldPath(GetPath(parent, field), field, parent, info.Ports));
+							ports.Add(new NodeFieldPath(GetPath(parent, field), field, parent, info._paths));
 						}
 						else if (Attribute.IsDefined(field, typeof(InputAttribute))
 							|| Attribute.IsDefined(field, typeof(OutputAttribute)))
@@ -115,6 +141,8 @@ namespace GraphProcessor
 		[CanBeNull] public readonly NodeFieldPath Parent;
 		[CanBeNull] public readonly NodeFieldPath[] Children;
 		[CanBeNull] public readonly NodeFieldInformation Info;
+		
+		public NodeFieldPath Root => Parent == null ? this : Parent.Root;
 
 		public NodeFieldPath(
 			string fieldPath,
@@ -222,7 +250,24 @@ namespace GraphProcessor
 
 		public void SetValue(BaseNode owner, object value)
 		{
+			Stack<NodeFieldPath> path = new();
+			NodeFieldPath current = Path;
 			
+			do
+			{
+				path.Push(current);
+				current = current.Parent;
+			} while (current != null);
+
+			// Starting at owner, get the value of all the fields down the path until we hit the last.
+			object ctx = owner;
+			while (path.TryPop(out NodeFieldPath next) && next != Path)
+			{
+				current = next;
+				ctx = current.FieldInfo.GetValue(ctx);
+			}
+			
+			current?.FieldInfo.SetValue(ctx, value);
 		}
 	}
 }
