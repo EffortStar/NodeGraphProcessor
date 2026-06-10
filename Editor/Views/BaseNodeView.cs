@@ -187,12 +187,12 @@ namespace GraphProcessor
 
 			foreach (NodePort inputPort in nodeTarget.inputPorts)
 			{
-				AddPort(inputPort.fieldInfo, Direction.Input, listener, inputPort.portData);
+				AddPort(inputPort.FieldInfo, Direction.Input, listener, inputPort.PortData);
 			}
 
 			foreach (NodePort outputPort in nodeTarget.outputPorts)
 			{
-				AddPort(outputPort.fieldInfo, Direction.Output, listener, outputPort.portData);
+				AddPort(outputPort.FieldInfo, Direction.Output, listener, outputPort.PortData);
 			}
 		}
 
@@ -1093,13 +1093,13 @@ namespace GraphProcessor
 			{
 				inputContainerElement.Q(port.fieldName).RemoveFromClassList("empty");
 				
-				if (NodeFieldInformation.TryGetInfo(nodeTarget.GetType(), port.fieldName, out NodeFieldInformation fieldInfo))
+				if (NodeInformation.TryGetInfo(nodeTarget.GetType(), port.fieldName, out NodeFieldInformation fieldInfo))
 				{
-					object valueBeforeConnection = GetInputFieldValue(fieldInfo.info);
+					object valueBeforeConnection = GetInputFieldValue(fieldInfo.FieldInfo);
 
 					if (valueBeforeConnection != null)
 					{
-						fieldInfo.info.SetValue(nodeTarget, valueBeforeConnection);
+						fieldInfo.FieldInfo.SetValue(nodeTarget, valueBeforeConnection);
 					}
 				}
 			}
@@ -1190,7 +1190,7 @@ namespace GraphProcessor
 				PortView pv = portViewList[index];
 				// If the port have disappeared from the node data, we remove the view:
 				// We can use the identifier here because this function will only be called when there is a custom port behavior
-				if (!ports.Any(p => p.portData.identifier == pv.portData.identifier))
+				if (!ports.Any(p => p.PortData.identifier == pv.portData.identifier))
 				{
 					RemovePort(pv);
 					portViewList.Remove(pv);
@@ -1200,10 +1200,10 @@ namespace GraphProcessor
 			foreach (NodePort p in ports)
 			{
 				// Add missing port views
-				if (portViewList.All(pv => p.portData.identifier != pv.portData.identifier))
+				if (portViewList.All(pv => p.PortData.identifier != pv.portData.identifier))
 				{
-					Direction portDirection = nodeTarget.IsFieldInput(p.fieldName) ? Direction.Input : Direction.Output;
-					PortView pv = AddPort(p.fieldInfo, portDirection, listener, p.portData);
+					Direction portDirection = nodeTarget.IsFieldInput(p.FieldName) ? Direction.Input : Direction.Output;
+					PortView pv = AddPort(p.FieldInfo, portDirection, listener, p.PortData);
 					portViewList.Add(pv);
 				}
 			}
@@ -1219,7 +1219,7 @@ namespace GraphProcessor
 			// Re-order the port views to match the ports order in case a custom behavior re-ordered the ports
 			for (int i = 0; i < portsList.Count; i++)
 			{
-				string id = portsList[i].portData.identifier;
+				string id = portsList[i].PortData.identifier;
 
 				PortView pv = portViewList.FirstOrDefault(p => p.portData.identifier == id);
 				if (pv != null)
@@ -1385,7 +1385,7 @@ namespace GraphProcessor
 					SyncPortCounts(ports, portViews);
 				else
 				{
-					IEnumerable<IGrouping<string, NodePort>> p = ports.GroupBy(n => n.fieldName);
+					IEnumerable<IGrouping<string, NodePort>> p = ports.GroupBy(n => n.FieldName);
 					IEnumerable<IGrouping<string, PortView>> pv = portViews.GroupBy(v => v.fieldName);
 					p.Zip(pv, (portPerFieldName, portViewPerFieldName) =>
 					{
@@ -1402,7 +1402,7 @@ namespace GraphProcessor
 				// so we can update the view with the new port data (if the name of a port have been changed for example)
 
 				for (int i = 0; i < portViews.Count; i++)
-					portViews[i].UpdatePortView(ports[i].portData);
+					portViews[i].UpdatePortView(ports[i].PortData);
 			}
 
 			return base.RefreshPorts();

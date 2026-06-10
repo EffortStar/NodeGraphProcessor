@@ -203,9 +203,9 @@ namespace GraphProcessor
 							else
 							{
 								if (edge.ToPort.Edges.Count <= 1) // Edges are only required if what's querying it is all that's connected.
-									required |= edge.ToPort.portData.required;
-								acceptMultipleEdges |= edge.ToPort.portData.acceptMultipleEdges;
-								editorOnly ??= edge.ToPort.portData.EditorOnly;
+									required |= edge.ToPort.PortData.required;
+								acceptMultipleEdges |= edge.ToPort.PortData.acceptMultipleEdges;
+								editorOnly ??= edge.ToPort.PortData.EditorOnly;
 							}
 						}
 					}
@@ -224,9 +224,9 @@ namespace GraphProcessor
 							else
 							{
 								if (edge.FromPort.Edges.Count <= 1) // Edges are only required if what's querying it is all that's connected.
-									required |= edge.FromPort.portData.required;
-								acceptMultipleEdges |= edge.FromPort.portData.acceptMultipleEdges;
-								editorOnly ??= edge.FromPort.portData.EditorOnly;
+									required |= edge.FromPort.PortData.required;
+								acceptMultipleEdges |= edge.FromPort.PortData.acceptMultipleEdges;
+								editorOnly ??= edge.FromPort.PortData.EditorOnly;
 							}
 						}
 					}

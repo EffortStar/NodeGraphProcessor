@@ -47,6 +47,16 @@ namespace GraphProcessor
 			this.allowMultiple = allowMultiple;
 		}
 	}
+	
+	/// <summary>
+	/// Mark the field as a parent to <see cref="OutputAttribute"/> fields.
+	/// </summary>
+	[AttributeUsage(AttributeTargets.Field)]
+	[MeansImplicitUse]
+	public sealed class OutputObjectAttribute : Attribute
+	{
+		public OutputObjectAttribute() { }
+	}
 
 	/// <summary>
 	/// Mark this port-generating (<see cref="InputAttribute"/>/<see cref="OutputAttribute"/> field as required.

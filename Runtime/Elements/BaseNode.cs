@@ -71,8 +71,6 @@ namespace GraphProcessor
 
 		[NonSerialized] internal readonly Dictionary<string, NodeFieldInformation> nodeFields = new();
 		
-		[NonSerialized] internal Dictionary<string, CustomPortBehaviorDelegate> _customPortBehaviorMap = null;
-
 		[NonSerialized] private List<string> messages = new();
 
 		[NonSerialized] protected BaseGraph graph;
@@ -92,12 +90,6 @@ namespace GraphProcessor
 		// Used in port update algorithm
 		private Stack<PortUpdate> fieldsToUpdate = new();
 		private HashSet<PortUpdate> updatedFields = new();
-
-		private bool TryGetCustomPortBehaviour(string fieldName, out CustomPortBehaviorDelegate behavior)
-		{
-			_customPortBehaviorMap ??= CustomPortBehaviour.Get(this);
-			return _customPortBehaviorMap.TryGetValue(fieldName, out behavior);
-		}
 
 		/// <summary>
 		/// Creates a node of type T at a certain position
@@ -183,27 +175,40 @@ namespace GraphProcessor
 			inputPorts.Clear();
 			outputPorts.Clear();
 
-			foreach (FieldInfo key in OverrideFieldOrder(nodeFields.Values.Select(k => k.info)))
+			foreach (NodeFieldInformation nodeField in OverrideFieldOrder(nodeFields.Values))
 			{
-				NodeFieldInformation nodeField = nodeFields[key.Name];
-
-				if (HasCustomBehavior(nodeField))
+				if (nodeField.Children != null)
 				{
-					UpdatePortsForField(nodeField.fieldName, sendPortUpdatedEvent: false);
+					// Nested children, create a port per field.
+					foreach (NodeFieldInformation child in OverrideFieldOrder(nodeField.Children.Values))
+					{
+						AddPort(
+							child,
+							new PortData
+							{
+								acceptMultipleEdges = child.AllowMultiple,
+#if UNITY_EDITOR
+								EditorOnly = child.EditorOnly,
+#endif
+								vertical = child.IsVertical,
+								required = child.IsRequired
+							}
+						);
+					}
 				}
 				else
 				{
-					// If we don't have a custom behavior on the node, we just have to create a simple port
+					// If we don't have nested children, we just have to create a simple port.
 					AddPort(
 						nodeField,
 						new PortData
 						{
-							acceptMultipleEdges = nodeField.isMultiple,
+							acceptMultipleEdges = nodeField.AllowMultiple,
 #if UNITY_EDITOR
 							EditorOnly = nodeField.EditorOnly,
 #endif
-							vertical = nodeField.vertical,
-							required = nodeField.isRequired
+							vertical = nodeField.IsVertical,
+							required = nodeField.IsRequired
 						}
 					);
 				}
@@ -233,12 +238,36 @@ namespace GraphProcessor
 				return level;
 			}
 		}
+		
+		/// <summary>
+		/// Override the field order inside the node. It allows to re-order all the ports and field in the UI.
+		/// </summary>
+		/// <param name="fields">List of fields to sort</param>
+		/// <returns>Sorted list of fields</returns>
+		public static IEnumerable<NodeFieldInformation> OverrideFieldOrder(IEnumerable<NodeFieldInformation> fields)
+		{
+			// Order by MetadataToken and inheritance level to sync the order with the port order (make sure FieldDrawers are next to the correct port)
+			return fields.OrderByDescending(f => (GetFieldInheritanceLevel(f.FieldInfo) << 32) | (uint)f.FieldInfo.MetadataToken);
+
+			long GetFieldInheritanceLevel(FieldInfo f)
+			{
+				var level = 0;
+				Type t = f.DeclaringType;
+				while (t != null)
+				{
+					t = t.BaseType;
+					level++;
+				}
+
+				return level;
+			}
+		}
 
 		protected BaseNode()
 		{
 			inputPorts = new NodeInputPortContainer(this);
 			outputPorts = new NodeOutputPortContainer(this);
-			nodeFields = NodeFieldInformation.GetInfoGroup(GetType());
+			nodeFields = NodeInformation.GetInfoGroup(GetType());
 		}
 
 		/// <summary>
@@ -248,31 +277,13 @@ namespace GraphProcessor
 		{
 			var changed = false;
 
-			foreach (FieldInfo key in OverrideFieldOrder(nodeFields.Values.Select(k => k.info)))
+			foreach (NodeFieldInformation field in OverrideFieldOrder(nodeFields.Values))
 			{
-				NodeFieldInformation field = nodeFields[key.Name];
-				changed |= UpdatePortsForField(field.fieldName);
+				changed |= UpdatePortsForField(field.FieldName);
 			}
 
 			return changed;
 		}
-
-		/// <summary>
-		/// Update all ports of the node without updating the connected ports. Only use this method when you need to update all the nodes ports in your graph.
-		/// </summary>
-		public bool UpdateAllPortsLocal()
-		{
-			var changed = false;
-
-			foreach (FieldInfo key in OverrideFieldOrder(nodeFields.Values.Select(k => k.info)))
-			{
-				NodeFieldInformation field = nodeFields[key.Name];
-				changed |= UpdatePortsForFieldLocal(field.fieldName);
-			}
-
-			return changed;
-		}
-
 
 		/// <summary>
 		/// Update the ports related to one C# property field (only for this node)
@@ -285,20 +296,12 @@ namespace GraphProcessor
 			if (!nodeFields.TryGetValue(fieldName, out NodeFieldInformation fieldInfo))
 				return false;
 
-			if (!HasCustomBehavior(fieldInfo))
-				return false;
-
 			var finalPorts = new List<string>();
 
-			NodePortContainer portCollection = fieldInfo.input ? inputPorts : outputPorts;
+			NodePortContainer portCollection = fieldInfo.IsInput ? inputPorts : outputPorts;
 
 			// Gather all fields for this port (before to modify them)
-			NodePort[] nodePorts = portCollection.Where(p => p.fieldName == fieldName).ToArray();
-			if (TryGetCustomPortBehaviour(fieldInfo.fieldName, out CustomPortBehaviorDelegate behavior))
-			{
-				foreach (PortData portData in behavior())
-					AddPortData(portData);
-			}
+			NodePort[] nodePorts = portCollection.Where(p => p.FieldName == fieldName).ToArray();
 
 			// TODO
 			// Remove only the ports that are no more in the list
@@ -311,13 +314,13 @@ namespace GraphProcessor
 					// ReSharper disable once ForeachCanBeConvertedToQueryUsingAnotherGetEnumerator
 					foreach (string id in finalPorts)
 					{
-						if (id != currentPort.portData.identifier) continue;
+						if (id != currentPort.PortData.identifier) continue;
 						all = false;
 						break;
 					}
 
 					if (!all) continue;
-					RemovePort(fieldInfo.input, currentPort);
+					RemovePort(fieldInfo.IsInput, currentPort);
 					changed = true;
 				}
 			}
@@ -325,8 +328,8 @@ namespace GraphProcessor
 			// Make sure the port order is correct:
 			portCollection.Sort((p1, p2) =>
 			{
-				int p1Index = finalPorts.FindIndex(id => p1.portData.identifier == id);
-				int p2Index = finalPorts.FindIndex(id => p2.portData.identifier == id);
+				int p1Index = finalPorts.FindIndex(id => p1.PortData.identifier == id);
+				int p2Index = finalPorts.FindIndex(id => p2.PortData.identifier == id);
 
 				if (p1Index == -1 || p2Index == -1)
 					return 0;
@@ -338,55 +341,6 @@ namespace GraphProcessor
 				onPortsUpdated?.Invoke(fieldName);
 
 			return changed;
-
-			void AddPortData(PortData portData)
-			{
-				NodePort port = null;
-				// NodePort port = nodePorts.FirstOrDefault(n => n.portData.identifier == portData.identifier);
-				// ReSharper disable once LoopCanBeConvertedToQuery
-				foreach (NodePort n in nodePorts)
-				{
-					if (n.portData.identifier != portData.identifier) continue;
-					port = n;
-					break;
-				}
-
-				// Guard using the port identifier so we don't duplicate identifiers
-				if (port == null)
-				{
-					AddPort(fieldInfo, portData);
-					changed = true;
-				}
-				else
-				{
-					// in case the port type have changed for an incompatible type, we disconnect all the edges attached to this port
-					if (!BaseGraph.TypesAreConnectable(port.portData.displayType, portData.displayType))
-					{
-						if (this is not SimplifiedRelayNode)
-						{
-							foreach (SerializableEdge edge in port.Edges.ToList())
-								graph.Disconnect(edge.GUID);
-						}
-					}
-
-					// patch the port data
-					if (port.portData != portData)
-					{
-						port.portData.CopyFrom(portData);
-						changed = true;
-					}
-				}
-
-				finalPorts.Add(portData.identifier);
-			}
-		}
-
-		private bool HasCustomBehavior(NodeFieldInformation info)
-		{
-			if (TryGetCustomPortBehaviour(info.fieldName, out _))
-				return true;
-
-			return false;
 		}
 
 		/// <summary>
@@ -417,22 +371,6 @@ namespace GraphProcessor
 				foreach (string field in fields)
 				{
 					if (!node.UpdatePortsForFieldLocal(field, sendPortUpdatedEvent)) continue;
-					foreach (NodePort port in (NodePortContainer)(node.IsFieldInput(field) ? node.inputPorts : node.outputPorts))
-					{
-						if (port.fieldName != field)
-							continue;
-
-						foreach (SerializableEdge edge in port.Edges)
-						{
-							BaseNode edgeNode = node.IsFieldInput(field) ? edge.FromNode : edge.ToNode;
-							if (edgeNode != null)
-							{
-								List<string> fieldsWithBehavior = edgeNode.nodeFields.Values.Where(HasCustomBehavior).Select(f => f.fieldName).ToList();
-								fieldsToUpdate.Push(new PortUpdate { fieldNames = fieldsWithBehavior, node = edgeNode });
-							}
-						}
-					}
-
 					changed = true;
 				}
 			}
@@ -490,7 +428,7 @@ namespace GraphProcessor
 			// Reset default values of input port:
 			if (edge.ToNode != null)
 			{
-				bool haveConnectedEdges = edge.ToNode.inputPorts.Where(p => p.fieldName == edge.inputFieldName).Any(p => p.Edges.Count != 0);
+				bool haveConnectedEdges = edge.ToNode.inputPorts.Where(p => p.FieldName == edge.inputFieldName).Any(p => p.Edges.Count != 0);
 				if (edge.ToNode == this && !haveConnectedEdges && CanResetPort(edge.ToPort))
 					edge.ToPort?.ResetToDefault();
 			}
@@ -501,8 +439,6 @@ namespace GraphProcessor
 
 		public void OnProcess()
 		{
-			inputPorts.PullDatas();
-
 			try
 			{
 				Process();
@@ -550,9 +486,9 @@ namespace GraphProcessor
 		public void AddPort(NodeFieldInformation fieldInfo, PortData portData)
 		{
 			// Fixup port data info if needed:
-			portData.displayType ??= nodeFields[fieldInfo.fieldName].info.FieldType;
+			portData.displayType ??= nodeFields[fieldInfo.FieldName].FieldInfo.FieldType;
 
-			if (fieldInfo.input)
+			if (fieldInfo.IsInput)
 				inputPorts.Add(new NodePort(this, fieldInfo, portData));
 			else
 				outputPorts.Add(new NodePort(this, fieldInfo, portData));
@@ -579,9 +515,9 @@ namespace GraphProcessor
 		public void RemovePort(bool input, string fieldName)
 		{
 			if (input)
-				inputPorts.RemoveAll(p => p.fieldName == fieldName);
+				inputPorts.RemoveAll(p => p.FieldName == fieldName);
 			else
-				outputPorts.RemoveAll(p => p.fieldName == fieldName);
+				outputPorts.RemoveAll(p => p.FieldName == fieldName);
 		}
 
 		/// <summary>
@@ -654,8 +590,8 @@ namespace GraphProcessor
 		{
 			return AllPorts.FirstOrDefault(p =>
 			{
-				bool bothNull = string.IsNullOrEmpty(identifier) && string.IsNullOrEmpty(p.portData.identifier);
-				return p.fieldName == fieldName && (bothNull || identifier == p.portData.identifier);
+				bool bothNull = string.IsNullOrEmpty(identifier) && string.IsNullOrEmpty(p.PortData.identifier);
+				return p.FieldName == fieldName && (bothNull || identifier == p.PortData.identifier);
 			});
 		}
 
@@ -668,13 +604,13 @@ namespace GraphProcessor
 			bool identifierIsNull = string.IsNullOrEmpty(identifier);
 			foreach (NodePort port in AllPorts)
 			{
-				bool bothNull = identifierIsNull && string.IsNullOrEmpty(port.portData.identifier);
-				if (!bothNull && identifier != port.portData.identifier) continue;
-				foreach (FormerlySerializedAsAttribute attribute in port.fieldInfo.GetCustomAttributes<FormerlySerializedAsAttribute>())
+				bool bothNull = identifierIsNull && string.IsNullOrEmpty(port.PortData.identifier);
+				if (!bothNull && identifier != port.PortData.identifier) continue;
+				foreach (FormerlySerializedAsAttribute attribute in port.FieldInfo.GetCustomAttributes<FormerlySerializedAsAttribute>())
 				{
 					if (attribute.oldName != fieldName) continue;
 					value = port;
-					fieldName = port.fieldName;
+					fieldName = port.FieldName;
 					return true;
 				}
 			}
@@ -694,7 +630,7 @@ namespace GraphProcessor
 		/// </summary>
 		/// <param name="fieldName"></param>
 		/// <returns></returns>
-		public bool IsFieldInput(string fieldName) => nodeFields[fieldName].input;
+		public bool IsFieldInput(string fieldName) => nodeFields[fieldName].IsInput;
 
 		/// <summary>
 		/// Add a message on the node

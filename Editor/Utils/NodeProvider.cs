@@ -459,11 +459,11 @@ namespace GraphProcessor
 				descriptions.Add(new PortDescription
 				{
 					NodeType = nodeType,
-					PortType = p.portData.displayType ?? p.fieldInfo.FieldType,
+					PortType = p.PortData.displayType ?? p.FieldInfo.FieldType,
 					IsInput = input,
-					PortFieldName = p.fieldName,
-					PortDisplayName = p.portData.EditorOnly.DisplayName ?? p.fieldName,
-					PortIdentifier = p.portData.identifier,
+					PortFieldName = p.FieldName,
+					PortDisplayName = p.PortData.EditorOnly.DisplayName ?? p.FieldName,
+					PortIdentifier = p.PortData.identifier,
 				});
 			}
 		}

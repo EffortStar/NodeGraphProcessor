@@ -166,7 +166,7 @@ namespace GraphProcessor
 				data.copiedNodes.Add(JsonSerializer.SerializeNode(nodeView.nodeTarget));
 				foreach (NodePort port in nodeView.nodeTarget.AllPorts)
 				{
-					if (port.portData.vertical)
+					if (port.PortData.vertical)
 					{
 						foreach (SerializableEdge edge in port.Edges)
 							data.copiedEdges.Add(JsonSerializer.Serialize(edge));
@@ -253,8 +253,8 @@ namespace GraphProcessor
 				}
 
 				// We avoid to break the graph by replacing unique connections:
-				if (edge.ToPort.Edges.Count > 0 && !edge.ToPort.portData.acceptMultipleEdges ||
-				    edge.FromPort.Edges.Count > 0 && !edge.FromPort.portData.acceptMultipleEdges)
+				if (edge.ToPort.Edges.Count > 0 && !edge.ToPort.PortData.acceptMultipleEdges ||
+				    edge.FromPort.Edges.Count > 0 && !edge.FromPort.PortData.acceptMultipleEdges)
 				{
 					continue;
 				}

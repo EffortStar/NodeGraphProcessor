@@ -176,8 +176,8 @@ namespace GraphProcessor
 				if (
 					edge.FromPort == null
 					|| edge.ToPort == null
-					|| !edge.FromPort.portData.acceptMultipleEdges && edge.FromPort.Edges.Count >= 1
-					|| !edge.ToPort.portData.acceptMultipleEdges && edge.ToPort.Edges.Count >= 1)
+					|| !edge.FromPort.PortData.acceptMultipleEdges && edge.FromPort.Edges.Count >= 1
+					|| !edge.ToPort.PortData.acceptMultipleEdges && edge.ToPort.Edges.Count >= 1)
 				{
 					Debug.Log($"[NodeGraph] Destroyed edge \"{edge}\" because a port wasn't found or a ports couldn't accept multiple edges. ({this})", this);
 					
@@ -188,8 +188,8 @@ namespace GraphProcessor
 				edgesPerGUID[edge.GUID] = edge;
 
 				// Add the edge to the non-serialized port data
-				edge.ToPort.owner.OnEdgeConnected(edge);
-				edge.FromPort.owner.OnEdgeConnected(edge);
+				edge.ToPort.Owner.OnEdgeConnected(edge);
+				edge.FromPort.Owner.OnEdgeConnected(edge);
 			}
 
 			if (requiresReserialization)
@@ -372,7 +372,7 @@ namespace GraphProcessor
 			var edge = SerializableEdge.CreateNewEdge(this, fromPort, toPort);
 
 			//If the input port does not support multi-connection, we remove them
-			if (autoDisconnectInputs && !toPort.portData.acceptMultipleEdges)
+			if (autoDisconnectInputs && !toPort.PortData.acceptMultipleEdges)
 			{
 				foreach (SerializableEdge e in toPort.Edges.ToList())
 				{
@@ -382,7 +382,7 @@ namespace GraphProcessor
 			}
 
 			// same for the output port:
-			if (autoDisconnectInputs && !fromPort.portData.acceptMultipleEdges)
+			if (autoDisconnectInputs && !fromPort.PortData.acceptMultipleEdges)
 			{
 				foreach (SerializableEdge e in fromPort.Edges.ToList())
 				{
@@ -395,8 +395,8 @@ namespace GraphProcessor
 			edgesPerGUID[edge.GUID] = edge;
 
 			// Add the edge to the list of connected edges in the nodes
-			toPort.owner.OnEdgeConnected(edge);
-			fromPort.owner.OnEdgeConnected(edge);
+			toPort.Owner.OnEdgeConnected(edge);
+			fromPort.Owner.OnEdgeConnected(edge);
 
 			onGraphChanges?.Invoke(new GraphChanges { addedEdge = edge });
 
@@ -801,10 +801,6 @@ namespace GraphProcessor
 				if (TypeAdapter.AreIncompatible(t1, t2))
 					return false;
 
-				// Check if there is custom adapters for this assignation.
-				if (CustomPortIO.IsAssignable(t1, t2))
-					return true;
-
 				// Check for type assignability.
 				if (t2.IsReallyAssignableFrom(t1))
 					return true;
@@ -965,7 +961,7 @@ namespace GraphProcessor
 					// FirstOrDefault for identifier == parameterGUID
 					foreach (NodePort port in subgraphNode.inputPorts)
 					{
-						if (port.portData.identifier != inputParameter.parameterGUID) continue;
+						if (port.PortData.identifier != inputParameter.parameterGUID) continue;
 						foreach (SerializableEdge thisEdge in port.Edges)
 						{
 							// thisEdge.FromPort -> thisEdge -> inputPorts | [subgraphNode]
@@ -985,7 +981,7 @@ namespace GraphProcessor
 					// FirstOrDefault for identifier == parameterGUID
 					foreach (NodePort port in subgraphNode.outputPorts)
 					{
-						if (port.portData.identifier != outputParameter.parameterGUID) continue;
+						if (port.PortData.identifier != outputParameter.parameterGUID) continue;
 						foreach (SerializableEdge thisEdge in port.Edges)
 						{
 							// [subgraphNode] | outputPorts -> thisEdge -> thisEdge.ToPort

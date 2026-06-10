@@ -29,9 +29,6 @@ namespace GraphProcessor
 		/// </summary>
 		[NonSerialized] public NodePort FromPort;
 
-		//temporary object used to send port to port data when a custom input/output function is used.
-		[NonSerialized] public object PassThroughBuffer;
-
 		/// <summary>
 		/// Formerly OutputNode
 		/// </summary>
@@ -49,14 +46,14 @@ namespace GraphProcessor
 			return new SerializableEdge
 			{
 				GUID = Guid.NewGuid().ToString(),
-				ToNode = toPort.owner,
-				inputFieldName = toPort.fieldName,
-				FromNode = fromPort.owner,
-				outputFieldName = fromPort.fieldName,
+				ToNode = toPort.Owner,
+				inputFieldName = toPort.FieldName,
+				FromNode = fromPort.Owner,
+				outputFieldName = fromPort.FieldName,
 				ToPort = toPort,
 				FromPort = fromPort,
-				inputPortIdentifier = toPort.portData.identifier,
-				outputPortIdentifier = fromPort.portData.identifier
+				inputPortIdentifier = toPort.PortData.identifier,
+				outputPortIdentifier = fromPort.PortData.identifier
 			};
 		}
 
@@ -108,9 +105,9 @@ namespace GraphProcessor
 			else
 			{
 #if UNITY_EDITOR
-				if ((ToPort.portData.EditorOnly.Flags & EditorOnlyPortInfo.FieldFlags.Obsolete) != 0)
+				if ((ToPort.PortData.EditorOnly.Flags & EditorOnlyPortInfo.FieldFlags.Obsolete) != 0)
 				{
-					Debug.LogError($"[NodeGraph] Edge was connected to Obsolete port {ToPort.portData.EditorOnly.DisplayName} on {ToNode}.", graph);
+					Debug.LogError($"[NodeGraph] Edge was connected to Obsolete port {ToPort.PortData.EditorOnly.DisplayName} on {ToNode}.", graph);
 				}
 #endif
 			}
@@ -130,9 +127,9 @@ namespace GraphProcessor
 			else
 			{
 #if UNITY_EDITOR
-				if ((FromPort.portData.EditorOnly.Flags & EditorOnlyPortInfo.FieldFlags.Obsolete) != 0)
+				if ((FromPort.PortData.EditorOnly.Flags & EditorOnlyPortInfo.FieldFlags.Obsolete) != 0)
 				{
-					Debug.LogError($"[NodeGraph] Edge was connected to Obsolete port {FromPort.portData.EditorOnly.DisplayName} on {FromNode}.", graph);
+					Debug.LogError($"[NodeGraph] Edge was connected to Obsolete port {FromPort.PortData.EditorOnly.DisplayName} on {FromNode}.", graph);
 				}
 #endif
 			}
@@ -161,13 +158,13 @@ namespace GraphProcessor
 		}
 
 		public override string ToString()
-			=> $"{FromNode?.name ?? FromNodeGuid}:{FromPort?.fieldName ?? outputFieldName}"
+			=> $"{FromNode?.name ?? FromNodeGuid}:{FromPort?.FieldName ?? outputFieldName}"
 #if UNITY_EDITOR
-				+ $" ({FromPort?.portData.EditorOnly.DisplayName})"
+				+ $" ({FromPort?.PortData.EditorOnly.DisplayName})"
 #endif
-				+ $" -> {ToNode?.name ?? ToNodeGuid}:{ToPort?.fieldName ?? inputFieldName}"
+				+ $" -> {ToNode?.name ?? ToNodeGuid}:{ToPort?.FieldName ?? inputFieldName}"
 #if UNITY_EDITOR
-				+ $" ({ToPort?.portData.EditorOnly.DisplayName})"
+				+ $" ({ToPort?.PortData.EditorOnly.DisplayName})"
 #endif
 		;
 	}

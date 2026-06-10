@@ -2,59 +2,63 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using JetBrains.Annotations;
 
 namespace GraphProcessor
 {
-	/// <summary>
-	/// Runtime only information used for ports.
-	/// </summary>
-	public class NodeFieldInformation
+	public sealed class NodeInformation
 	{
-		public readonly string fieldName;
-		public readonly FieldInfo info;
-		public readonly bool input;
-		public readonly bool isMultiple;
-		public readonly bool isRequired;
-		public readonly bool vertical;
-#if UNITY_EDITOR
-		public readonly EditorOnlyPortInfo EditorOnly;
-#endif
+		private static readonly Dictionary<Type, NodeInformation> s_cache = new();
+		
+		public readonly NodeFieldPath[] Ports;
+		
+		private NodeInformation(NodeFieldPath[] ports) => Ports = ports;
 
-		public NodeFieldInformation(
-			FieldInfo info,
-			bool input,
-			bool isMultiple,
-			bool vertical,
-			bool isRequired
-#if UNITY_EDITOR
-			, EditorOnlyPortInfo editorOnly
-#endif
-		)
+
+		public static bool TryGetInfo(Type type, string fieldPath, [NotNullWhen(true)] out NodeFieldInformation info)
 		{
-			this.input = input;
-			this.isMultiple = isMultiple;
-			this.info = info;
-			// Intern this string as it's referenced
-			// across edges and ports many times.
-			fieldName = string.Intern(info.Name);
-			this.isRequired = isRequired;
-			this.vertical = vertical;
-#if UNITY_EDITOR
-			EditorOnly = editorOnly;
-#endif
+			NodeInformation infoGroup = GetInfoGroup(type);
+			return infoGroup.TryGetInfo(fieldPath.AsSpan(), out info);
 		}
 
-		private static readonly Dictionary<Type, Dictionary<string, NodeFieldInformation>> s_cache = new();
-
-		public static bool TryGetInfo(Type type, string fieldName, [NotNullWhen(true)] out NodeFieldInformation info)
+		private bool TryGetInfo(ReadOnlySpan<char> path, out NodeFieldInformation info)
 		{
-			Dictionary<string, NodeFieldInformation> infoGroup = GetInfoGroup(type);
-			return infoGroup.TryGetValue(fieldName, out info);
+			int indexOfSeparator = path.IndexOf(NodeFieldPath.Separator);
+			if (indexOfSeparator < 0)
+			{
+				foreach (NodeFieldPath port in Ports)
+				{
+					if (!path.SequenceEqual(port.FieldPath))
+					{
+						continue;
+					}
+
+					info = port.Info;
+					return true;
+				}
+			}
+			else
+			{
+				ReadOnlySpan<char> query = path[..indexOfSeparator];
+				ReadOnlySpan<char> remaining = path[(indexOfSeparator + 1)..];
+				foreach (NodeFieldPath port in Ports)
+				{
+					if (!query.SequenceEqual(port.FieldPath))
+					{
+						continue;
+					}
+
+					return TryGetInfo(remaining, out info);
+				}
+			}
+
+			info = null;
+			return false;
 		}
 
-		public static Dictionary<string, NodeFieldInformation> GetInfoGroup(Type type)
+		public static NodeInformation GetInfoGroup(Type type)
 		{
-			if (!s_cache.TryGetValue(type, out Dictionary<string, NodeFieldInformation> infoGroup))
+			if (!s_cache.TryGetValue(type, out NodeInformation infoGroup))
 			{
 				s_cache.Add(type, infoGroup = CreateInfoGroup(type));
 			}
@@ -62,57 +66,163 @@ namespace GraphProcessor
 			return infoGroup;
 		}
 
-		private static Dictionary<string, NodeFieldInformation> CreateInfoGroup(Type type)
+		private static NodeInformation CreateInfoGroup(Type type)
 		{
-			Dictionary<string, NodeFieldInformation> infoGroup = new();
+			return new NodeInformation(ProcessFields(type, null).ToArray());
+
+			static List<NodeFieldPath> ProcessFields(Type type, [CanBeNull] NodeFieldPath parent)
+			{
+				List<NodeFieldPath> ports = new();
+				do
+				{
+					foreach (FieldInfo field in type.GetFields(
+						BindingFlags.Public 
+						| BindingFlags.NonPublic 
+						| BindingFlags.Instance
+						| BindingFlags.DeclaredOnly
+					))
+					{
+						if (Attribute.IsDefined(field, typeof(OutputObjectAttribute)))
+						{
+							// OutputObject
+							NodeInformation info = GetInfoGroup(field.FieldType);
+							ports.Add(new NodeFieldPath(GetPath(parent, field), field, parent, info.Ports));
+						}
+						else if (Attribute.IsDefined(field, typeof(InputAttribute))
+							|| Attribute.IsDefined(field, typeof(OutputAttribute)))
+						{
+							// Input/Output
+							ports.Add(new NodeFieldPath(GetPath(parent, field), field, parent));
+						}
+					}
+				
+					type = type.BaseType;
+				} while (type != null && type != typeof(BaseNode));
+
+				return ports;
+
+				string GetPath(NodeFieldPath parent, FieldInfo field) => parent == null ? field.Name : $"{parent.FieldPath}{NodeFieldPath.Separator}{field.Name}";
+			}
+		}
+	}
+
+	public sealed class NodeFieldPath
+	{
+		public const char Separator = '.';
+		
+		public readonly string FieldPath;
+		public readonly FieldInfo FieldInfo;
+		[CanBeNull] public readonly NodeFieldPath Parent;
+		[CanBeNull] public readonly NodeFieldPath[] Children;
+		[CanBeNull] public readonly NodeFieldInformation Info;
+
+		public NodeFieldPath(
+			string fieldPath,
+			FieldInfo fieldInfo,
+			[CanBeNull] NodeFieldPath parent,
+			[CanBeNull] NodeFieldPath[] children
+		)
+		{
+			FieldPath = fieldPath;
+			FieldInfo = fieldInfo;
+			Parent = parent;
+			Children = children;
+			Info = null;
+		}
+		
+		public NodeFieldPath(
+			string fieldPath,
+			FieldInfo fieldInfo,
+			[CanBeNull] NodeFieldPath parent
+		)
+		{
+			FieldPath = fieldPath;
+			FieldInfo = fieldInfo;
+			Parent = parent;
+			Children = null;
+			
+			var inputAttribute = fieldInfo.GetCustomAttribute<InputAttribute>();
+			var outputAttribute = fieldInfo.GetCustomAttribute<OutputAttribute>();
+
+			bool isVertical = Attribute.IsDefined(fieldInfo, typeof(VerticalAttribute));
+			bool isRequired = Attribute.IsDefined(fieldInfo, typeof(RequiredPortAttribute));
+
+			// check if field is a collection type
+			bool allowMultiple = inputAttribute?.allowMultiple ?? outputAttribute.allowMultiple;
+
+			Info = new NodeFieldInformation(
+				this,
+				inputAttribute != null,
+				allowMultiple,
+				isVertical,
+				isRequired
+#if UNITY_EDITOR
+				,
+				new EditorOnlyPortInfo(fieldInfo)
+#endif
+			);
+		}
+	}
+	
+	/// <summary>
+	/// Runtime only information used for ports.
+	/// </summary>
+	public sealed class NodeFieldInformation
+	{
+		public readonly NodeFieldPath Path;
+		public readonly bool IsInput;
+		public readonly bool AllowMultiple;
+		public readonly bool IsRequired;
+		public readonly bool IsVertical;
+#if UNITY_EDITOR
+		public readonly EditorOnlyPortInfo EditorOnly;
+#endif
+		public Type FieldType => Path.FieldInfo.FieldType;
+
+		public NodeFieldInformation(
+			NodeFieldPath path,
+			bool isInput,
+			bool allowMultiple,
+			bool isVertical,
+			bool isRequired
+#if UNITY_EDITOR
+			, EditorOnlyPortInfo editorOnly
+#endif
+		)
+		{
+			Path = path;
+			IsInput = isInput;
+			AllowMultiple = allowMultiple;
+			IsRequired = isRequired;
+			IsVertical = isVertical;
+#if UNITY_EDITOR
+			EditorOnly = editorOnly;
+#endif
+		}
+
+		public object GetValue(BaseNode owner)
+		{
+			Stack<NodeFieldPath> path = new();
+			NodeFieldPath current = Path;
 			do
 			{
-				foreach (FieldInfo field in type.GetFields(
-					BindingFlags.Public 
-					| BindingFlags.NonPublic 
-					| BindingFlags.Instance
-					| BindingFlags.DeclaredOnly
-				))
-				{
-					ProcessField(field, infoGroup);
-				}
-				
-				type = type.BaseType;
-			} while (type != null && type != typeof(BaseNode));
+				path.Push(current);
+				current = current.Parent;
+			} while (current != null);
 
-			return infoGroup;
-
-			static void ProcessField(FieldInfo field, Dictionary<string, NodeFieldInformation> infoGroup)
+			// Starting at owner, get the value of all the fields down the path until we hit the last.
+			object ctx = owner;
+			while (ctx != null && path.TryPop(out current))
 			{
-				var hasInput = Attribute.IsDefined(field, typeof(InputAttribute));
-				var hasOutput = Attribute.IsDefined(field, typeof(OutputAttribute));
-
-				if (!hasInput && !hasOutput)
-					return;
-				
-				var inputAttribute = field.GetCustomAttribute<InputAttribute>();
-				var outputAttribute = field.GetCustomAttribute<OutputAttribute>();
-
-				var isVertical = Attribute.IsDefined(field, typeof(VerticalAttribute));
-				var isRequired = Attribute.IsDefined(field, typeof(RequiredPortAttribute));
-
-				// check if field is a collection type
-				bool isMultiple = inputAttribute?.allowMultiple ?? outputAttribute.allowMultiple;
-				bool input = inputAttribute != null;
-
-				// By default, we set the behavior to null, if the field have a custom behavior, it will be set in the loop just below
-				infoGroup.Add(field.Name,
-					new NodeFieldInformation(field,
-						input,
-						isMultiple,
-						isVertical,
-						isRequired
-#if UNITY_EDITOR
-						, new EditorOnlyPortInfo(field)
-#endif
-					)
-				);
+				ctx = current.FieldInfo.GetValue(ctx);
 			}
+
+			return ctx;
+		}
+
+		public void SetValue(BaseNode owner, object value)
+		{
+			
 		}
 	}
 }
