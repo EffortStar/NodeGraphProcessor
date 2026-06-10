@@ -63,13 +63,13 @@ namespace GraphProcessor
 			{
 				yield return new PortData
 				{
-					identifier = "output",
+					Identifier = "output",
 #if UNITY_EDITOR
 					EditorOnly = new EditorOnlyPortInfo(Graph?.GetSubgraphParameterFromGuid(parameterGUID).Name ?? "Value", null, EditorOnlyPortInfo.FieldFlags.None),
 #endif
-					displayType = Parameter.GetValueType(),
-					acceptMultipleEdges = true,
-					required = true
+					DisplayType = Parameter.GetValueType(),
+					AcceptMultipleEdges = true,
+					Required = true
 				};
 			}
 		}
@@ -84,12 +84,12 @@ namespace GraphProcessor
 			{
 				yield return new PortData
 				{
-					identifier = "input",
+					Identifier = "input",
 #if UNITY_EDITOR
 					EditorOnly = new EditorOnlyPortInfo(Graph?.GetSubgraphParameterFromGuid(parameterGUID).Name ?? "Value", null, EditorOnlyPortInfo.FieldFlags.None),
 #endif
-					displayType = Parameter.GetValueType(),
-					required = true
+					DisplayType = Parameter.GetValueType(),
+					Required = true
 				};
 			}
 		}

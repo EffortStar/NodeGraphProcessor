@@ -132,9 +132,8 @@ namespace GraphProcessor
 			
 			_isUnmorphedGenericNode = Attribute.IsDefined(node.GetType(), typeof(GenericNodeAttribute));
 
-			node.onMessageAdded += AddBadge;
-			node.onMessageRemoved += RemoveBadge;
-			node.onPortsUpdated += a => schedule.Execute(_ => UpdatePortsForField(a)).ExecuteLater(0);
+			node.OnMessageAdded += AddBadge;
+			node.OnMessageRemoved += RemoveBadge;
 
 			styleSheets.Add(Resources.Load<StyleSheet>(baseNodeStyle));
 
@@ -183,7 +182,7 @@ namespace GraphProcessor
 
 		private void InitializePorts()
 		{
-			BaseEdgeConnectorListener listener = owner.connectorListener;
+			BaseEdgeConnectorListener listener = owner.ConnectorListener;
 
 			foreach (NodePort inputPort in nodeTarget.inputPorts)
 			{
@@ -262,7 +261,7 @@ namespace GraphProcessor
 		
 		protected virtual void RefreshAfterSetNodeTarget()
 		{
-			owner.serializedGraph.Update();
+			owner.SerializedGraph.Update();
 			portsPerFieldName.Clear();
 			// in
 			PortView[] oldPortViewsIn = inputPortViews.ToArray();
@@ -290,7 +289,7 @@ namespace GraphProcessor
 				{
 					foreach (PortView newPortView in newPortViews)
 					{
-						if (oldPortView.FieldPath != newPortView.FieldPath || oldPortView.PortData.identifier != newPortView.PortData.identifier) continue;
+						if (oldPortView.FieldPath != newPortView.FieldPath || oldPortView.PortData.Identifier != newPortView.PortData.Identifier) continue;
 						foreach (EdgeView edgeView in oldPortView.GetEdges())
 						{
 							newPortView.Connect(edgeView);
@@ -357,7 +356,7 @@ namespace GraphProcessor
 					AddSettingField(field);
 			}
 
-			settingsContainer.Bind(owner.serializedGraph);
+			settingsContainer.Bind(owner.SerializedGraph);
 		}
 
 		private void OnGeometryChanged(GeometryChangedEvent evt)
@@ -444,9 +443,9 @@ namespace GraphProcessor
 		public PortView GetPortViewFromFieldName(string fieldName, string identifier)
 			=> GetPortViewsFromFieldName(fieldName)?
 				.FirstOrDefault(
-					pv => pv.PortData.identifier == identifier
+					pv => pv.PortData.Identifier == identifier
 					      || (
-						      string.IsNullOrEmpty(pv.PortData.identifier)
+						      string.IsNullOrEmpty(pv.PortData.Identifier)
 						      && string.IsNullOrEmpty(identifier)
 					      )
 				);
@@ -460,7 +459,7 @@ namespace GraphProcessor
 			{
 				inputPortViews.Add(p);
 
-				if (portData.vertical)
+				if (portData.Vertical)
 					topPortContainer.Add(p);
 				else
 					inputContainer.Add(p);
@@ -469,7 +468,7 @@ namespace GraphProcessor
 			{
 				outputPortViews.Add(p);
 
-				if (portData.vertical)
+				if (portData.Vertical)
 					bottomPortContainer.Add(p);
 				else
 					outputContainer.Add(p);
@@ -497,7 +496,7 @@ namespace GraphProcessor
 			{
 				if (portView.direction == Direction.Input)
 				{
-					if (portView.PortData.vertical)
+					if (portView.PortData.Vertical)
 					{
 						if (IsAlreadyAtIndex(topPortContainer))
 							return;
@@ -512,7 +511,7 @@ namespace GraphProcessor
 				}
 				else
 				{
-					if (portView.PortData.vertical)
+					if (portView.PortData.Vertical)
 					{
 						if (IsAlreadyAtIndex(bottomPortContainer))
 							return;
@@ -983,14 +982,14 @@ namespace GraphProcessor
 				// The property path look like this: nodes.Array.data[x].fieldName
 				// And we want to update the value of x with the new node index:
 				propertyField.bindingPath = s_ReplaceNodeIndexPropertyPath.Replace(propertyField.bindingPath, m => m.Groups[1].Value + nodeIndexString + m.Groups[3].Value);
-				propertyField.Bind(owner.serializedGraph);
+				propertyField.Bind(owner.SerializedGraph);
 			}
 		}
 
 		protected SerializedProperty FindSerializedProperty(string fieldName)
 		{
 			int i = owner.graph.nodes.FindIndex(n => n == nodeTarget);
-			return owner.serializedGraph.FindProperty("nodes").GetArrayElementAtIndex(i).FindPropertyRelative(fieldName);
+			return owner.SerializedGraph.FindProperty("nodes").GetArrayElementAtIndex(i).FindPropertyRelative(fieldName);
 		}
 
 		protected VisualElement AddControlField(FieldInfo field, string label = null, bool showInputDrawer = false, Action valueChangedCallback = null)
@@ -999,7 +998,7 @@ namespace GraphProcessor
 				return null;
 
 			var element = new PropertyField(FindSerializedProperty(field.Name), showInputDrawer ? "" : label);
-			element.Bind(owner.serializedGraph);
+			element.Bind(owner.SerializedGraph);
 
 			if (typeof(IList).IsAssignableFrom(field.FieldType))
 				EnableSyncSelectionBorderHeight();
@@ -1181,7 +1180,7 @@ namespace GraphProcessor
 
 		private IEnumerable<PortView> SyncPortCounts(IEnumerable<NodePort> ports, IEnumerable<PortView> portViews)
 		{
-			BaseEdgeConnectorListener listener = owner.connectorListener;
+			BaseEdgeConnectorListener listener = owner.ConnectorListener;
 			List<PortView> portViewList = portViews.ToList();
 
 			// Maybe not good to remove ports as edges are still connected :/
@@ -1190,7 +1189,7 @@ namespace GraphProcessor
 				PortView pv = portViewList[index];
 				// If the port have disappeared from the node data, we remove the view:
 				// We can use the identifier here because this function will only be called when there is a custom port behavior
-				if (!ports.Any(p => p.PortData.identifier == pv.PortData.identifier))
+				if (!ports.Any(p => p.PortData.Identifier == pv.PortData.Identifier))
 				{
 					RemovePort(pv);
 					portViewList.Remove(pv);
@@ -1200,7 +1199,7 @@ namespace GraphProcessor
 			foreach (NodePort p in ports)
 			{
 				// Add missing port views
-				if (portViewList.All(pv => p.PortData.identifier != pv.PortData.identifier))
+				if (portViewList.All(pv => p.PortData.Identifier != pv.PortData.Identifier))
 				{
 					Direction portDirection = p.FieldInfo.IsInput ? Direction.Input : Direction.Output;
 					PortView pv = AddPort(p.FieldInfo, portDirection, listener, p.PortData);
@@ -1219,9 +1218,9 @@ namespace GraphProcessor
 			// Re-order the port views to match the ports order in case a custom behavior re-ordered the ports
 			for (int i = 0; i < portsList.Count; i++)
 			{
-				string id = portsList[i].PortData.identifier;
+				string id = portsList[i].PortData.Identifier;
 
-				PortView pv = portViewList.FirstOrDefault(p => p.PortData.identifier == id);
+				PortView pv = portViewList.FirstOrDefault(p => p.PortData.Identifier == id);
 				if (pv != null)
 					InsertPort(pv, i);
 			}
@@ -1299,7 +1298,7 @@ namespace GraphProcessor
 			{
 				foreach (EdgeView edgeView in portView.GetEdges())
 				{
-					edgeView.output = GetPortViewFromFieldName(portView.FieldPath, portView.PortData.identifier);
+					edgeView.output = GetPortViewFromFieldName(portView.FieldPath, portView.PortData.Identifier);
 					edgeView.OnPortChanged(false);
 				}
 			}
@@ -1308,7 +1307,7 @@ namespace GraphProcessor
 			{
 				foreach (EdgeView edgeView in portView.GetEdges())
 				{
-					edgeView.input = GetPortViewFromFieldName(portView.FieldPath, portView.PortData.identifier);
+					edgeView.input = GetPortViewFromFieldName(portView.FieldPath, portView.PortData.Identifier);
 					edgeView.OnPortChanged(true);
 				}
 			}
@@ -1370,6 +1369,7 @@ namespace GraphProcessor
 			// so we have to refresh the list of port views.
 			UpdatePortViewWithPorts(nodeTarget.inputPorts, inputPortViews);
 			UpdatePortViewWithPorts(nodeTarget.outputPorts, outputPortViews);
+			return base.RefreshPorts();
 
 			void UpdatePortViewWithPorts(NodePortContainer ports, List<PortView> portViews)
 			{
@@ -1387,7 +1387,7 @@ namespace GraphProcessor
 				{
 					IEnumerable<IGrouping<string, NodePort>> p = ports.GroupBy(n => n.FieldPath);
 					IEnumerable<IGrouping<string, PortView>> pv = portViews.GroupBy(v => v.FieldPath);
-					p.Zip(pv, (portPerFieldName, portViewPerFieldName) =>
+					foreach (var _ in p.Zip(pv, (portPerFieldName, portViewPerFieldName) =>
 					{
 						IEnumerable<PortView> portViewsList = portViewPerFieldName;
 						if (portPerFieldName.Count() != portViewPerFieldName.Count())
@@ -1395,7 +1395,10 @@ namespace GraphProcessor
 						SyncPortOrder(portPerFieldName, portViewsList);
 						// We don't care about the result, we just iterate over port and portView
 						return "";
-					}).ToList();
+					}))
+					{
+						
+					}
 				}
 
 				// Here we're sure that we have the same amount of port and portView
@@ -1404,20 +1407,10 @@ namespace GraphProcessor
 				for (int i = 0; i < portViews.Count; i++)
 					portViews[i].UpdatePortView(ports[i].PortData);
 			}
-
-			return base.RefreshPorts();
 		}
 
 		public void ForceUpdatePorts()
 		{
-			nodeTarget.UpdateAllPorts();
-
-			RefreshPorts();
-		}
-
-		private void UpdatePortsForField(string fieldName)
-		{
-			// TODO: actual code
 			RefreshPorts();
 		}
 

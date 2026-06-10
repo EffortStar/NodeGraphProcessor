@@ -432,7 +432,7 @@ namespace GraphProcessor
 			public Type PortType;
 			public BaseGraph SubgraphContext;
 			public bool IsInput;
-			public string PortFieldName;
+			public string PortFieldPath;
 			public string PortIdentifier;
 			public string PortDisplayName;
 		}
@@ -446,7 +446,6 @@ namespace GraphProcessor
 
 			var node = (BaseNode)Activator.CreateInstance(nodeType);
 			node.InitializePorts();
-			node.UpdateAllPorts();
 
 			foreach (NodePort p in node.inputPorts)
 				AddPort(p, true);
@@ -459,11 +458,11 @@ namespace GraphProcessor
 				descriptions.Add(new PortDescription
 				{
 					NodeType = nodeType,
-					PortType = p.PortData.displayType ?? p.FieldInfo.FieldType,
+					PortType = p.PortData.DisplayType ?? p.FieldInfo.FieldType,
 					IsInput = input,
-					PortFieldName = p.FieldPath,
+					PortFieldPath = p.FieldPath,
 					PortDisplayName = p.PortData.EditorOnly.DisplayName ?? p.FieldPath,
-					PortIdentifier = p.PortData.identifier,
+					PortIdentifier = p.PortData.Identifier,
 				});
 			}
 		}

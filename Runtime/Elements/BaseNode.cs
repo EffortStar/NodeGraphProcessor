@@ -5,7 +5,6 @@ using System.Reflection;
 using UnityEngine;
 using UnityEngine.Pool;
 using UnityEngine.Serialization;
-using UnityEngine.UIElements;
 
 namespace GraphProcessor
 {
@@ -50,46 +49,36 @@ namespace GraphProcessor
 		/// </summary>
 		public bool debug;
 
-		public event Action<string, BadgeMessageType> onMessageAdded;
-		public event Action<string> onMessageRemoved;
-
-
-		/// <summary>
-		/// Triggered after a single/list of port(s) is updated, the parameter is the field name
-		/// </summary>
-		public event Action<string> onPortsUpdated;
+		public event Action<string, BadgeMessageType> OnMessageAdded;
+		public event Action<string> OnMessageRemoved;
 
 		/// <summary>
 		/// Does the node needs to be visible in the inspector (when selected).
 		/// </summary>
-		public virtual bool needsInspector => false;
+		public virtual bool NeedsInspector => false;
 
 		/// <summary>
 		/// Is the node created from a duplicate operation (either ctrl-D or copy/paste).
 		/// </summary>
-		public bool createdFromDuplication { get; internal set; } = false;
+		public bool CreatedFromDuplication { get; internal set; } = false;
 
-		[NonSerialized] internal readonly NodeInformation info;
+		[NonSerialized] private readonly NodeInformation _info;
 		
-		[NonSerialized] private List<string> messages = new();
+		[NonSerialized] private List<string> _messages = new();
 
 		[NonSerialized] protected BaseGraph graph;
 
 		private struct PortUpdate
 		{
-			public List<string> fieldPaths;
-			public BaseNode node;
+			public List<string> FieldPaths;
+			public BaseNode Node;
 
 			public void Deconstruct(out List<string> fieldNames, out BaseNode node)
 			{
-				fieldNames = this.fieldPaths;
-				node = this.node;
+				fieldNames = FieldPaths;
+				node = Node;
 			}
 		}
-
-		// Used in port update algorithm
-		private Stack<PortUpdate> fieldsToUpdate = new();
-		private HashSet<PortUpdate> updatedFields = new();
 
 		/// <summary>
 		/// Creates a node of type T at a certain position
@@ -98,9 +87,7 @@ namespace GraphProcessor
 		/// <typeparam name="T">type of the node</typeparam>
 		/// <returns>the node instance</returns>
 		public static T CreateFromType<T>(Vector2 position) where T : BaseNode
-		{
-			return CreateFromType(typeof(T), position) as T;
-		}
+			=> CreateFromType(typeof(T), position) as T;
 
 		/// <summary>
 		/// Creates a node of type nodeType at a certain position
@@ -111,7 +98,9 @@ namespace GraphProcessor
 		public static BaseNode CreateFromType(Type nodeType, Vector2 position)
 		{
 			if (!nodeType.IsSubclassOf(typeof(BaseNode)))
+			{
 				return null;
+			}
 
 			BaseNode node;
 			try
@@ -175,19 +164,19 @@ namespace GraphProcessor
 			inputPorts.Clear();
 			outputPorts.Clear();
 
-			foreach (NodeFieldInformation nodeField in OverrideFieldOrder(info.Ports.Values))
+			foreach (NodeFieldInformation nodeField in OverrideFieldOrder(_info.Ports.Values))
 			{
 				// If we don't have nested children, we just have to create a simple port.
 				AddPort(
 					nodeField,
 					new PortData
 					{
-						acceptMultipleEdges = nodeField.AllowMultiple,
+						AcceptMultipleEdges = nodeField.AllowMultiple,
 #if UNITY_EDITOR
 						EditorOnly = nodeField.EditorOnly,
 #endif
-						vertical = nodeField.IsVertical,
-						required = nodeField.IsRequired
+						Vertical = nodeField.IsVertical,
+						Required = nodeField.IsRequired
 					}
 				);
 			}
@@ -245,115 +234,7 @@ namespace GraphProcessor
 		{
 			inputPorts = new NodeInputPortContainer(this);
 			outputPorts = new NodeOutputPortContainer(this);
-			info = NodeInformation.GetInfoGroup(GetType());
-		}
-
-		/// <summary>
-		/// Update all ports of the node
-		/// </summary>
-		public bool UpdateAllPorts()
-		{
-			var changed = false;
-
-			foreach (NodeFieldInformation field in OverrideFieldOrder(info.Ports.Values))
-			{
-				changed |= UpdatePortsForField(field.Path.FieldPath);
-			}
-
-			return changed;
-		}
-
-		/// <summary>
-		/// Update the ports related to one C# property field (only for this node)
-		/// </summary>
-		/// <param name="fieldName"></param>
-		public bool UpdatePortsForFieldLocal(string fieldName, bool sendPortUpdatedEvent = true)
-		{
-			var changed = false;
-
-			if (!info.Ports.TryGetValue(fieldName, out NodeFieldInformation fieldInfo))
-				return false;
-
-			var finalPorts = new List<string>();
-
-			NodePortContainer portCollection = fieldInfo.IsInput ? inputPorts : outputPorts;
-
-			// Gather all fields for this port (before to modify them)
-			NodePort[] nodePorts = portCollection.Where(p => p.FieldPath == fieldName).ToArray();
-
-			// TODO
-			// Remove only the ports that are no more in the list
-			{
-				foreach (NodePort currentPort in nodePorts)
-				{
-					// If the current port does not appear in the list of final ports, we remove it
-					// if (finalPorts.All(id => id != currentPort.portData.identifier))
-					var all = true;
-					// ReSharper disable once ForeachCanBeConvertedToQueryUsingAnotherGetEnumerator
-					foreach (string id in finalPorts)
-					{
-						if (id != currentPort.PortData.identifier) continue;
-						all = false;
-						break;
-					}
-
-					if (!all) continue;
-					RemovePort(fieldInfo.IsInput, currentPort);
-					changed = true;
-				}
-			}
-
-			// Make sure the port order is correct:
-			portCollection.Sort((p1, p2) =>
-			{
-				int p1Index = finalPorts.FindIndex(id => p1.PortData.identifier == id);
-				int p2Index = finalPorts.FindIndex(id => p2.PortData.identifier == id);
-
-				if (p1Index == -1 || p2Index == -1)
-					return 0;
-
-				return p1Index.CompareTo(p2Index);
-			});
-
-			if (sendPortUpdatedEvent)
-				onPortsUpdated?.Invoke(fieldName);
-
-			return changed;
-		}
-
-		/// <summary>
-		/// Update the ports related to one C# property field and all connected nodes in the graph
-		/// </summary>
-		/// <param name="fieldPath"></param>
-		public bool UpdatePortsForField(string fieldPath, bool sendPortUpdatedEvent = true)
-		{
-			var changed = false;
-
-			fieldsToUpdate.Clear();
-			updatedFields.Clear();
-
-			fieldsToUpdate.Push(new PortUpdate { fieldPaths = new List<string> { fieldPath }, node = this });
-
-			// Iterate through all the ports that needs to be updated, following graph connection when the 
-			// port is updated. This is required ton have type propagation multiple nodes that changes port types
-			// are connected to each other (i.e. the relay node)
-			while (fieldsToUpdate.Count != 0)
-			{
-				(List<string> fields, BaseNode node) = fieldsToUpdate.Pop();
-
-				// Avoid updating twice a port
-				if (updatedFields.Any(t => t.node == node && fields.SequenceEqual(t.fieldPaths)))
-					continue;
-				updatedFields.Add(new PortUpdate { fieldPaths = fields, node = node });
-
-				foreach (string field in fields)
-				{
-					if (!node.UpdatePortsForFieldLocal(field, sendPortUpdatedEvent)) continue;
-					changed = true;
-				}
-			}
-
-			return changed;
+			_info = NodeInformation.GetInfoGroup(GetType());
 		}
 
 		internal void DestroyInternal()
@@ -381,15 +262,12 @@ namespace GraphProcessor
 		{
 			bool input = edge.ToNode == this;
 			NodePortContainer portCollection = input ? inputPorts : outputPorts;
-
 			portCollection.Add(edge);
-
-			UpdateAllPorts();
 		}
 
 		protected virtual bool CanResetPort(NodePort port) => true;
 
-		public void OnEdgeDisconnected(SerializableEdge edge, bool updatePorts = true)
+		public void OnEdgeDisconnected(SerializableEdge edge)
 		{
 			if (edge == null)
 				return;
@@ -406,13 +284,10 @@ namespace GraphProcessor
 			// Reset default values of input port:
 			if (edge.ToNode != null)
 			{
-				bool haveConnectedEdges = edge.ToNode.inputPorts.Where(p => p.FieldPath == edge.inputFieldName).Any(p => p.Edges.Count != 0);
+				bool haveConnectedEdges = edge.ToNode.inputPorts.Where(p => p.FieldPath == edge.InputFieldPath).Any(p => p.Edges.Count != 0);
 				if (edge.ToNode == this && !haveConnectedEdges && CanResetPort(edge.ToPort))
 					edge.ToPort?.ResetToDefault();
 			}
-
-			if (updatePorts)
-				UpdateAllPorts();
 		}
 
 		public void OnProcess()
@@ -464,7 +339,7 @@ namespace GraphProcessor
 		public void AddPort(NodeFieldInformation fieldInfo, PortData portData)
 		{
 			// Fixup port data info if needed:
-			portData.displayType ??= fieldInfo.FieldType;
+			portData.DisplayType ??= fieldInfo.FieldType;
 
 			if (fieldInfo.IsInput)
 				inputPorts.Add(new NodePort(this, fieldInfo, portData));
@@ -561,34 +436,60 @@ namespace GraphProcessor
 		/// <summary>
 		/// Get the port from field name and identifier
 		/// </summary>
-		/// <param name="fieldName">C# field name</param>
+		/// <param name="fieldPath">C# field name</param>
 		/// <param name="identifier">Unique port identifier</param>
 		/// <returns></returns>
-		public NodePort GetPort(string fieldName, string identifier)
+		public NodePort GetPort(string fieldPath, string identifier)
 		{
-			return AllPorts.FirstOrDefault(p =>
+			// ReSharper disable once LoopCanBeConvertedToQuery
+			foreach (NodePort port in AllPorts)
 			{
-				bool bothNull = string.IsNullOrEmpty(identifier) && string.IsNullOrEmpty(p.PortData.identifier);
-				return p.FieldPath == fieldName && (bothNull || identifier == p.PortData.identifier);
-			});
+				bool bothNull = string.IsNullOrEmpty(identifier) && string.IsNullOrEmpty(port.PortData.Identifier);
+				if (port.FieldPath == fieldPath && (bothNull || identifier == port.PortData.Identifier))
+				{
+					return port;
+				}
+			}
+
+			return null;
 		}
 
 		/// <summary>
 		/// Get the port from field name and identifier ONLY using FormerlySerializedAsAttribute.<br/>
 		/// To be called sparingly when <see cref="GetPort"/> fails, in cases where deserializing and unexpectedly ports are missing.
 		/// </summary>
-		public virtual bool TryGetFallbackPort(ref string fieldName, ref string identifier, out NodePort value)
+		public virtual bool TryGetFallbackPort(ref string fieldPath, ref string identifier, out NodePort value)
 		{
 			bool identifierIsNull = string.IsNullOrEmpty(identifier);
+
+			if (!identifierIsNull)
+			{
+				var fallbackPath = $"{fieldPath}{NodeFieldPath.Separator}{identifier}";
+				foreach (NodePort port in AllPorts)
+				{
+					if (string.IsNullOrEmpty(port.PortData.Identifier) && port.FieldPath == fallbackPath)
+					{
+						value = port;
+						fieldPath = fallbackPath;
+						identifier = port.PortData.Identifier;
+						return true;
+					}
+				}
+			}
+			
 			foreach (NodePort port in AllPorts)
 			{
-				bool bothNull = identifierIsNull && string.IsNullOrEmpty(port.PortData.identifier);
-				if (!bothNull && identifier != port.PortData.identifier) continue;
+				bool bothNull = identifierIsNull && string.IsNullOrEmpty(port.PortData.Identifier);
+				if (!bothNull && identifier != port.PortData.Identifier)
+				{
+					continue;
+				}
+
 				foreach (FormerlySerializedAsAttribute attribute in port.FieldInfo.Path.FieldInfo.GetCustomAttributes<FormerlySerializedAsAttribute>())
 				{
-					if (attribute.oldName != fieldName) continue;
+					if (attribute.oldName != fieldPath) continue;
 					value = port;
-					fieldName = port.FieldPath;
+					fieldPath = port.FieldPath;
 					return true;
 				}
 			}
@@ -610,11 +511,11 @@ namespace GraphProcessor
 		/// <param name="messageType"></param>
 		public void AddMessage(string message, BadgeMessageType messageType)
 		{
-			if (messages.Contains(message))
+			if (_messages.Contains(message))
 				return;
 
-			onMessageAdded?.Invoke(message, messageType);
-			messages.Add(message);
+			OnMessageAdded?.Invoke(message, messageType);
+			_messages.Add(message);
 		}
 
 		/// <summary>
@@ -623,8 +524,8 @@ namespace GraphProcessor
 		/// <param name="message"></param>
 		public void RemoveMessage(string message)
 		{
-			onMessageRemoved?.Invoke(message);
-			messages.Remove(message);
+			OnMessageRemoved?.Invoke(message);
+			_messages.Remove(message);
 		}
 
 		/// <summary>
@@ -633,9 +534,9 @@ namespace GraphProcessor
 		/// <param name="subMessage"></param>
 		public void RemoveMessageContains(string subMessage)
 		{
-			string toRemove = messages.Find(m => m.Contains(subMessage));
-			messages.Remove(toRemove);
-			onMessageRemoved?.Invoke(toRemove);
+			string toRemove = _messages.Find(m => m.Contains(subMessage));
+			_messages.Remove(toRemove);
+			OnMessageRemoved?.Invoke(toRemove);
 		}
 
 		/// <summary>
@@ -643,9 +544,9 @@ namespace GraphProcessor
 		/// </summary>
 		public void ClearMessages()
 		{
-			foreach (string message in messages)
-				onMessageRemoved?.Invoke(message);
-			messages.Clear();
+			foreach (string message in _messages)
+				OnMessageRemoved?.Invoke(message);
+			_messages.Clear();
 		}
 
 		#endregion

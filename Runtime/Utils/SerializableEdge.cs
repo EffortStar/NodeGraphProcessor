@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace GraphProcessor
 {
@@ -34,8 +35,8 @@ namespace GraphProcessor
 		/// </summary>
 		[NonSerialized] public BaseNode FromNode;
 
-		public string inputFieldName;
-		public string outputFieldName;
+		[FormerlySerializedAs("inputFieldName")] public string InputFieldPath;
+		[FormerlySerializedAs("outputFieldName")] public string OutputFieldPath;
 
 		// Use to store the id of the field that generate multiple ports
 		public string inputPortIdentifier;
@@ -47,13 +48,13 @@ namespace GraphProcessor
 			{
 				GUID = Guid.NewGuid().ToString(),
 				ToNode = toPort.Owner,
-				inputFieldName = toPort.FieldPath,
+				InputFieldPath = toPort.FieldPath,
 				FromNode = fromPort.Owner,
-				outputFieldName = fromPort.FieldPath,
+				OutputFieldPath = fromPort.FieldPath,
 				ToPort = toPort,
 				FromPort = fromPort,
-				inputPortIdentifier = toPort.PortData.identifier,
-				outputPortIdentifier = fromPort.PortData.identifier
+				inputPortIdentifier = toPort.PortData.Identifier,
+				outputPortIdentifier = fromPort.PortData.Identifier
 			};
 		}
 
@@ -86,20 +87,20 @@ namespace GraphProcessor
 
 			FromNode = graph.nodesPerGUID[outputNodeGUID];
 			ToNode = graph.nodesPerGUID[inputNodeGUID];
-			ToPort = ToNode.GetPort(inputFieldName, inputPortIdentifier);
-			FromPort = FromNode.GetPort(outputFieldName, outputPortIdentifier);
+			ToPort = ToNode.GetPort(InputFieldPath, inputPortIdentifier);
+			FromPort = FromNode.GetPort(OutputFieldPath, outputPortIdentifier);
 
 			var result = DeserializationResult.NoChanges;
 			if (ToPort == null)
 			{
-				if (ToNode.TryGetFallbackPort(ref inputFieldName, ref inputPortIdentifier, out ToPort))
+				if (ToNode.TryGetFallbackPort(ref InputFieldPath, ref inputPortIdentifier, out ToPort))
 				{
 					result = DeserializationResult.Changed;
 				}
 				else
 				{
 					if (logWarnings)
-						Debug.LogWarning($"[NodeGraph] Edge {GUID} failed to deserialize due to invalid input port (fieldName: {inputFieldName}, id: {inputPortIdentifier}, owner: {graph})", graph);
+						Debug.LogWarning($"[NodeGraph] Edge {GUID} failed to deserialize due to invalid input port (fieldName: {InputFieldPath}, id: {inputPortIdentifier}, owner: {graph})", graph);
 				}
 			}
 			else
@@ -114,14 +115,14 @@ namespace GraphProcessor
 
 			if (FromPort == null)
 			{
-				if (FromNode.TryGetFallbackPort(ref outputFieldName, ref outputPortIdentifier, out FromPort))
+				if (FromNode.TryGetFallbackPort(ref OutputFieldPath, ref outputPortIdentifier, out FromPort))
 				{
 					result = DeserializationResult.Changed;
 				}
 				else
 				{
 					if (logWarnings)
-						Debug.LogWarning($"[NodeGraph] Edge {GUID} failed to deserialize due to invalid output port (fieldName: {outputFieldName}, id: {outputPortIdentifier}, owner: {graph})", graph);
+						Debug.LogWarning($"[NodeGraph] Edge {GUID} failed to deserialize due to invalid output port (fieldName: {OutputFieldPath}, id: {outputPortIdentifier}, owner: {graph})", graph);
 				}
 			}
 			else
@@ -158,11 +159,11 @@ namespace GraphProcessor
 		}
 
 		public override string ToString()
-			=> $"{FromNode?.name ?? FromNodeGuid}:{FromPort?.FieldPath ?? outputFieldName}"
+			=> $"{FromNode?.name ?? FromNodeGuid}:{FromPort?.FieldPath ?? OutputFieldPath}"
 #if UNITY_EDITOR
 				+ $" ({FromPort?.PortData.EditorOnly.DisplayName})"
 #endif
-				+ $" -> {ToNode?.name ?? ToNodeGuid}:{ToPort?.FieldPath ?? inputFieldName}"
+				+ $" -> {ToNode?.name ?? ToNodeGuid}:{ToPort?.FieldPath ?? InputFieldPath}"
 #if UNITY_EDITOR
 				+ $" ({ToPort?.PortData.EditorOnly.DisplayName})"
 #endif

@@ -29,10 +29,10 @@ namespace GraphProcessor
 		private IVisualElementScheduledItem _scheduledBadgeEvent;
 
 		private PortView(Direction direction, NodeFieldInformation fieldInfo, PortData portData)
-			: base(portData.vertical ? Orientation.Vertical : Orientation.Horizontal, direction, Capacity.Multi, portData.displayType ?? fieldInfo.FieldType)
+			: base(portData.Vertical ? Orientation.Vertical : Orientation.Horizontal, direction, Capacity.Multi, portData.DisplayType ?? fieldInfo.FieldType)
 		{
 			_fieldInfo = fieldInfo;
-			PortType = portData.displayType ?? fieldInfo.FieldType;
+			PortType = portData.DisplayType ?? fieldInfo.FieldType;
 			PortData = portData;
 			portName = FieldPath;
 
@@ -44,7 +44,7 @@ namespace GraphProcessor
 			if (userPortStyle != null)
 				styleSheets.Add(userPortStyle);
 
-			if (portData.vertical)
+			if (portData.Vertical)
 				AddToClassList("Vertical");
 
 #if UNITY_EDITOR
@@ -69,11 +69,11 @@ namespace GraphProcessor
 			}
 
 			// hide label when the port is vertical
-			if (portData.vertical && portLabel != null)
+			if (portData.Vertical && portLabel != null)
 				portLabel.style.display = DisplayStyle.None;
 
 			// Fixup picking mode for vertical top ports
-			if (portData.vertical)
+			if (portData.Vertical)
 				pv.Q("connector").pickingMode = PickingMode.Position;
 
 			return pv;
@@ -99,7 +99,7 @@ namespace GraphProcessor
 			AddToClassList(FieldPath);
 
 			// Correct port type if port accept multiple values (and so is a container)
-			if (direction == Direction.Input && PortData.acceptMultipleEdges && PortType == FieldType) // If the user haven't set a custom field type
+			if (direction == Direction.Input && PortData.AcceptMultipleEdges && PortType == FieldType) // If the user haven't set a custom field type
 			{
 				if (FieldType.GetGenericArguments().Length > 0)
 					PortType = FieldType.GetGenericArguments()[0];
@@ -134,7 +134,7 @@ namespace GraphProcessor
 			inputNode.OnPortConnected((PortView)edge.input);
 			outputNode.OnPortConnected((PortView)edge.output);
 
-			if (!wasPreviouslyConnected && PortData.required)
+			if (!wasPreviouslyConnected && PortData.Required)
 			{
 				_scheduledBadgeEvent?.Pause();
 				_scheduledBadgeEvent = schedule.Execute(() => RemoveBadge(PortRequirementMessage));
@@ -156,7 +156,7 @@ namespace GraphProcessor
 
 			_edges.Remove((EdgeView)edge);
 
-			if (FailedPortRequirement(out _) && PortData.required)
+			if (FailedPortRequirement(out _) && PortData.Required)
 			{
 				_scheduledBadgeEvent?.Pause();
 				_scheduledBadgeEvent = schedule.Execute(() => AddBadge(PortRequirementMessage, BadgeMessageType.Error));
@@ -206,7 +206,7 @@ namespace GraphProcessor
 
 		public void PortViewValueChanged()
 		{
-			if (PortData.required)
+			if (PortData.Required)
 			{
 				_scheduledBadgeEvent = schedule.Execute(() =>
 				{
@@ -225,10 +225,10 @@ namespace GraphProcessor
 		public void UpdatePortView(PortData data)
 		{
 			EditorOnlyPortInfo editorData = data.EditorOnly;
-			if (data.displayType != null)
+			if (data.DisplayType != null)
 			{
-				portType = data.displayType;
-				PortType = data.displayType;
+				portType = data.DisplayType;
+				PortType = data.DisplayType;
 				visualClass = UssUtility.PortVisualClass(PortType);
 			}
 
@@ -249,7 +249,7 @@ namespace GraphProcessor
 
 			UpdatePortSize();
 			
-			if (PortData.required)
+			if (PortData.Required)
 			{
 				RetryPortReqsUntilExists();
 			}
@@ -281,7 +281,7 @@ namespace GraphProcessor
 		{
 			RemoveBadge(message);
 			
-			SpriteAlignment alignment = (direction, PortData.vertical) switch
+			SpriteAlignment alignment = (direction, vertical: PortData.Vertical) switch
 			{
 				(Direction.Input, true) => SpriteAlignment.TopCenter,
 				(Direction.Input, false) => SpriteAlignment.LeftCenter,

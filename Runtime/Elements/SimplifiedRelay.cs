@@ -11,20 +11,15 @@ namespace GraphProcessor
 	[Serializable]
 	public sealed class SimplifiedRelayNode : BaseNode
 	{
-		[Input, RequiredPort]
-		public object In;
-
-		[Output, RequiredPort]
-		public object Out;
-
-		protected override void Process() => Out = In;
-
+		public const string InputPortKey = "In";
+		public const string OutputPortKey = "Out";
+		
 		private Type GetRelayType() =>
-			inputPorts.FirstOrDefault()?.Edges.FirstOrDefault()?.FromPort.PortData.displayType
-			?? outputPorts.FirstOrDefault()?.Edges.FirstOrDefault()?.ToPort.PortData.displayType
+			inputPorts.FirstOrDefault()?.Edges.FirstOrDefault()?.FromPort.PortData.DisplayType
+			?? outputPorts.FirstOrDefault()?.Edges.FirstOrDefault()?.ToPort.PortData.DisplayType
 			?? typeof(object);
 
-		[CustomPortBehavior(nameof(In)), UsedImplicitly]
+		[CustomPortBehavior(InputPortKey)]
 		private IEnumerable<PortData> InputPortBehavior()
 		{
 			Type type = GetRelayType();
@@ -36,26 +31,26 @@ namespace GraphProcessor
 			
 			yield return new PortData
 			{
-				displayType = type,
+				DisplayType = type,
 #if UNITY_EDITOR
-				acceptMultipleEdges = acceptMultipleEdges,
+				AcceptMultipleEdges = acceptMultipleEdges,
 #else
 				// Never clean up SimplifiedRelayNode in builds.
 				acceptMultipleEdges = true,
 #endif
-				required = true
+				Required = true
 			};
 		}
 
-		[CustomPortBehavior(nameof(Out)), UsedImplicitly]
+		[CustomPortBehavior(OutputPortKey)]
 		private IEnumerable<PortData> OutputPortBehavior()
 		{
 			// Default dummy port to avoid having a relay without any output:
 			yield return new PortData
 			{
-				displayType = GetRelayType(),
-				acceptMultipleEdges = true,
-				required = true
+				DisplayType = GetRelayType(),
+				AcceptMultipleEdges = true,
+				Required = true
 			};
 		}
 	}

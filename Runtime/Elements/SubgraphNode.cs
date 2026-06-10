@@ -12,6 +12,9 @@ namespace GraphProcessor
 	[Serializable]
 	public sealed class SubgraphNode : BaseNode
 	{
+		public const string InputPortKey = "Inputs";
+		public const string OutputPortKey = "Outputs";
+		
 #if UNITY_EDITOR
 		private static Stack<BaseNode> s_stack = new();
 		
@@ -53,13 +56,7 @@ namespace GraphProcessor
 			internal set => _subgraph = value;
 		}
 
-		[Input, RequiredPort]
-		public object Inputs;
-
-		[Output]
-		public object Outputs;
-
-		[CustomPortBehavior(nameof(Inputs))]
+		[CustomPortBehavior(InputPortKey)]
 		public IEnumerable<PortData> InputPorts()
 		{
 			if (Subgraph == null)
@@ -95,13 +92,13 @@ namespace GraphProcessor
 				bool isNullable = t.IsGenericType && t.GetGenericTypeDefinition() == typeof(Nullable<>);
 				yield return new PortData
 				{
-					displayType = t,
-					acceptMultipleEdges = acceptMultipleEdges,
+					DisplayType = t,
+					AcceptMultipleEdges = acceptMultipleEdges,
 					// Input ports for subgraphs are always required because their edges are connected.
 					// Unless that type is nullable, then we know it doesn't need to be assigned.
 					// Note that when modifying this logic, a subgraph input port could connect to multiple ports.
-					required = !isNullable,
-					identifier = parameter.Guid,
+					Required = !isNullable,
+					Identifier = parameter.Guid,
 #if UNITY_EDITOR
 					EditorOnly = new EditorOnlyPortInfo(parameter.Name, editorOnly.Tooltip, editorOnly.Flags)
 #endif
@@ -109,7 +106,7 @@ namespace GraphProcessor
 			}
 		}
 
-		[CustomPortBehavior(nameof(Outputs))]
+		[CustomPortBehavior(OutputPortKey)]
 		public IEnumerable<PortData> OutputPorts()
 		{
 			if (Subgraph == null)
@@ -141,10 +138,10 @@ namespace GraphProcessor
 					) = GetParameterPortInfoFromInner(parametersToNodes, parameter);
 				yield return new PortData
 				{
-					displayType = parameter.GetValueType(),
-					acceptMultipleEdges = acceptMultipleEdges,
-					required = required,
-					identifier = parameter.Guid,
+					DisplayType = parameter.GetValueType(),
+					AcceptMultipleEdges = acceptMultipleEdges,
+					Required = required,
+					Identifier = parameter.Guid,
 #if UNITY_EDITOR
 					EditorOnly = new EditorOnlyPortInfo(parameter.Name, editorOnly.Tooltip, editorOnly.Flags)
 #endif
@@ -203,8 +200,8 @@ namespace GraphProcessor
 							else
 							{
 								if (edge.ToPort.Edges.Count <= 1) // Edges are only required if what's querying it is all that's connected.
-									required |= edge.ToPort.PortData.required;
-								acceptMultipleEdges |= edge.ToPort.PortData.acceptMultipleEdges;
+									required |= edge.ToPort.PortData.Required;
+								acceptMultipleEdges |= edge.ToPort.PortData.AcceptMultipleEdges;
 								editorOnly ??= edge.ToPort.PortData.EditorOnly;
 							}
 						}
@@ -224,8 +221,8 @@ namespace GraphProcessor
 							else
 							{
 								if (edge.FromPort.Edges.Count <= 1) // Edges are only required if what's querying it is all that's connected.
-									required |= edge.FromPort.PortData.required;
-								acceptMultipleEdges |= edge.FromPort.PortData.acceptMultipleEdges;
+									required |= edge.FromPort.PortData.Required;
+								acceptMultipleEdges |= edge.FromPort.PortData.AcceptMultipleEdges;
 								editorOnly ??= edge.FromPort.PortData.EditorOnly;
 							}
 						}
