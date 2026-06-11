@@ -146,9 +146,9 @@ namespace GraphProcessor
 
             foreach (PortView port in graphView.GetCompatiblePorts(draggedPort, nodeAdapter))
             {
-                compatiblePorts.TryGetValue(port.owner, out List<PortView> portList);
+                compatiblePorts.TryGetValue(port.Owner, out List<PortView> portList);
                 if (portList == null)
-                    portList = compatiblePorts[port.owner] = new List<PortView>();
+                    portList = compatiblePorts[port.Owner] = new List<PortView>();
                 portList.Add(port);
             }
 

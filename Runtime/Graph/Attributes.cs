@@ -49,20 +49,26 @@ namespace GraphProcessor
 	}
 
 	/// <summary>
+	/// Mark the field as a parent to <see cref="OutputAttribute"/> fields.
+	/// </summary>
+	[AttributeUsage(AttributeTargets.Field)]
+	[MeansImplicitUse]
+	public sealed class OutputObjectAttribute : Attribute
+	{
+		public OutputObjectAttribute() { }
+	}
+
+	/// <summary>
 	/// Mark this port-generating (<see cref="InputAttribute"/>/<see cref="OutputAttribute"/> field as required.
 	/// </summary>
 	[AttributeUsage(AttributeTargets.Field)]
-	public sealed class RequiredPortAttribute : Attribute
-	{
-	}
+	public sealed class RequiredPortAttribute : Attribute { }
 
 	/// <summary>
 	/// Creates a vertical port instead of the default horizontal one
 	/// </summary>
 	[AttributeUsage(AttributeTargets.Field)]
-	public sealed class VerticalAttribute : Attribute
-	{
-	}
+	public sealed class VerticalAttribute : Attribute { }
 
 	/// <summary>
 	/// Register the node in the NodeProvider class. The node will also be available in the node creation window.
@@ -99,14 +105,14 @@ namespace GraphProcessor
 		public Type BaseConstraintType { get; }
 		public Type[] ExcludedTypes { get; }
 		public string[] Reasons { get; }
-		
+
 		public GenericNodeAttribute(Type baseConstraintType = null)
 		{
 			BaseConstraintType = baseConstraintType ?? typeof(object);
 			ExcludedTypes = Array.Empty<Type>();
 			Reasons = Array.Empty<string>();
 		}
-		
+
 		public GenericNodeAttribute(Type[] excludedTypes, string[] excludedReasons, Type baseConstraintType = null)
 		{
 			BaseConstraintType = baseConstraintType ?? typeof(object);
@@ -114,8 +120,8 @@ namespace GraphProcessor
 			Reasons = excludedReasons;
 		}
 	}
-	
-	
+
+
 	/// <summary>
 	/// Register the node in the NodeProvider class. The node will also be available in the node creation window.
 	/// </summary>
@@ -144,89 +150,25 @@ namespace GraphProcessor
 	public sealed class NodeColorAttribute : Attribute
 	{
 		public readonly Color Color;
-		
+
 		public NodeColorAttribute(float r, float g, float b) => Color = new Color(r, g, b);
 	}
 
 	/// <summary>
-	/// Allow you to customize the input function of a port
+	/// Allow you to modify the generated port view from a field. Can be used to generate multiple ports from one field.<br/>
+	/// You must add this attribute on a function of this signature
+	/// <code>
+	/// IEnumerable&lt;PortData&gt; MyCustomPortFunction();
+	/// </code>
 	/// </summary>
-	[AttributeUsage(AttributeTargets.Method)]
-	public sealed class CustomPortInputAttribute : Attribute
-	{
-		public readonly string fieldName;
-		public readonly Type inputType;
-		public bool allowCast;
-
-		/// <summary>
-		/// Allow you to customize the input function of a port.
-		/// See CustomPortsNode example in Samples.
-		/// </summary>
-		/// <param name="fieldName">local field of the node</param>
-		/// <param name="inputType">type of input of the port</param>
-		/// <param name="allowCast">if cast is allowed when connecting an edge</param>
-		public CustomPortInputAttribute(string fieldName, Type inputType, bool allowCast = true)
-		{
-			this.fieldName = fieldName;
-			this.inputType = inputType;
-			this.allowCast = allowCast;
-		}
-	}
-
-	/// <summary>
-	/// Allow you to customize the input function of a port
-	/// </summary>
-	[AttributeUsage(AttributeTargets.Method)]
-	public sealed class CustomPortOutputAttribute : Attribute
-	{
-		public readonly string fieldName;
-		public readonly Type outputType;
-		public bool allowCast;
-
-		/// <summary>
-		/// Allow you to customize the output function of a port.
-		/// See CustomPortsNode example in Samples.
-		/// </summary>
-		/// <param name="fieldName">local field of the node</param>
-		/// <param name="outputType">type of output of the port</param>
-		/// <param name="allowCast">if cast is allowed when connecting an edge</param>
-		public CustomPortOutputAttribute(string fieldName, Type outputType, bool allowCast = true)
-		{
-			this.fieldName = fieldName;
-			this.outputType = outputType;
-			this.allowCast = allowCast;
-		}
-	}
-
-	/// <summary>
-	/// Allow you to modify the generated port view from a field. Can be used to generate multiple ports from one field.
-	/// </summary>
-	[AttributeUsage(AttributeTargets.Method)]
-	public sealed class CustomPortBehaviorAttribute : Attribute
-	{
-		public readonly string fieldName;
-
-		/// <summary>
-		/// Allow you to modify the generated port view from a field. Can be used to generate multiple ports from one field.
-		/// You must add this attribute on a function of this signature
-		/// <code>
-		/// IEnumerable&lt;PortData&gt; MyCustomPortFunction(List&lt;SerializableEdge&gt; edges);
-		/// </code>
-		/// </summary>
-		/// <param name="fieldName">local node field name</param>
-		public CustomPortBehaviorAttribute(string fieldName)
-		{
-			this.fieldName = fieldName;
-		}
-	}
+	[AttributeUsage(AttributeTargets.Method), MeansImplicitUse]
+	public sealed class CustomPortBehaviorAttribute : Attribute { }
 
 	/// <summary>
 	/// Mark a type as capable of accepting multiple inputs into a relay node.
 	/// </summary>
 	[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
-	public sealed class MultipleInputsRelayTypeAttribute : Attribute
-	{
-	}
+	public sealed class MultipleInputsRelayTypeAttribute : Attribute { }
 
 	/// <summary>
 	/// Allow you to have a custom view for your stack nodes
@@ -271,9 +213,7 @@ namespace GraphProcessor
 	}
 
 	[AttributeUsage(AttributeTargets.Field)]
-	public sealed class ShowAsDrawerAttribute : Attribute
-	{
-	}
+	public sealed class ShowAsDrawerAttribute : Attribute { }
 
 	[AttributeUsage(AttributeTargets.Field)]
 	public sealed class SettingAttribute : Attribute
@@ -291,9 +231,7 @@ namespace GraphProcessor
 	/// This indicates that the node may undergo unsafe refactoring, and shouldn't be used in a production graph.
 	/// </summary>
 	[AttributeUsage(AttributeTargets.Class)]
-	public sealed class PrototypeNodeAttribute : Attribute
-	{
-	}
+	public sealed class PrototypeNodeAttribute : Attribute { }
 
 	/// <summary>
 	/// Adds a hoverable info flag to a node with a text tooltip

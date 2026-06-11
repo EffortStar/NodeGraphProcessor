@@ -1,61 +1,115 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using JetBrains.Annotations;
 
 namespace GraphProcessor
 {
+	public sealed class SimplifiedRelayPortData : PortData
+	{
+		private readonly SimplifiedRelayNode _node;
+
+		public override Type DisplayType
+		{
+			get => GetRelayType();
+			set => throw new NotImplementedException();
+		}
+
+		public override bool AllowMultipleEdges
+		{
+			get
+			{
+				
+#if UNITY_EDITOR
+				// ReSharper disable once InvertIf
+				if (IsInput)
+				{
+					Type displayType = DisplayType;
+					return displayType == typeof(object) || Attribute.IsDefined(displayType, typeof(MultipleInputsRelayTypeAttribute));
+				}
+#endif
+				// Never clean up SimplifiedRelayNode in builds.
+				return true;
+			}
+			set => throw new NotImplementedException();
+		}
+
+
+		private Type GetRelayType()
+		{
+			if (IsInput)
+			{
+				SimplifiedRelayNode node = _node;
+				do
+				{
+					if (node.InputPorts.FirstOrDefault() is not { } port)
+						break;
+
+					if (port.Edges.FirstOrDefault() is not { } edge)
+						break;
+
+					if (edge.FromNode is not SimplifiedRelayNode next)
+					{
+						return edge.FromPort.DisplayType;
+					}
+
+					node = next;
+				} while (node != _node);
+			}
+			else
+			{
+				SimplifiedRelayNode node = _node;
+				do
+				{
+					if (node.OutputPorts.FirstOrDefault() is not { } port)
+						break;
+
+					if (port.Edges.FirstOrDefault() is not { } edge)
+						break;
+
+					if (edge.ToNode is not SimplifiedRelayNode next)
+					{
+						return edge.ToPort.DisplayType;
+					}
+
+					node = next;
+				} while (node != _node);
+			}
+			
+			return typeof(object);
+		}
+
+		public SimplifiedRelayPortData(SimplifiedRelayNode node) => _node = node;
+	}
+
 	/// <summary>
 	/// A relay node that's simple and just handled manually in the processor.
 	/// </summary>
 	[Serializable]
 	public sealed class SimplifiedRelayNode : BaseNode
 	{
-		[Input, RequiredPort]
-		public object In;
+		public const string InputPortKey = "In";
+		public const string OutputPortKey = "Out";
 
-		[Output, RequiredPort]
-		public object Out;
-
-		protected override void Process() => Out = In;
-
-		private Type GetRelayType() =>
-			inputPorts.FirstOrDefault()?.Edges.FirstOrDefault()?.FromPort.portData.displayType
-			?? outputPorts.FirstOrDefault()?.Edges.FirstOrDefault()?.ToPort.portData.displayType
-			?? typeof(object);
-
-		[CustomPortBehavior(nameof(In)), UsedImplicitly]
+		[CustomPortBehavior]
 		private IEnumerable<PortData> InputPortBehavior()
 		{
-			Type type = GetRelayType();
-#if UNITY_EDITOR
-			var acceptMultipleEdges = false;
-			if (type != typeof(object) && Attribute.IsDefined(type, typeof(MultipleInputsRelayTypeAttribute)))
-				acceptMultipleEdges = true;
-#endif
-			
-			yield return new PortData
+			yield return new SimplifiedRelayPortData(this)
 			{
-				displayType = type,
-#if UNITY_EDITOR
-				acceptMultipleEdges = acceptMultipleEdges,
-#else
-				// Never clean up SimplifiedRelayNode in builds.
-				acceptMultipleEdges = true,
-#endif
-				required = true
+				Path = InputPortKey,
+				IsRequired = true,
+				IsInput = true
 			};
 		}
 
-		[CustomPortBehavior(nameof(Out)), UsedImplicitly]
+		[CustomPortBehavior]
 		private IEnumerable<PortData> OutputPortBehavior()
 		{
 			// Default dummy port to avoid having a relay without any output:
-			yield return new PortData
+			yield return new SimplifiedRelayPortData(this)
 			{
-				displayType = GetRelayType(),
-				acceptMultipleEdges = true,
-				required = true
+				Path = OutputPortKey,
+				IsRequired = true,
+				IsInput = false
 			};
 		}
 	}

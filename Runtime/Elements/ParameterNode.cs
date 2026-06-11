@@ -7,12 +7,6 @@ namespace GraphProcessor
 	[Serializable]
 	public sealed class ParameterNode : BaseNode
 	{
-		[Input]
-		public object input;
-
-		[Output]
-		public object output;
-
 		public override string name => "Parameter";
 
 		// We serialize the GUID of the exposed parameter in the graph so we can retrieve the true ExposedParameter from the graph
@@ -45,7 +39,7 @@ namespace GraphProcessor
 			}
 		}
 
-		void OnParamChanged(SubgraphParameter modifiedParam)
+		private void OnParamChanged(SubgraphParameter modifiedParam)
 		{
 			if (Parameter == modifiedParam)
 			{
@@ -53,8 +47,8 @@ namespace GraphProcessor
 			}
 		}
 
-		[CustomPortBehavior(nameof(output))]
-		IEnumerable<PortData> GetOutputPort()
+		[CustomPortBehavior]
+		private IEnumerable<PortData> GetOutputPort()
 		{
 			if (Parameter == null)
 				yield break;  // No port info is provided during any time when the graph isn't provided.
@@ -63,19 +57,21 @@ namespace GraphProcessor
 			{
 				yield return new PortData
 				{
-					identifier = "output",
+					Path = "output",
+					Identifier = "output",
 #if UNITY_EDITOR
 					EditorOnly = new EditorOnlyPortInfo(Graph?.GetSubgraphParameterFromGuid(parameterGUID).Name ?? "Value", null, EditorOnlyPortInfo.FieldFlags.None),
 #endif
-					displayType = Parameter.GetValueType(),
-					acceptMultipleEdges = true,
-					required = true
+					DisplayType = Parameter.GetValueType(),
+					AllowMultipleEdges = true,
+					IsRequired = true,
+					IsInput = false
 				};
 			}
 		}
 
-		[CustomPortBehavior(nameof(input))]
-		IEnumerable<PortData> GetInputPort()
+		[CustomPortBehavior]
+		private IEnumerable<PortData> GetInputPort()
 		{
 			if (Parameter == null)
 				yield break; // No port info is provided during any time when the graph isn't provided.
@@ -84,12 +80,14 @@ namespace GraphProcessor
 			{
 				yield return new PortData
 				{
-					identifier = "input",
+					Path = "input",
+					Identifier = "input",
 #if UNITY_EDITOR
 					EditorOnly = new EditorOnlyPortInfo(Graph?.GetSubgraphParameterFromGuid(parameterGUID).Name ?? "Value", null, EditorOnlyPortInfo.FieldFlags.None),
 #endif
-					displayType = Parameter.GetValueType(),
-					required = true
+					DisplayType = Parameter.GetValueType(),
+					IsRequired = true,
+					IsInput = true
 				};
 			}
 		}

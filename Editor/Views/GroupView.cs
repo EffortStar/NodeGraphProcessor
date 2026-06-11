@@ -217,7 +217,7 @@ namespace GraphProcessor
 		private IEnumerable<BaseNodeView> GetOverlappingNodes()
 		{
 			Rect thisRect = RectUtils.Inflate(layout, -Padding, -(Padding + TitleHeight), -Padding, -Padding);
-			foreach (BaseNodeView node in Owner.nodeViews)
+			foreach (BaseNodeView node in Owner.NodeViews)
 			{
 				if (thisRect.Overlaps(node.layout))
 					yield return node;

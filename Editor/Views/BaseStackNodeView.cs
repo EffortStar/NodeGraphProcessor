@@ -56,7 +56,7 @@ namespace GraphProcessor
                 if (owner.graph.nodesPerGUID.ContainsKey(nodeGUID))
                 {
                     BaseNode node = owner.graph.nodesPerGUID[nodeGUID];
-                    BaseNodeView view = owner.nodeViewsPerNode[node];
+                    BaseNodeView view = owner.NodeViewsPerNode[node];
                     view.AddToClassList("stack-child__" + i);
                     i++;
                     AddElement(view);

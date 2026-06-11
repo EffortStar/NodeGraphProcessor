@@ -26,13 +26,6 @@ namespace GraphProcessor
 			//
 			Striped = Obsolete | Prototype | SubgraphIncompatible
 		}
-
-		[Flags]
-		public enum PortFlags
-		{
-			None = 0,
-			Obsolete = 1 << 0
-		}
 		
 		private sealed class AllCachedNodeDetails
 		{
@@ -240,7 +233,7 @@ namespace GraphProcessor
 		}
 
 		private static readonly AllCachedNodeDetails s_nodeCache = new();
-		[CanBeNull] private static NodeCreationDetails _nodeCreationDetails = null;
+		[CanBeNull] private static NodeCreationDetails _nodeCreationDetails;
 
 		private static void BuildNodeCache()
 		{
@@ -432,7 +425,7 @@ namespace GraphProcessor
 			public Type PortType;
 			public BaseGraph SubgraphContext;
 			public bool IsInput;
-			public string PortFieldName;
+			public string PortFieldPath;
 			public string PortIdentifier;
 			public string PortDisplayName;
 		}
@@ -446,11 +439,10 @@ namespace GraphProcessor
 
 			var node = (BaseNode)Activator.CreateInstance(nodeType);
 			node.InitializePorts();
-			node.UpdateAllPorts();
 
-			foreach (NodePort p in node.inputPorts)
+			foreach (NodePort p in node.InputPorts)
 				AddPort(p, true);
-			foreach (NodePort p in node.outputPorts)
+			foreach (NodePort p in node.OutputPorts)
 				AddPort(p, false);
 			return;
 
@@ -459,11 +451,11 @@ namespace GraphProcessor
 				descriptions.Add(new PortDescription
 				{
 					NodeType = nodeType,
-					PortType = p.portData.displayType ?? p.fieldInfo.FieldType,
+					PortType = p.DisplayType,
 					IsInput = input,
-					PortFieldName = p.fieldName,
-					PortDisplayName = p.portData.EditorOnly.DisplayName ?? p.fieldName,
-					PortIdentifier = p.portData.identifier,
+					PortFieldPath = p.FieldPath,
+					PortDisplayName = p.EditorDisplayName ?? p.FieldPath,
+					PortIdentifier = p.Identifier,
 				});
 			}
 		}
@@ -573,7 +565,7 @@ namespace GraphProcessor
 				if ((portView.direction == Direction.Input && description.IsInput) || (portView.direction == Direction.Output && !description.IsInput))
 					return false;
 
-				if (!BaseGraph.TypesAreConnectable(description.PortType, portView.portType))
+				if (!BaseGraph.TypesAreConnectable(description.PortType, portView.PortType))
 					return false;
 
 				return true;

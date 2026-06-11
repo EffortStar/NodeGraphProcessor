@@ -137,7 +137,7 @@ namespace GraphProcessor
 				{
 					PortType = typeof(object),
 					IsInput = _inputPortView != null,
-					PortFieldName = _inputPortView != null ? nameof(SimplifiedRelayNode.Out) : nameof(SimplifiedRelayNode.In),
+					PortFieldPath = _inputPortView != null ? nameof(SimplifiedRelayNode.OutputPortKey) : nameof(SimplifiedRelayNode.InputPortKey),
 					PortDisplayName = _inputPortView != null ? "Out" : "In",
 					NodeType = typeof(SimplifiedRelayNode)
 				}
@@ -161,14 +161,14 @@ namespace GraphProcessor
 					if (parameter.Direction != (isInput ? ParameterDirection.Output : ParameterDirection.Input))
 						continue;
 					
-					if (!BaseGraph.TypesAreConnectable(parameter.GetValueType(), originPortView.portType))
+					if (!BaseGraph.TypesAreConnectable(parameter.GetValueType(), originPortView.PortType))
 						continue;
 					
 					yield return (new NodeProvider.PortDescription
 					{
 						IsInput = isInput,
 						PortType = parameter.GetValueType(),
-						PortFieldName = isInput ? nameof(SubgraphNode.Outputs) : nameof(SubgraphNode.Inputs),
+						PortFieldPath = isInput ? nameof(SubgraphNode.OutputPortKey) : nameof(SubgraphNode.InputPortKey),
 						PortIdentifier = parameter.Guid,
 						PortDisplayName = parameter.Name,
 						SubgraphContext = graph,
@@ -268,7 +268,7 @@ namespace GraphProcessor
 
 			if (searchTreeEntry.userData is NodeProvider.PortDescription desc)
 			{
-				PortView targetPort = view.GetPortViewFromFieldName(desc.PortFieldName, desc.PortIdentifier);
+				PortView targetPort = view.GetPortViewFromFieldName(desc.PortFieldPath, desc.PortIdentifier);
 				if (_inputPortView == null)
 					_graphView.Connect(_outputPortView, targetPort);
 				else

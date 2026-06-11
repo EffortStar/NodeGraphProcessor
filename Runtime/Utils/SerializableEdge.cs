@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace GraphProcessor
 {
@@ -29,16 +30,13 @@ namespace GraphProcessor
 		/// </summary>
 		[NonSerialized] public NodePort FromPort;
 
-		//temporary object used to send port to port data when a custom input/output function is used.
-		[NonSerialized] public object PassThroughBuffer;
-
 		/// <summary>
 		/// Formerly OutputNode
 		/// </summary>
 		[NonSerialized] public BaseNode FromNode;
 
-		public string inputFieldName;
-		public string outputFieldName;
+		[FormerlySerializedAs("inputFieldName")] public string InputFieldPath;
+		[FormerlySerializedAs("outputFieldName")] public string OutputFieldPath;
 
 		// Use to store the id of the field that generate multiple ports
 		public string inputPortIdentifier;
@@ -49,14 +47,14 @@ namespace GraphProcessor
 			return new SerializableEdge
 			{
 				GUID = Guid.NewGuid().ToString(),
-				ToNode = toPort.owner,
-				inputFieldName = toPort.fieldName,
-				FromNode = fromPort.owner,
-				outputFieldName = fromPort.fieldName,
+				ToNode = toPort.Owner,
+				InputFieldPath = toPort.FieldPath,
+				FromNode = fromPort.Owner,
+				OutputFieldPath = fromPort.FieldPath,
 				ToPort = toPort,
 				FromPort = fromPort,
-				inputPortIdentifier = toPort.portData.identifier,
-				outputPortIdentifier = fromPort.portData.identifier
+				inputPortIdentifier = toPort.Identifier,
+				outputPortIdentifier = fromPort.Identifier
 			};
 		}
 
@@ -89,50 +87,50 @@ namespace GraphProcessor
 
 			FromNode = graph.nodesPerGUID[outputNodeGUID];
 			ToNode = graph.nodesPerGUID[inputNodeGUID];
-			ToPort = ToNode.GetPort(inputFieldName, inputPortIdentifier);
-			FromPort = FromNode.GetPort(outputFieldName, outputPortIdentifier);
+			ToPort = ToNode.GetPort(InputFieldPath, inputPortIdentifier);
+			FromPort = FromNode.GetPort(OutputFieldPath, outputPortIdentifier);
 
 			var result = DeserializationResult.NoChanges;
 			if (ToPort == null)
 			{
-				if (ToNode.TryGetFallbackPort(ref inputFieldName, ref inputPortIdentifier, out ToPort))
+				if (ToNode.TryGetFallbackPort(ref InputFieldPath, ref inputPortIdentifier, out ToPort))
 				{
 					result = DeserializationResult.Changed;
 				}
 				else
 				{
 					if (logWarnings)
-						Debug.LogWarning($"[NodeGraph] Edge {GUID} failed to deserialize due to invalid input port (fieldName: {inputFieldName}, id: {inputPortIdentifier}, owner: {graph})", graph);
+						Debug.LogWarning($"[NodeGraph] Edge {GUID} failed to deserialize due to invalid input port (fieldName: {InputFieldPath}, id: {inputPortIdentifier}, owner: {graph})", graph);
 				}
 			}
 			else
 			{
 #if UNITY_EDITOR
-				if ((ToPort.portData.EditorOnly.Flags & EditorOnlyPortInfo.FieldFlags.Obsolete) != 0)
+				if ((ToPort.EditorOnly.Flags & EditorOnlyPortInfo.FieldFlags.Obsolete) != 0)
 				{
-					Debug.LogError($"[NodeGraph] Edge was connected to Obsolete port {ToPort.portData.EditorOnly.DisplayName} on {ToNode}.", graph);
+					Debug.LogError($"[NodeGraph] Edge was connected to Obsolete port {ToPort.EditorDisplayName} on {ToNode}.", graph);
 				}
 #endif
 			}
 
 			if (FromPort == null)
 			{
-				if (FromNode.TryGetFallbackPort(ref outputFieldName, ref outputPortIdentifier, out FromPort))
+				if (FromNode.TryGetFallbackPort(ref OutputFieldPath, ref outputPortIdentifier, out FromPort))
 				{
 					result = DeserializationResult.Changed;
 				}
 				else
 				{
 					if (logWarnings)
-						Debug.LogWarning($"[NodeGraph] Edge {GUID} failed to deserialize due to invalid output port (fieldName: {outputFieldName}, id: {outputPortIdentifier}, owner: {graph})", graph);
+						Debug.LogWarning($"[NodeGraph] Edge {GUID} failed to deserialize due to invalid output port (fieldName: {OutputFieldPath}, id: {outputPortIdentifier}, owner: {graph})", graph);
 				}
 			}
 			else
 			{
 #if UNITY_EDITOR
-				if ((FromPort.portData.EditorOnly.Flags & EditorOnlyPortInfo.FieldFlags.Obsolete) != 0)
+				if ((FromPort.EditorOnly.Flags & EditorOnlyPortInfo.FieldFlags.Obsolete) != 0)
 				{
-					Debug.LogError($"[NodeGraph] Edge was connected to Obsolete port {FromPort.portData.EditorOnly.DisplayName} on {FromNode}.", graph);
+					Debug.LogError($"[NodeGraph] Edge was connected to Obsolete port {FromPort.EditorDisplayName} on {FromNode}.", graph);
 				}
 #endif
 			}
@@ -161,13 +159,13 @@ namespace GraphProcessor
 		}
 
 		public override string ToString()
-			=> $"{FromNode?.name ?? FromNodeGuid}:{FromPort?.fieldName ?? outputFieldName}"
+			=> $"{FromNode?.name ?? FromNodeGuid}:{FromPort?.FieldPath ?? OutputFieldPath}{(string.IsNullOrEmpty(outputPortIdentifier) ? "" : $"({outputPortIdentifier})")}"
 #if UNITY_EDITOR
-				+ $" ({FromPort?.portData.EditorOnly.DisplayName})"
+				+ $" ({FromPort?.EditorDisplayName})"
 #endif
-				+ $" -> {ToNode?.name ?? ToNodeGuid}:{ToPort?.fieldName ?? inputFieldName}"
+				+ $" -> {ToNode?.name ?? ToNodeGuid}:{ToPort?.FieldPath ?? InputFieldPath}{(string.IsNullOrEmpty(inputPortIdentifier) ? "" : $"({inputPortIdentifier})")}"
 #if UNITY_EDITOR
-				+ $" ({ToPort?.portData.EditorOnly.DisplayName})"
+				+ $" ({ToPort?.EditorDisplayName})"
 #endif
 		;
 	}
