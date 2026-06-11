@@ -430,6 +430,8 @@ namespace GraphProcessor
 
 		#region API
 
+		private PortView GetPortView(NodePort port) => GetPortView(port.FieldPath, port.Identifier);
+
 		public PortView GetPortView(string fieldPath, string identifier)
 		{
 			_portViewLookup.TryGetValue((fieldPath, identifier ?? ""), out PortView result);
@@ -1217,20 +1219,27 @@ namespace GraphProcessor
 
 		public new virtual bool RefreshPorts()
 		{
-			// If a port behavior was attached to one port, then
-			// the port count might have been updated by the node
-			// so we have to refresh the list of port views.
-			NodeTarget.RefreshCustomPorts();
-			UpdatePortViewWithPorts(NodeTarget.InputPorts, InputPortViews);
-			UpdatePortViewWithPorts(NodeTarget.OutputPorts, OutputPortViews);
-			
+			try
+			{
+				// If a port behavior was attached to one port, then
+				// the port count might have been updated by the node
+				// so we have to refresh the list of port views.
+				NodeTarget.RefreshCustomPorts();
+				UpdatePortViewWithPorts(NodeTarget.InputPorts);
+				UpdatePortViewWithPorts(NodeTarget.OutputPorts);
+			}
+			catch (Exception e)
+			{
+				Debug.LogException(e);
+			}
+
 			return base.RefreshPorts();
 
-			void UpdatePortViewWithPorts(NodePortContainer ports, List<PortView> portViews)
+			void UpdatePortViewWithPorts(NodePortContainer ports)
 			{
-				for (var i = 0; i < portViews.Count; i++)
+				foreach (NodePort port in ports)
 				{
-					portViews[i].UpdatePortView(ports[i]);
+					GetPortView(port)?.UpdatePortView(port);
 				}
 			}
 		}

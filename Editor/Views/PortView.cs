@@ -140,7 +140,7 @@ namespace GraphProcessor
 		{
 			base.Disconnect(edge);
 
-			if (!((EdgeView)edge).isConnected)
+			if (!((EdgeView)edge).IsConnected)
 				return;
 
 			BaseNodeView inputNode = (edge.input as PortView)?.Owner;

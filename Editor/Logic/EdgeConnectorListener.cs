@@ -46,7 +46,7 @@ namespace GraphProcessor
 				return ;
 
 			//If the edge was moved to another port
-			if (edgeView.isConnected)
+			if (edgeView.IsConnected)
 			{
 				if (edgeInputPorts.ContainsKey(edge) && edgeOutputPorts.ContainsKey(edge))
 					if (edgeInputPorts[edge] == edge.input && edgeOutputPorts[edge] == edge.output)

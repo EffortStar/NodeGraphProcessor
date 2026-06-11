@@ -5,6 +5,7 @@ using UnityEngine.UIElements;
 using UnityEditor.Experimental.GraphView;
 using System.Linq;
 using System;
+using System.IO;
 using UnityEditor.SceneManagement;
 using JetBrains.Annotations;
 using UnityEditor.UIElements;
@@ -175,7 +176,7 @@ namespace GraphProcessor
 				data.copiedGroups.Add(JsonSerializer.Serialize(groupView.Group));
 
 			foreach (EdgeView edgeView in elements.OfType<EdgeView>())
-				data.copiedEdges.Add(JsonSerializer.Serialize(edgeView.serializedEdge));
+				data.copiedEdges.Add(JsonSerializer.Serialize(edgeView.SerializedEdge));
 
 			return JsonUtility.ToJson(data, true);
 		}
@@ -351,7 +352,7 @@ namespace GraphProcessor
 		{
 			if (changes.removedEdge != null)
 			{
-				EdgeView edge = _edgeViews.FirstOrDefault(e => e.serializedEdge == changes.removedEdge);
+				EdgeView edge = _edgeViews.FirstOrDefault(e => e.SerializedEdge == changes.removedEdge);
 
 				DisconnectView(edge);
 
@@ -546,7 +547,7 @@ namespace GraphProcessor
 				
 				foreach (EdgeView edgeView in selection.OfType<EdgeView>())
 				{
-					SerializableEdge edge = edgeView.serializedEdge;
+					SerializableEdge edge = edgeView.SerializedEdge;
 					Debug.Log($"{edge} {edge.GUID}");
 				}
 			});
@@ -1238,7 +1239,7 @@ namespace GraphProcessor
 			// In certain cases the edge color is wrong so we patch it
 			schedule.Execute(() => { e.UpdateEdgeControl(); }).ExecuteLater(1);
 
-			e.isConnected = true;
+			e.IsConnected = true;
 
 			return true;
 		}
@@ -1439,7 +1440,7 @@ namespace GraphProcessor
 		/// <summary>
 		/// Update all the serialized property bindings (in case a node was deleted / added, the property pathes needs to be updated)
 		/// </summary>
-		public void SyncSerializedPropertyPaths()
+		private void SyncSerializedPropertyPaths()
 		{
 			foreach (BaseNodeView nodeView in NodeViews)
 				nodeView.SyncSerializedPropertyPaths();
@@ -1474,7 +1475,7 @@ namespace GraphProcessor
 			HashSet<BaseNode> inSubgraph = viewsInSubgraph.Select(v => v.NodeTarget).ToHashSet();
 
 			string assetPath = AssetDatabase.GetAssetPath(graph);
-			string directory = System.IO.Path.GetDirectoryName(assetPath)!;
+			string directory = Path.GetDirectoryName(assetPath)!;
 			string subgraphPath = EditorUtility.SaveFilePanelInProject(
 				"Create Subgraph",
 				"New Subgraph",
@@ -1496,7 +1497,7 @@ namespace GraphProcessor
 				{
 					foreach (EdgeView edgeView in port.GetEdges())
 					{
-						SerializableEdge edge = edgeView.serializedEdge;
+						SerializableEdge edge = edgeView.SerializedEdge;
 						if (!inSubgraph.Contains(edge.FromNode))
 						{
 							var key = (port, true);
@@ -1575,6 +1576,7 @@ namespace GraphProcessor
 			}
 
 			Create:
+			
 			// Create the subgraph asset.
 			var subgraph = (BaseGraph)ScriptableObject.CreateInstance(graphType);
 			var subgraphNodeView = new BaseGraphView(_window); // We create a view so we can paste into it.
@@ -1633,8 +1635,10 @@ namespace GraphProcessor
 				}
 			}
 
+			subgraph.name = Path.GetFileNameWithoutExtension(subgraphPath);
 			AssetDatabase.CreateAsset(subgraph, subgraphPath);
-
+			
+			Undo.RegisterCompleteObjectUndo(graph, "Create Subgraph");
 			var subgraphNode = BaseNode.CreateFromType<SubgraphNode>(center);
 			subgraphNode.Subgraph = subgraph;
 			BaseNodeView view = AddNode(subgraphNode);

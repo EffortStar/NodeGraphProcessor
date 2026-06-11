@@ -6,17 +6,17 @@ namespace GraphProcessor
 {
 	public class EdgeView : Edge
 	{
-		public bool isConnected = false;
+		public bool IsConnected = false;
 
-		public SerializableEdge serializedEdge => userData as SerializableEdge;
+		public SerializableEdge SerializedEdge => userData as SerializableEdge;
 
-		readonly string edgeStyle = "GraphProcessorStyles/EdgeView";
+		private const string EdgeStyle = "GraphProcessorStyles/EdgeView";
 
-		protected BaseGraphView owner => ((input ?? output) as PortView).Owner.Owner;
+		private BaseGraphView Owner => ((input ?? output) as PortView).Owner.Owner;
 
 		public EdgeView()
 		{
-			styleSheets.Add(Resources.Load<StyleSheet>(edgeStyle));
+			styleSheets.Add(Resources.Load<StyleSheet>(EdgeStyle));
 			RegisterCallback<MouseDownEvent>(OnMouseDown);
 		}
 
@@ -27,16 +27,16 @@ namespace GraphProcessor
 			UpdateEdgeControl();
 		}
 
-		void OnMouseDown(MouseDownEvent e)
+		private void OnMouseDown(MouseDownEvent e)
 		{
 			if (e.clickCount == 2)
 			{
 				// Empirical offset:
 				Vector2 position = e.mousePosition;
 				position += new Vector2(-10f, -28);
-				Vector2 mousePos = owner.ChangeCoordinatesTo(owner.contentViewContainer, position);
+				Vector2 mousePos = Owner.ChangeCoordinatesTo(Owner.contentViewContainer, position);
 
-				owner.AddRelayNode((PortView)input, (PortView)output, mousePos);
+				Owner.AddRelayNode((PortView)input, (PortView)output, mousePos);
 			}
 		}
 	}
