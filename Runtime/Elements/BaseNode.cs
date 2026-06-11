@@ -181,33 +181,48 @@ namespace GraphProcessor
 			}
 		}
 
-		public void ReinitializeCustomPorts()
+		public void RefreshCustomPorts()
 		{
-			// Remove all custom ports.
-			for (int i = InputPorts.Count - 1; i >= 0; i--)
-			{
-				if (InputPorts[i].IsCustom)
-				{
-					InputPorts.RemoveAt(i);
-				}
-			}
-			
-			for (int i = OutputPorts.Count - 1; i >= 0; i--)
-			{
-				if (OutputPorts[i].IsCustom)
-				{
-					OutputPorts.RemoveAt(i);
-				}
-			}
-
-			// Re-add all custom ports.
+			// Refresh custom ports.
+			using var _ = HashSetPool<NodePort>.Get(out var visitedCustomPorts);
 			foreach (MethodInfo customPortMethod in _info.CustomPorts)
 			{
 				var ports = (IEnumerable<PortData>)customPortMethod.Invoke(this, null);
 				foreach (PortData portData in ports)
 				{
-					AddPort(portData);
+					NodePortContainer portContainer = portData.IsInput ? InputPorts : OutputPorts;
+					int portIndex = -1;
+					for (var i = 0; i < portContainer.Count; i++)
+					{
+						NodePort port = portContainer[i];
+						if (!port.IsCustom || port.FieldPath != portData.Path || port.Identifier != portData.Identifier)
+							continue;
+
+						port.OverrideCustomData(portData);
+						visitedCustomPorts.Add(port);
+						portIndex = i;
+						break;
+					}
+
+					if (portIndex == -1)
+					{
+						visitedCustomPorts.Add(AddPort(portData));
+					}
 				}
+			}
+
+			for (int i = InputPorts.Count - 1; i >= 0; i--)
+			{
+				NodePort port = InputPorts[i];
+				if (!port.IsCustom || visitedCustomPorts.Contains(port)) continue;
+				InputPorts.RemoveAt(i);
+			}
+			
+			for (int i = OutputPorts.Count - 1; i >= 0; i--)
+			{
+				NodePort port = OutputPorts[i];
+				if (!port.IsCustom || visitedCustomPorts.Contains(port)) continue;
+				OutputPorts.RemoveAt(i);
 			}
 		}
 
@@ -381,12 +396,14 @@ namespace GraphProcessor
 				OutputPorts.Add(new NodePort(this, fieldInfo));
 		}
 
-		private void AddPort(PortData portData)
+		private NodePort AddPort(PortData portData)
 		{
+			NodePort result;
 			if (portData.IsInput)
-				InputPorts.Add(new NodePort(this, portData));
+				InputPorts.Add(result = new NodePort(this, portData));
 			else
-				OutputPorts.Add(new NodePort(this, portData));
+				OutputPorts.Add(result = new NodePort(this, portData));
+			return result;
 		}
 
 		/// <summary>

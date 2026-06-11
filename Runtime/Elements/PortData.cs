@@ -10,37 +10,37 @@ namespace GraphProcessor
 		/// <summary>
 		/// Unique identifier for the port
 		/// </summary>
-		public string Path;
+		public string Path { get; set; }
 		
 		/// <summary>
 		/// Unique identifier for the port
 		/// </summary>
-		public string Identifier;
+		public string Identifier { get; set; }
 
 		/// <summary>
 		/// The type that will be used for coloring with the type stylesheet
 		/// </summary>
-		public Type DisplayType;
+		public virtual Type DisplayType { get; set; }
 
 		/// <summary>
 		/// If the port accept multiple connection
 		/// </summary>
-		public bool AllowMultipleEdges;
+		public virtual bool AllowMultipleEdges { get; set; }
 
 		/// <summary>
 		/// Is the port vertical
 		/// </summary>
-		public bool IsVertical;
+		public bool IsVertical { get; set; }
 
 		/// <summary>
 		/// Does the port require an edge connection?
 		/// </summary>
-		public bool IsRequired;
+		public bool IsRequired { get; set; }
 
-		public bool IsInput;
+		public bool IsInput { get; set; }
 
 #if UNITY_EDITOR
-		public EditorOnlyPortInfo EditorOnly;
+		public EditorOnlyPortInfo EditorOnly { get; set; }
 #endif
 
 		public bool Equals(PortData other)

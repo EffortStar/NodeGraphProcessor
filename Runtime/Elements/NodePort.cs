@@ -45,7 +45,7 @@ namespace GraphProcessor
 		public readonly BaseNode Owner;
 
 		private readonly NodeFieldInformation _fieldInfo;
-		private readonly PortData _portData;
+		private PortData _portData;
 
 		private readonly List<SerializableEdge> _edges = new();
 		private static readonly Dictionary<PushDataDelegateKey, PushDataDelegate> s_pushDataDelegates = new();
@@ -309,6 +309,8 @@ namespace GraphProcessor
 				+ $"({EditorDisplayName}) "
 #endif
 				+ "edges:\n\t" + string.Join("\n\t", _edges.Select(e => e.ToString()));
+
+		public void OverrideCustomData(PortData portData) => _portData = portData;
 	}
 
 	/// <summary>

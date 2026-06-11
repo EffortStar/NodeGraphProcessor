@@ -1239,7 +1239,7 @@ namespace GraphProcessor
 			// If a port behavior was attached to one port, then
 			// the port count might have been updated by the node
 			// so we have to refresh the list of port views.
-			nodeTarget.ReinitializeCustomPorts();
+			nodeTarget.RefreshCustomPorts();
 			UpdatePortViewWithPorts(nodeTarget.InputPorts, inputPortViews);
 			UpdatePortViewWithPorts(nodeTarget.OutputPorts, outputPortViews);
 			
