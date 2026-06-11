@@ -23,9 +23,7 @@ namespace GraphProcessor
 		{
 			Type type = GetRelayType();
 #if UNITY_EDITOR
-			var acceptMultipleEdges = false;
-			if (type != typeof(object) && Attribute.IsDefined(type, typeof(MultipleInputsRelayTypeAttribute)))
-				acceptMultipleEdges = true;
+			bool acceptMultipleEdges = type == typeof(object) || Attribute.IsDefined(type, typeof(MultipleInputsRelayTypeAttribute));
 #endif
 			
 			yield return new PortData
