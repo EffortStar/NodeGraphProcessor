@@ -1646,7 +1646,7 @@ namespace GraphProcessor
 				if (isInputParameter)
 				{
 					PortView to = view.GetPortView(
-						nameof(SubgraphNode.InputPortKey),
+						SubgraphNode.InputPortKey,
 						parameter
 					);
 					foreach (EdgeView edge in list)
@@ -1657,7 +1657,7 @@ namespace GraphProcessor
 				else
 				{
 					PortView from = view.GetPortView(
-						nameof(SubgraphNode.OutputPortKey),
+						SubgraphNode.OutputPortKey,
 						parameter
 					);
 					foreach (EdgeView edge in list)

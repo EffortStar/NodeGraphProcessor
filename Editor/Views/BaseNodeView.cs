@@ -432,8 +432,7 @@ namespace GraphProcessor
 
 		public PortView GetPortView(string fieldPath, string identifier)
 		{
-			identifier ??= "";
-			_portViewLookup.TryGetValue((fieldPath, identifier), out PortView result);
+			_portViewLookup.TryGetValue((fieldPath, identifier ?? ""), out PortView result);
 			return result;
 		}
 
@@ -462,7 +461,7 @@ namespace GraphProcessor
 			}
 
 			p.Initialize(this, port.EditorDisplayName);
-			_portViewLookup[(p.FieldPath, p.Identifier)] = p;
+			_portViewLookup[(p.FieldPath, p.Identifier ?? "")] = p;
 			return p;
 		}
 

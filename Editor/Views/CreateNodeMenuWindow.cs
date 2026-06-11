@@ -137,7 +137,7 @@ namespace GraphProcessor
 				{
 					PortType = typeof(object),
 					IsInput = _inputPortView != null,
-					PortFieldPath = _inputPortView != null ? nameof(SimplifiedRelayNode.OutputPortKey) : nameof(SimplifiedRelayNode.InputPortKey),
+					PortFieldPath = _inputPortView != null ? SimplifiedRelayNode.OutputPortKey : SimplifiedRelayNode.InputPortKey,
 					PortDisplayName = _inputPortView != null ? "Out" : "In",
 					NodeType = typeof(SimplifiedRelayNode)
 				}
@@ -168,7 +168,7 @@ namespace GraphProcessor
 					{
 						IsInput = isInput,
 						PortType = parameter.GetValueType(),
-						PortFieldPath = isInput ? nameof(SubgraphNode.OutputPortKey) : nameof(SubgraphNode.InputPortKey),
+						PortFieldPath = isInput ? SubgraphNode.OutputPortKey : SubgraphNode.InputPortKey,
 						PortIdentifier = parameter.Guid,
 						PortDisplayName = parameter.Name,
 						SubgraphContext = graph,
