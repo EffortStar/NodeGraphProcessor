@@ -155,23 +155,14 @@ namespace GraphProcessor
 	}
 
 	/// <summary>
-	/// Allow you to modify the generated port view from a field. Can be used to generate multiple ports from one field.
+	/// Allow you to modify the generated port view from a field. Can be used to generate multiple ports from one field.<br/>
+	/// You must add this attribute on a function of this signature
+	/// <code>
+	/// IEnumerable&lt;PortData&gt; MyCustomPortFunction();
+	/// </code>
 	/// </summary>
 	[AttributeUsage(AttributeTargets.Method), MeansImplicitUse]
-	public sealed class CustomPortBehaviorAttribute : Attribute
-	{
-		public readonly string FieldPath;
-
-		/// <summary>
-		/// Allow you to modify the generated port view from a field. Can be used to generate multiple ports from one field.
-		/// You must add this attribute on a function of this signature
-		/// <code>
-		/// IEnumerable&lt;PortData&gt; MyCustomPortFunction();
-		/// </code>
-		/// </summary>
-		/// <param name="fieldPath">local node field name</param>
-		public CustomPortBehaviorAttribute(string fieldPath) => FieldPath = fieldPath;
-	}
+	public sealed class CustomPortBehaviorAttribute : Attribute { }
 
 	/// <summary>
 	/// Mark a type as capable of accepting multiple inputs into a relay node.

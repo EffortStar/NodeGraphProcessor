@@ -26,14 +26,14 @@ namespace GraphProcessor
 		/// <summary>
 		/// Container of input ports
 		/// </summary>
-		[NonSerialized] public readonly NodeInputPortContainer inputPorts;
+		[NonSerialized] public readonly NodeInputPortContainer InputPorts;
 
 		/// <summary>
 		/// Container of output ports
 		/// </summary>
-		[NonSerialized] public readonly NodeOutputPortContainer outputPorts;
+		[NonSerialized] public readonly NodeOutputPortContainer OutputPorts;
 
-		public IEnumerable<NodePort> AllPorts => inputPorts.Concat(outputPorts);
+		public IEnumerable<NodePort> AllPorts => InputPorts.Concat(OutputPorts);
 
 		//Node view datas
 		public Vector2 position;
@@ -63,7 +63,7 @@ namespace GraphProcessor
 		public bool CreatedFromDuplication { get; internal set; } = false;
 
 		[NonSerialized] private readonly NodeInformation _info;
-		
+
 		[NonSerialized] private List<string> _messages = new();
 
 		[NonSerialized] protected BaseGraph graph;
@@ -128,10 +128,11 @@ namespace GraphProcessor
 			{
 				Debug.LogException(e);
 			}
+
 			return node;
 		}
 
-		#region Initialization
+#region Initialization
 
 		public BaseGraph Graph
 		{
@@ -161,24 +162,22 @@ namespace GraphProcessor
 		/// </summary>
 		public virtual void InitializePorts()
 		{
-			inputPorts.Clear();
-			outputPorts.Clear();
+			InputPorts.Clear();
+			OutputPorts.Clear();
 
 			foreach (NodeFieldInformation nodeField in OverrideFieldOrder(_info.Ports.Values))
 			{
 				// If we don't have nested children, we just have to create a simple port.
-				AddPort(
-					nodeField,
-					new PortData
-					{
-						AcceptMultipleEdges = nodeField.AllowMultiple,
-#if UNITY_EDITOR
-						EditorOnly = nodeField.EditorOnly,
-#endif
-						Vertical = nodeField.IsVertical,
-						Required = nodeField.IsRequired
-					}
-				);
+				AddPort(nodeField);
+			}
+
+			foreach (MethodInfo customPortMethod in _info.CustomPorts)
+			{
+				var ports = (IEnumerable<PortData>)customPortMethod.Invoke(this, null);
+				foreach (PortData portData in ports)
+				{
+					AddPort(portData);
+				}
 			}
 		}
 
@@ -205,7 +204,7 @@ namespace GraphProcessor
 				return level;
 			}
 		}
-		
+
 		/// <summary>
 		/// Override the field order inside the node. It allows to re-order all the ports and field in the UI.
 		/// </summary>
@@ -214,7 +213,21 @@ namespace GraphProcessor
 		public static IEnumerable<NodeFieldInformation> OverrideFieldOrder(IEnumerable<NodeFieldInformation> fields)
 		{
 			// Order by MetadataToken and inheritance level to sync the order with the port order (make sure FieldDrawers are next to the correct port)
-			return fields.OrderByDescending(f => (GetFieldInheritanceLevel(f.Path.FieldInfo) << 32) | (uint)f.Path.FieldInfo.MetadataToken);
+			return fields
+				.OrderBy(f => GetFieldInheritanceLevel(f.Path.Root.FieldInfo))
+				.ThenBy(f => f.Path.Root.FieldInfo.MetadataToken)
+				.ThenBy(f =>
+					{
+						long level = 0;
+						int i = f.Path.Depth + 1;
+						for (NodeFieldPath path = f.Path; path != null; path = path.Parent, i--)
+						{
+							level += (uint)path.FieldInfo.MetadataToken * (i * 10);
+						}
+
+						return level;
+					}
+				);
 
 			long GetFieldInheritanceLevel(FieldInfo f)
 			{
@@ -232,8 +245,8 @@ namespace GraphProcessor
 
 		protected BaseNode()
 		{
-			inputPorts = new NodeInputPortContainer(this);
-			outputPorts = new NodeOutputPortContainer(this);
+			InputPorts = new NodeInputPortContainer(this);
+			OutputPorts = new NodeOutputPortContainer(this);
 			_info = NodeInformation.GetInfoGroup(GetType());
 		}
 
@@ -254,14 +267,14 @@ namespace GraphProcessor
 		/// </summary>
 		public virtual void OnNodeCreated() => GUID = Guid.NewGuid().ToString();
 
-		#endregion
+#endregion
 
-		#region Events and Processing
+#region Events and Processing
 
 		public void OnEdgeConnected(SerializableEdge edge)
 		{
 			bool input = edge.ToNode == this;
-			NodePortContainer portCollection = input ? inputPorts : outputPorts;
+			NodePortContainer portCollection = input ? InputPorts : OutputPorts;
 			portCollection.Add(edge);
 		}
 
@@ -274,17 +287,17 @@ namespace GraphProcessor
 
 			if (edge.ToNode == this)
 			{
-				inputPorts.Remove(edge);
+				InputPorts.Remove(edge);
 			}
 			else if (edge.FromNode == this)
 			{
-				outputPorts.Remove(edge);
+				OutputPorts.Remove(edge);
 			}
 
 			// Reset default values of input port:
 			if (edge.ToNode != null)
 			{
-				bool haveConnectedEdges = edge.ToNode.inputPorts.Where(p => p.FieldPath == edge.InputFieldPath).Any(p => p.Edges.Count != 0);
+				bool haveConnectedEdges = edge.ToNode.InputPorts.Where(p => p.FieldPath == edge.InputFieldPath).Any(p => p.Edges.Count != 0);
 				if (edge.ToNode == this && !haveConnectedEdges && CanResetPort(edge.ToPort))
 					edge.ToPort?.ResetToDefault();
 			}
@@ -302,33 +315,27 @@ namespace GraphProcessor
 				Debug.LogException(e);
 			}
 
-			outputPorts.PushDatas();
+			OutputPorts.PushDatas();
 		}
 
 		/// <summary>
 		/// Called when the node is enabled
 		/// </summary>
-		protected virtual void Enable()
-		{
-		}
+		protected virtual void Enable() { }
 
 		/// <summary>
 		/// Called when the node is removed
 		/// </summary>
-		protected virtual void Destroy()
-		{
-		}
+		protected virtual void Destroy() { }
 
 		/// <summary>
 		/// Override this method to implement custom processing
 		/// </summary>
-		protected virtual void Process()
-		{
-		}
+		protected virtual void Process() { }
 
-		#endregion
+#endregion
 
-		#region API and utils
+#region API and utils
 
 		/// <summary>
 		/// Add a port
@@ -336,15 +343,20 @@ namespace GraphProcessor
 		/// <param name="input">is input port</param>
 		/// <param name="fieldName">C# field name</param>
 		/// <param name="portData">Data of the port</param>
-		public void AddPort(NodeFieldInformation fieldInfo, PortData portData)
+		public void AddPort(NodeFieldInformation fieldInfo)
 		{
-			// Fixup port data info if needed:
-			portData.DisplayType ??= fieldInfo.FieldType;
-
 			if (fieldInfo.IsInput)
-				inputPorts.Add(new NodePort(this, fieldInfo, portData));
+				InputPorts.Add(new NodePort(this, fieldInfo));
 			else
-				outputPorts.Add(new NodePort(this, fieldInfo, portData));
+				OutputPorts.Add(new NodePort(this, fieldInfo));
+		}
+
+		private void AddPort(PortData portData)
+		{
+			if (portData.IsInput)
+				InputPorts.Add(new NodePort(this, portData));
+			else
+				OutputPorts.Add(new NodePort(this, portData));
 		}
 
 		/// <summary>
@@ -355,9 +367,9 @@ namespace GraphProcessor
 		public void RemovePort(bool input, NodePort port)
 		{
 			if (input)
-				inputPorts.Remove(port);
+				InputPorts.Remove(port);
 			else
-				outputPorts.Remove(port);
+				OutputPorts.Remove(port);
 		}
 
 		/// <summary>
@@ -368,9 +380,9 @@ namespace GraphProcessor
 		public void RemovePort(bool input, string fieldName)
 		{
 			if (input)
-				inputPorts.RemoveAll(p => p.FieldPath == fieldName);
+				InputPorts.RemoveAll(p => p.FieldPath == fieldName);
 			else
-				outputPorts.RemoveAll(p => p.FieldPath == fieldName);
+				OutputPorts.RemoveAll(p => p.FieldPath == fieldName);
 		}
 
 		/// <summary>
@@ -379,7 +391,8 @@ namespace GraphProcessor
 		/// <returns>an enumerable of node</returns>
 		public List<BaseNode> GetInputNodes(List<BaseNode> results)
 		{
-			foreach (NodePort port in inputPorts){
+			foreach (NodePort port in InputPorts)
+			{
 				foreach (SerializableEdge edge in port.Edges)
 					results.Add(edge.FromNode);
 			}
@@ -393,7 +406,8 @@ namespace GraphProcessor
 		/// <returns>an enumerable of node</returns>
 		public List<BaseNode> GetOutputNodes(List<BaseNode> results)
 		{
-			foreach (NodePort port in outputPorts){
+			foreach (NodePort port in OutputPorts)
+			{
 				foreach (SerializableEdge edge in port.Edges)
 					results.Add(edge.ToNode);
 			}
@@ -444,8 +458,8 @@ namespace GraphProcessor
 			// ReSharper disable once LoopCanBeConvertedToQuery
 			foreach (NodePort port in AllPorts)
 			{
-				bool bothNull = string.IsNullOrEmpty(identifier) && string.IsNullOrEmpty(port.PortData.Identifier);
-				if (port.FieldPath == fieldPath && (bothNull || identifier == port.PortData.Identifier))
+				bool bothNull = string.IsNullOrEmpty(identifier) && string.IsNullOrEmpty(port.Identifier);
+				if (port.FieldPath == fieldPath && (bothNull || identifier == port.Identifier))
 				{
 					return port;
 				}
@@ -467,29 +481,35 @@ namespace GraphProcessor
 				var fallbackPath = $"{fieldPath}{NodeFieldPath.Separator}{identifier}";
 				foreach (NodePort port in AllPorts)
 				{
-					if (string.IsNullOrEmpty(port.PortData.Identifier) && port.FieldPath == fallbackPath)
+					if (string.IsNullOrEmpty(port.Identifier) && port.FieldPath == fallbackPath)
 					{
 						value = port;
-						fieldPath = fallbackPath;
-						identifier = port.PortData.Identifier;
+						fieldPath = port.FieldPath;
+						identifier = port.Identifier;
 						return true;
 					}
 				}
 			}
-			
+
 			foreach (NodePort port in AllPorts)
 			{
-				bool bothNull = identifierIsNull && string.IsNullOrEmpty(port.PortData.Identifier);
-				if (!bothNull && identifier != port.PortData.Identifier)
+				bool bothNull = identifierIsNull && string.IsNullOrEmpty(port.Identifier);
+				if (!bothNull && identifier != port.Identifier)
 				{
 					continue;
 				}
 
-				foreach (FormerlySerializedAsAttribute attribute in port.FieldInfo.Path.FieldInfo.GetCustomAttributes<FormerlySerializedAsAttribute>())
+				if (port.FieldInfo == null)
+				{
+					continue;
+				}
+
+				foreach (FormerlySerializedAsAttribute attribute in port.FieldInfo.GetCustomAttributes<FormerlySerializedAsAttribute>())
 				{
 					if (attribute.oldName != fieldPath) continue;
 					value = port;
 					fieldPath = port.FieldPath;
+					identifier = port.Identifier;
 					return true;
 				}
 			}
@@ -549,7 +569,7 @@ namespace GraphProcessor
 			_messages.Clear();
 		}
 
-		#endregion
+#endregion
 
 		public override string ToString() => $"{name} ({GetType().Name}) (in: {graph.name})";
 	}

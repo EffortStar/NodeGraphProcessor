@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using JetBrains.Annotations;
+using UnityEngine;
 
 namespace GraphProcessor
 {
@@ -11,24 +12,24 @@ namespace GraphProcessor
 		private static readonly Dictionary<Type, NodeInformation> s_cache = new();
 
 		private readonly NodeFieldPath[] _paths;
-
+		public readonly IReadOnlyList<MethodInfo> CustomPorts;
 		public readonly IReadOnlyDictionary<string, NodeFieldInformation> Ports;
 
-		private NodeInformation(List<NodeFieldPath> paths)
+		private NodeInformation(Type type)
 		{
-			_paths = paths.ToArray();
+			_paths = NodeFieldPath.ProcessFields(type, null).ToArray();
+			CustomPorts = ProcessMethods(type);
 			
 			Dictionary<string, NodeFieldInformation> ports = new();
-			GatherPorts(paths);
+			GatherPorts(_paths);
 			Ports = ports;
 			return;
 
-			void GatherPorts(IList<NodeFieldPath> parent)
+			void GatherPorts(NodeFieldPath[] parent)
 			{
 				foreach (NodeFieldPath path in parent)
 				{
 					if (path.Children != null)
-						
 					{
 						GatherPorts(path.Children);
 					}
@@ -86,49 +87,42 @@ namespace GraphProcessor
 		{
 			if (!s_cache.TryGetValue(type, out NodeInformation infoGroup))
 			{
-				s_cache.Add(type, infoGroup = CreateInfoGroup(type));
+				s_cache.Add(type, infoGroup = new NodeInformation(type));
 			}
 			
 			return infoGroup;
 		}
-
-		private static NodeInformation CreateInfoGroup(Type type)
+		
+		private static List<MethodInfo> ProcessMethods(Type type)
 		{
-			return new NodeInformation(ProcessFields(type, null));
-
-			static List<NodeFieldPath> ProcessFields(Type type, [CanBeNull] NodeFieldPath parent)
+			List<MethodInfo> customPortMethods = new();
+			do
 			{
-				List<NodeFieldPath> ports = new();
-				do
+				foreach (MethodInfo method in type.GetMethods(
+					BindingFlags.Public 
+					| BindingFlags.NonPublic 
+					| BindingFlags.Instance
+					| BindingFlags.DeclaredOnly
+				))
 				{
-					foreach (FieldInfo field in type.GetFields(
-						BindingFlags.Public 
-						| BindingFlags.NonPublic 
-						| BindingFlags.Instance
-						| BindingFlags.DeclaredOnly
-					))
+					if (!Attribute.IsDefined(method, typeof(CustomPortBehaviorAttribute)))
 					{
-						if (Attribute.IsDefined(field, typeof(OutputObjectAttribute)))
-						{
-							// OutputObject
-							NodeInformation info = GetInfoGroup(field.FieldType);
-							ports.Add(new NodeFieldPath(GetPath(parent, field), field, parent, info._paths));
-						}
-						else if (Attribute.IsDefined(field, typeof(InputAttribute))
-							|| Attribute.IsDefined(field, typeof(OutputAttribute)))
-						{
-							// Input/Output
-							ports.Add(new NodeFieldPath(GetPath(parent, field), field, parent));
-						}
+						continue;
 					}
+
+					if (method.ReturnType != typeof(IEnumerable<PortData>))
+					{
+						Debug.LogError($"[NodeGraph] {method} must return {nameof(IEnumerable<PortData>)} to be compatible with {nameof(CustomPortBehaviorAttribute)}.");
+						continue;
+					}
+					
+					customPortMethods.Add(method);
+				}
 				
-					type = type.BaseType;
-				} while (type != null && type != typeof(BaseNode));
+				type = type.BaseType;
+			} while (type != null && type != typeof(BaseNode));
 
-				return ports;
-
-				string GetPath(NodeFieldPath parent, FieldInfo field) => parent == null ? field.Name : $"{parent.FieldPath}{NodeFieldPath.Separator}{field.Name}";
-			}
+			return customPortMethods;
 		}
 	}
 
@@ -139,10 +133,11 @@ namespace GraphProcessor
 		public readonly string FieldPath;
 		public readonly FieldInfo FieldInfo;
 		[CanBeNull] public readonly NodeFieldPath Parent;
-		[CanBeNull] public readonly NodeFieldPath[] Children;
+		[CanBeNull] public NodeFieldPath[] Children { get; private set; }
 		[CanBeNull] public readonly NodeFieldInformation Info;
 		
 		public NodeFieldPath Root => Parent == null ? this : Parent.Root;
+		public int Depth => Parent == null ? 0 : Parent.Depth + 1;
 
 		public NodeFieldPath(
 			string fieldPath,
@@ -190,6 +185,41 @@ namespace GraphProcessor
 #endif
 			);
 		}
+		
+		internal static List<NodeFieldPath> ProcessFields(Type type, [CanBeNull] NodeFieldPath parent)
+		{
+			List<NodeFieldPath> ports = new();
+			do
+			{
+				foreach (FieldInfo field in type.GetFields(
+					BindingFlags.Public 
+					| BindingFlags.NonPublic 
+					| BindingFlags.Instance
+					| BindingFlags.DeclaredOnly
+				))
+				{
+					if (Attribute.IsDefined(field, typeof(OutputObjectAttribute)))
+					{
+						// OutputObject
+						NodeFieldPath current = new(GetPath(parent, field), field, parent, null);
+						current.Children = ProcessFields(field.FieldType, current).ToArray();
+						ports.Add(current);
+					}
+					else if (Attribute.IsDefined(field, typeof(InputAttribute))
+						|| Attribute.IsDefined(field, typeof(OutputAttribute)))
+					{
+						// Input/Output
+						ports.Add(new NodeFieldPath(GetPath(parent, field), field, parent));
+					}
+				}
+				
+				type = type.BaseType;
+			} while (type != null && type != typeof(BaseNode));
+
+			return ports;
+
+			string GetPath(NodeFieldPath parent, FieldInfo field) => parent == null ? field.Name : $"{parent.FieldPath}{Separator}{field.Name}";
+		}
 	}
 	
 	/// <summary>
@@ -199,7 +229,7 @@ namespace GraphProcessor
 	{
 		public readonly NodeFieldPath Path;
 		public readonly bool IsInput;
-		public readonly bool AllowMultiple;
+		public readonly bool AllowMultipleEdges;
 		public readonly bool IsRequired;
 		public readonly bool IsVertical;
 #if UNITY_EDITOR
@@ -210,7 +240,7 @@ namespace GraphProcessor
 		public NodeFieldInformation(
 			NodeFieldPath path,
 			bool isInput,
-			bool allowMultiple,
+			bool allowMultipleEdges,
 			bool isVertical,
 			bool isRequired
 #if UNITY_EDITOR
@@ -220,7 +250,7 @@ namespace GraphProcessor
 		{
 			Path = path;
 			IsInput = isInput;
-			AllowMultiple = allowMultiple;
+			AllowMultipleEdges = allowMultipleEdges;
 			IsRequired = isRequired;
 			IsVertical = isVertical;
 #if UNITY_EDITOR

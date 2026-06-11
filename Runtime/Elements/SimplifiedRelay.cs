@@ -15,11 +15,11 @@ namespace GraphProcessor
 		public const string OutputPortKey = "Out";
 		
 		private Type GetRelayType() =>
-			inputPorts.FirstOrDefault()?.Edges.FirstOrDefault()?.FromPort.PortData.DisplayType
-			?? outputPorts.FirstOrDefault()?.Edges.FirstOrDefault()?.ToPort.PortData.DisplayType
+			InputPorts.FirstOrDefault()?.Edges.FirstOrDefault()?.FromPort.DisplayType
+			?? OutputPorts.FirstOrDefault()?.Edges.FirstOrDefault()?.ToPort.DisplayType
 			?? typeof(object);
 
-		[CustomPortBehavior(InputPortKey)]
+		[CustomPortBehavior]
 		private IEnumerable<PortData> InputPortBehavior()
 		{
 			Type type = GetRelayType();
@@ -31,26 +31,30 @@ namespace GraphProcessor
 			
 			yield return new PortData
 			{
+				Path = InputPortKey,
 				DisplayType = type,
 #if UNITY_EDITOR
-				AcceptMultipleEdges = acceptMultipleEdges,
+				AllowMultipleEdges = acceptMultipleEdges,
 #else
 				// Never clean up SimplifiedRelayNode in builds.
 				acceptMultipleEdges = true,
 #endif
-				Required = true
+				IsRequired = true,
+				IsInput = true
 			};
 		}
 
-		[CustomPortBehavior(OutputPortKey)]
+		[CustomPortBehavior]
 		private IEnumerable<PortData> OutputPortBehavior()
 		{
 			// Default dummy port to avoid having a relay without any output:
 			yield return new PortData
 			{
+				Path = OutputPortKey,
 				DisplayType = GetRelayType(),
-				AcceptMultipleEdges = true,
-				Required = true
+				AllowMultipleEdges = true,
+				IsRequired = true,
+				IsInput = false
 			};
 		}
 	}

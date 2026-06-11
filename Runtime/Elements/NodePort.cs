@@ -6,138 +6,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
-using System.Text.RegularExpressions;
+using JetBrains.Annotations;
 using UnityEngine;
 
 namespace GraphProcessor
 {
-#if UNITY_EDITOR
-	public struct EditorOnlyPortInfo : IEquatable<EditorOnlyPortInfo>
-	{
-		[Flags]
-		public enum FieldFlags
-		{
-			None = 0,
-			Obsolete = 1 << 0
-		}
-
-		/// <summary>
-		/// Display name on the node
-		/// </summary>
-		public string DisplayName;
-
-		public string Tooltip;
-		public FieldFlags Flags;
-
-		public EditorOnlyPortInfo(
-			string displayName,
-			string tooltip,
-			FieldFlags flags
-		)
-		{
-			Tooltip = tooltip;
-			Flags = flags;
-			DisplayName = displayName;
-		}
-
-		public EditorOnlyPortInfo(FieldInfo field)
-		{
-			if (Attribute.IsDefined(field, typeof(InputAttribute)) && field.GetCustomAttribute<InputAttribute>() is { name: { } inName })
-			{
-				DisplayName = inName;
-			}
-			else if (Attribute.IsDefined(field, typeof(OutputAttribute)) && field.GetCustomAttribute<OutputAttribute>() is { name: { } outName })
-			{
-				DisplayName = outName;
-			}
-			else
-			{
-				DisplayName = PascalToSentenceCase(field.Name);
-			}
-
-			Tooltip = Attribute.IsDefined(field, typeof(TooltipAttribute))
-				? $"<b>{TypeUtility.FormatTypeName(field.FieldType)}</b>: {((TooltipAttribute)Attribute.GetCustomAttribute(field, typeof(TooltipAttribute))).tooltip}"
-				: $"<b>{TypeUtility.FormatTypeName(field.FieldType)}</b>";
-
-			Flags = FieldFlags.None;
-			if (Attribute.IsDefined(field, typeof(ObsoleteAttribute)))
-			{
-				Flags |= FieldFlags.Obsolete;
-			}
-
-			return;
-
-			static string PascalToSentenceCase(string str)
-			{
-				string result = Regex.Replace(str, "[a-z][A-Z]", m => $"{m.Value[0]} {m.Value[1]}");
-				result = result.Replace(" Id", " ID");
-				return result.Length > 2 ? $"{char.ToUpper(result[0])}{result[1..]}" : result;
-			}
-		}
-
-		public bool Equals(EditorOnlyPortInfo other)
-			=> DisplayName == other.DisplayName
-				&& Tooltip == other.Tooltip
-				&& Flags == other.Flags;
-
-		public override bool Equals(object obj) => obj is EditorOnlyPortInfo other && Equals(other);
-
-		public override int GetHashCode() => HashCode.Combine(Tooltip, (int)Flags, DisplayName);
-
-		public static bool operator ==(EditorOnlyPortInfo left, EditorOnlyPortInfo right) => left.Equals(right);
-
-		public static bool operator !=(EditorOnlyPortInfo left, EditorOnlyPortInfo right) => !left.Equals(right);
-	}
-#endif
-
-	/// <summary>
-	/// Class that describe port attributes for it's creation
-	/// </summary>
-	public class PortData : IEquatable<PortData>
-	{
-		/// <summary>
-		/// Unique identifier for the port
-		/// </summary>
-		public string Identifier;
-
-		/// <summary>
-		/// The type that will be used for coloring with the type stylesheet
-		/// </summary>
-		public Type DisplayType;
-
-		/// <summary>
-		/// If the port accept multiple connection
-		/// </summary>
-		public bool AcceptMultipleEdges;
-
-		/// <summary>
-		/// Is the port vertical
-		/// </summary>
-		public bool Vertical;
-
-		/// <summary>
-		/// Does the port require an edge connection?
-		/// </summary>
-		public bool Required;
-
-#if UNITY_EDITOR
-		public EditorOnlyPortInfo EditorOnly;
-#endif
-
-		public bool Equals(PortData other)
-		{
-			return other != null
-				&& Identifier == other.Identifier
-				&& DisplayType == other.DisplayType
-				&& AcceptMultipleEdges == other.AcceptMultipleEdges
-#if UNITY_EDITOR
-				&& EditorOnly == other.EditorOnly
-#endif
-				&& Vertical == other.Vertical
-				&& Required == other.Required;
-		}
-	}
-
 	/// <summary>
 	/// Runtime class that stores all info about one port that is needed for the processing
 	/// </summary>
@@ -146,19 +19,32 @@ namespace GraphProcessor
 		/// <summary>
 		/// The actual name of the property behind the port (must be exact, it is used for Reflection)
 		/// </summary>
-		public string FieldPath => FieldInfo.Path.FieldPath;
+		public string FieldPath => _fieldInfo?.Path.FieldPath ?? _portData.Path;
+		public string Identifier => _portData?.Identifier;
+		public Type DisplayType => _fieldInfo?.FieldType ?? _portData.DisplayType;
+		public bool IsRequired => _fieldInfo?.IsRequired ?? _portData.IsRequired;
+		public bool IsInput => _fieldInfo?.IsInput ?? _portData.IsInput;
+		public bool IsVertical => _fieldInfo?.IsVertical ?? _portData.IsVertical;
+		public bool AllowMultipleEdges => _fieldInfo?.AllowMultipleEdges ?? _portData.AllowMultipleEdges;
+		[CanBeNull] public FieldInfo FieldInfo => _fieldInfo?.Path.FieldInfo;
+#if UNITY_EDITOR
+		public EditorOnlyPortInfo EditorOnly => _fieldInfo?.EditorOnly ?? _portData.EditorOnly;
+
+		[CanBeNull] private string _displayNameOverride;
+		public string EditorDisplayName
+		{
+			get => _displayNameOverride ?? EditorOnly.DisplayName;
+			set => _displayNameOverride = value;
+		}
+#endif
 
 		/// <summary>
 		/// The node on which the port is
 		/// </summary>
 		public readonly BaseNode Owner;
 
-		public readonly NodeFieldInformation FieldInfo;
-
-		/// <summary>
-		/// Data of the port
-		/// </summary>
-		public readonly PortData PortData;
+		private readonly NodeFieldInformation _fieldInfo;
+		private readonly PortData _portData;
 
 		private readonly List<SerializableEdge> _edges = new();
 		private static readonly Dictionary<PushDataDelegateKey, PushDataDelegate> s_pushDataDelegates = new();
@@ -203,9 +89,16 @@ namespace GraphProcessor
 
 		private static bool GetPushDataDelegate(SerializableEdge edge, out PushDataDelegate edgeDelegate)
 		{
+			if (edge.FromPort._fieldInfo == null || edge.ToPort._fieldInfo == null)
+			{
+				Debug.LogError($"[NodeGraph] Edges generated with {nameof(CustomPortBehaviorAttribute)} cannot be executed and must be removed from the graph during Realization. ({edge})");
+				edgeDelegate = null;
+				return false;
+			}
+			
 			PushDataDelegateKey key = new(
-				edge.FromPort.FieldInfo,
-				edge.ToPort.FieldInfo
+				edge.FromPort._fieldInfo,
+				edge.ToPort._fieldInfo
 			);
 			if (s_pushDataDelegates.TryGetValue(key, out edgeDelegate))
 			{
@@ -228,14 +121,23 @@ namespace GraphProcessor
 		/// </summary>
 		/// <param name="owner">owner node</param>
 		/// <param name="nodeFieldInfo">Complete info about the field</param>
-		/// <param name="portData">Data of the port</param>
-		public NodePort(BaseNode owner, NodeFieldInformation nodeFieldInfo, PortData portData)
+		public NodePort(BaseNode owner, NodeFieldInformation nodeFieldInfo)
 		{
 			Owner = owner;
-			PortData = portData;
-			FieldInfo = nodeFieldInfo;
+			_fieldInfo = nodeFieldInfo;
 		}
 
+		/// <summary>
+		/// Constructor
+		/// </summary>
+		/// <param name="owner">owner node</param>
+		/// <param name="portData">Data of the port</param>
+		public NodePort(BaseNode owner, PortData portData)
+		{
+			Owner = owner;
+			_portData = portData;
+		}
+		
 		/// <summary>
 		/// Connect an edge to this port
 		/// </summary>
@@ -284,16 +186,21 @@ namespace GraphProcessor
 		/// </summary>
 		public void ResetToDefault()
 		{
+			if (_fieldInfo == null)
+			{
+				return;
+			}
+			
 			// Clear lists, set classes to null and struct to default value.
-			if (typeof(IList).IsAssignableFrom(FieldInfo.FieldType))
-				(FieldInfo.GetValue(Owner) as IList)?.Clear();
-			else if (FieldInfo.FieldType.GetTypeInfo().IsClass)
-				FieldInfo.SetValue(Owner, null);
+			if (typeof(IList).IsAssignableFrom(_fieldInfo.FieldType))
+				(_fieldInfo.GetValue(Owner) as IList)?.Clear();
+			else if (_fieldInfo.FieldType.GetTypeInfo().IsClass)
+				_fieldInfo.SetValue(Owner, null);
 			else
 			{
 				try
 				{
-					FieldInfo.SetValue(Owner, Activator.CreateInstance(FieldInfo.FieldType));
+					_fieldInfo.SetValue(Owner, Activator.CreateInstance(_fieldInfo.FieldType));
 				}
 				catch
 				{
@@ -308,8 +215,8 @@ namespace GraphProcessor
 		{
 			try
 			{
-				NodeFieldInformation fromFieldInfo = edge.FromPort.FieldInfo;
-				NodeFieldInformation toFieldInfo = edge.ToPort.FieldInfo;
+				NodeFieldInformation fromFieldInfo = edge.FromPort._fieldInfo;
+				NodeFieldInformation toFieldInfo = edge.ToPort._fieldInfo;
 
 				// We keep slow checks inside the editor
 #if UNITY_EDITOR
@@ -361,11 +268,11 @@ namespace GraphProcessor
 					fromParamField = Expression.Field(fromConverted, fromLeaf.FieldInfo);
 				}
 
-				Type fromType = edge.FromPort.PortData.DisplayType ?? fromFieldInfo.FieldType;
+				Type fromType = edge.FromPort.DisplayType ?? fromFieldInfo.FieldType;
 
 				UnaryExpression toConverted = Expression.Convert(toParam, toFieldInfo.Path.FieldInfo.DeclaringType!);
 				Expression toParamField = Expression.Field(toConverted, toFieldInfo.Path.FieldInfo);
-				Type toType = edge.ToPort.PortData.DisplayType ?? toFieldInfo.FieldType;
+				Type toType = edge.ToPort.DisplayType ?? toFieldInfo.FieldType;
 
 				if (fromType != toType)
 				{
@@ -398,7 +305,7 @@ namespace GraphProcessor
 		public override string ToString()
 			=> $"{FieldPath} "
 #if UNITY_EDITOR
-				+ $"({PortData.EditorOnly.DisplayName}) "
+				+ $"({EditorDisplayName}) "
 #endif
 				+ "edges:\n\t" + string.Join("\n\t", _edges.Select(e => e.ToString()));
 	}
@@ -408,21 +315,15 @@ namespace GraphProcessor
 	/// </summary>
 	public abstract class NodePortContainer : List<NodePort>
 	{
-		protected readonly BaseNode node;
+		private readonly BaseNode _node;
 
-		public NodePortContainer(BaseNode node)
-		{
-			this.node = node;
-		}
+		public NodePortContainer(BaseNode node) => _node = node;
 
 		/// <summary>
 		/// Remove an edge that is connected to one of the node in the container
 		/// </summary>
 		/// <param name="edge"></param>
-		public void Remove(SerializableEdge edge)
-		{
-			ForEach(p => p.Remove(edge));
-		}
+		public void Remove(SerializableEdge edge) => ForEach(p => p.Remove(edge));
 
 		/// <summary>
 		/// Add an edge that is connected to one of the node in the container
@@ -430,18 +331,18 @@ namespace GraphProcessor
 		/// <param name="edge"></param>
 		public void Add(SerializableEdge edge)
 		{
-			string portFieldName = edge.ToNode == node ? edge.InputFieldPath : edge.OutputFieldPath;
-			string portIdentifier = edge.ToNode == node ? edge.inputPortIdentifier : edge.outputPortIdentifier;
+			string portFieldName = edge.ToNode == _node ? edge.InputFieldPath : edge.OutputFieldPath;
+			string portIdentifier = edge.ToNode == _node ? edge.inputPortIdentifier : edge.outputPortIdentifier;
 
 			// Force empty string to null since portIdentifier is a serialized value
 			if (string.IsNullOrEmpty(portIdentifier))
 				portIdentifier = null;
 
-			NodePort port = this.FirstOrDefault(p => p.FieldPath == portFieldName && p.PortData.Identifier == portIdentifier);
+			NodePort port = this.FirstOrDefault(p => p.FieldPath == portFieldName && p.Identifier == portIdentifier);
 
 			if (port == null)
 			{
-				Debug.LogError("[NodeGraph] The edge can't be properly connected because its ports can't be found.");
+				Debug.LogError($"[NodeGraph] The edge ({edge}) can't be connected because a port couldn't be found.");
 				return;
 			}
 
@@ -460,9 +361,6 @@ namespace GraphProcessor
 	{
 		public NodeOutputPortContainer(BaseNode node) : base(node) { }
 
-		public void PushDatas()
-		{
-			ForEach(p => p.PushData());
-		}
+		public void PushDatas() => ForEach(p => p.PushData());
 	}
 }

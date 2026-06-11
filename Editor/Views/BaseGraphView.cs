@@ -164,7 +164,7 @@ namespace GraphProcessor
 				data.copiedNodes.Add(JsonSerializer.SerializeNode(nodeView.nodeTarget));
 				foreach (NodePort port in nodeView.nodeTarget.AllPorts)
 				{
-					if (port.PortData.Vertical)
+					if (port.IsVertical)
 					{
 						foreach (SerializableEdge edge in port.Edges)
 							data.copiedEdges.Add(JsonSerializer.Serialize(edge));
@@ -251,8 +251,8 @@ namespace GraphProcessor
 				}
 
 				// We avoid to break the graph by replacing unique connections:
-				if (edge.ToPort.Edges.Count > 0 && !edge.ToPort.PortData.AcceptMultipleEdges ||
-				    edge.FromPort.Edges.Count > 0 && !edge.FromPort.PortData.AcceptMultipleEdges)
+				if (edge.ToPort.Edges.Count > 0 && !edge.ToPort.AllowMultipleEdges ||
+				    edge.FromPort.Edges.Count > 0 && !edge.FromPort.AllowMultipleEdges)
 				{
 					continue;
 				}
@@ -386,8 +386,8 @@ namespace GraphProcessor
 					return;
 
 				if (
-					relay.inputPorts[0].Edges.Count != 0 ||
-					relay.outputPorts[0].Edges.Count != 0
+					relay.InputPorts[0].Edges.Count != 0 ||
+					relay.OutputPorts[0].Edges.Count != 0
 				)
 					return;
 				RemoveNode(relay);
@@ -1183,7 +1183,7 @@ namespace GraphProcessor
 			var outputNodeView = (BaseNodeView)outputPortView.node;
 
 			//If the input port does not support multi-connection, we remove them
-			if (autoDisconnectInputs && !inputPortView.PortData.AcceptMultipleEdges)
+			if (autoDisconnectInputs && !inputPortView.Port.AllowMultipleEdges)
 			{
 				foreach (EdgeView edge in _edgeViews.Where(ev => ev.input == e.input).ToList())
 				{
@@ -1193,7 +1193,7 @@ namespace GraphProcessor
 			}
 
 			// same for the output port:
-			if (autoDisconnectInputs && !outputPortView.PortData.AcceptMultipleEdges)
+			if (autoDisconnectInputs && !outputPortView.Port.AllowMultipleEdges)
 			{
 				foreach (EdgeView edge in _edgeViews.Where(ev => ev.output == e.output).ToList())
 				{
@@ -1225,8 +1225,8 @@ namespace GraphProcessor
 
 			// If the input port have been removed by the custom port behavior
 			// we try to find if it's still here
-			e.input ??= inputNodeView.GetPortViewFromFieldName(inputPortView.FieldPath, inputPortView.PortData.Identifier);
-			e.output ??= outputNodeView.GetPortViewFromFieldName(outputPortView.FieldPath, outputPortView.PortData.Identifier);
+			e.input ??= inputNodeView.GetPortViewFromFieldName(inputPortView.FieldPath, inputPortView.Port.Identifier);
+			e.output ??= outputNodeView.GetPortViewFromFieldName(outputPortView.FieldPath, outputPortView.Port.Identifier);
 			
 			e.input.Connect(e);
 			e.output.Connect(e);
@@ -1246,8 +1246,8 @@ namespace GraphProcessor
 
 		public bool Connect(PortView fromPortView, PortView toPortView, bool autoDisconnectInputs = true)
 		{
-			NodePort toPort = toPortView.Owner.nodeTarget.GetPort(toPortView.FieldPath, toPortView.PortData.Identifier);
-			NodePort fromPort = fromPortView.Owner.nodeTarget.GetPort(fromPortView.FieldPath, fromPortView.PortData.Identifier);
+			NodePort toPort = toPortView.Owner.nodeTarget.GetPort(toPortView.FieldPath, toPortView.Port.Identifier);
+			NodePort fromPort = fromPortView.Owner.nodeTarget.GetPort(fromPortView.FieldPath, fromPortView.Port.Identifier);
 
 			// Checks that the node we are connecting still exists
 			if (toPortView.Owner.parent == null || fromPortView.Owner.parent == null)
@@ -1273,8 +1273,8 @@ namespace GraphProcessor
 			var outputPortView = (PortView)e.output;
 			var inputNodeView = (BaseNodeView)inputPortView.node;
 			var outputNodeView = (BaseNodeView)outputPortView.node;
-			NodePort inputPort = inputNodeView.nodeTarget.GetPort(inputPortView.FieldPath, inputPortView.PortData.Identifier);
-			NodePort outputPort = outputNodeView.nodeTarget.GetPort(outputPortView.FieldPath, outputPortView.PortData.Identifier);
+			NodePort inputPort = inputNodeView.nodeTarget.GetPort(inputPortView.FieldPath, inputPortView.Port.Identifier);
+			NodePort outputPort = outputNodeView.nodeTarget.GetPort(outputPortView.FieldPath, outputPortView.Port.Identifier);
 
 			e.userData = graph.Connect(outputPort, inputPort, autoDisconnectInputs);
 
@@ -1603,7 +1603,7 @@ namespace GraphProcessor
 			)
 			{
 				// Create a matching parameter.
-				string parameterGuid = subgraph.AddSubgraphParameter(port.PortData.EditorOnly.DisplayName, port.PortType, isInputParameter ? ParameterDirection.Input : ParameterDirection.Output);
+				string parameterGuid = subgraph.AddSubgraphParameter(port.Port.EditorDisplayName, port.PortType, isInputParameter ? ParameterDirection.Input : ParameterDirection.Output);
 
 				parameterLookup.Add(port, parameterGuid);
 
@@ -1618,17 +1618,17 @@ namespace GraphProcessor
 
 					// Find the nodes to connect edges to.
 					BaseNode copiedNode = subgraphNodeView._lastCopiedNodesMap[port.Owner.nodeTarget.GUID];
-					NodePort originPortInSubgraph = copiedNode.GetPort(port.FieldPath, port.PortData.Identifier);
+					NodePort originPortInSubgraph = copiedNode.GetPort(port.FieldPath, port.Port.Identifier);
 
 					// Connect the parameter nodes to their matching ports.
 					if (isInputParameter)
 					{
-						NodePort from = parameterNode.outputPorts.First();
+						NodePort from = parameterNode.OutputPorts.First();
 						subgraph.Connect(from, originPortInSubgraph);
 					}
 					else
 					{
-						NodePort to = parameterNode.inputPorts.First();
+						NodePort to = parameterNode.InputPorts.First();
 						subgraph.Connect(originPortInSubgraph, to);
 					}
 				}

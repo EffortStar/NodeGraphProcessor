@@ -53,8 +53,8 @@ namespace GraphProcessor
 				OutputFieldPath = fromPort.FieldPath,
 				ToPort = toPort,
 				FromPort = fromPort,
-				inputPortIdentifier = toPort.PortData.Identifier,
-				outputPortIdentifier = fromPort.PortData.Identifier
+				inputPortIdentifier = toPort.Identifier,
+				outputPortIdentifier = fromPort.Identifier
 			};
 		}
 
@@ -106,9 +106,9 @@ namespace GraphProcessor
 			else
 			{
 #if UNITY_EDITOR
-				if ((ToPort.PortData.EditorOnly.Flags & EditorOnlyPortInfo.FieldFlags.Obsolete) != 0)
+				if ((ToPort.EditorOnly.Flags & EditorOnlyPortInfo.FieldFlags.Obsolete) != 0)
 				{
-					Debug.LogError($"[NodeGraph] Edge was connected to Obsolete port {ToPort.PortData.EditorOnly.DisplayName} on {ToNode}.", graph);
+					Debug.LogError($"[NodeGraph] Edge was connected to Obsolete port {ToPort.EditorDisplayName} on {ToNode}.", graph);
 				}
 #endif
 			}
@@ -128,9 +128,9 @@ namespace GraphProcessor
 			else
 			{
 #if UNITY_EDITOR
-				if ((FromPort.PortData.EditorOnly.Flags & EditorOnlyPortInfo.FieldFlags.Obsolete) != 0)
+				if ((FromPort.EditorOnly.Flags & EditorOnlyPortInfo.FieldFlags.Obsolete) != 0)
 				{
-					Debug.LogError($"[NodeGraph] Edge was connected to Obsolete port {FromPort.PortData.EditorOnly.DisplayName} on {FromNode}.", graph);
+					Debug.LogError($"[NodeGraph] Edge was connected to Obsolete port {FromPort.EditorDisplayName} on {FromNode}.", graph);
 				}
 #endif
 			}
@@ -159,13 +159,13 @@ namespace GraphProcessor
 		}
 
 		public override string ToString()
-			=> $"{FromNode?.name ?? FromNodeGuid}:{FromPort?.FieldPath ?? OutputFieldPath}"
+			=> $"{FromNode?.name ?? FromNodeGuid}:{FromPort?.FieldPath ?? OutputFieldPath}{(string.IsNullOrEmpty(outputPortIdentifier) ? "" : $"({outputPortIdentifier})")}"
 #if UNITY_EDITOR
-				+ $" ({FromPort?.PortData.EditorOnly.DisplayName})"
+				+ $" ({FromPort?.EditorDisplayName})"
 #endif
-				+ $" -> {ToNode?.name ?? ToNodeGuid}:{ToPort?.FieldPath ?? InputFieldPath}"
+				+ $" -> {ToNode?.name ?? ToNodeGuid}:{ToPort?.FieldPath ?? InputFieldPath}{(string.IsNullOrEmpty(inputPortIdentifier) ? "" : $"({inputPortIdentifier})")}"
 #if UNITY_EDITOR
-				+ $" ({ToPort?.PortData.EditorOnly.DisplayName})"
+				+ $" ({ToPort?.EditorDisplayName})"
 #endif
 		;
 	}

@@ -26,13 +26,6 @@ namespace GraphProcessor
 			//
 			Striped = Obsolete | Prototype | SubgraphIncompatible
 		}
-
-		[Flags]
-		public enum PortFlags
-		{
-			None = 0,
-			Obsolete = 1 << 0
-		}
 		
 		private sealed class AllCachedNodeDetails
 		{
@@ -240,7 +233,7 @@ namespace GraphProcessor
 		}
 
 		private static readonly AllCachedNodeDetails s_nodeCache = new();
-		[CanBeNull] private static NodeCreationDetails _nodeCreationDetails = null;
+		[CanBeNull] private static NodeCreationDetails _nodeCreationDetails;
 
 		private static void BuildNodeCache()
 		{
@@ -447,9 +440,9 @@ namespace GraphProcessor
 			var node = (BaseNode)Activator.CreateInstance(nodeType);
 			node.InitializePorts();
 
-			foreach (NodePort p in node.inputPorts)
+			foreach (NodePort p in node.InputPorts)
 				AddPort(p, true);
-			foreach (NodePort p in node.outputPorts)
+			foreach (NodePort p in node.OutputPorts)
 				AddPort(p, false);
 			return;
 
@@ -458,11 +451,11 @@ namespace GraphProcessor
 				descriptions.Add(new PortDescription
 				{
 					NodeType = nodeType,
-					PortType = p.PortData.DisplayType ?? p.FieldInfo.FieldType,
+					PortType = p.DisplayType,
 					IsInput = input,
 					PortFieldPath = p.FieldPath,
-					PortDisplayName = p.PortData.EditorOnly.DisplayName ?? p.FieldPath,
-					PortIdentifier = p.PortData.Identifier,
+					PortDisplayName = p.EditorDisplayName ?? p.FieldPath,
+					PortIdentifier = p.Identifier,
 				});
 			}
 		}

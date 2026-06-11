@@ -3,21 +3,18 @@ using UnityEngine;
 using UnityEditor.Experimental.GraphView;
 using UnityEngine.UIElements;
 using System;
-using System.Reflection;
 using UnityEditor.UIElements;
 
 namespace GraphProcessor
 {
 	public sealed class PortView : Port
 	{
-		public string FieldPath => _fieldInfo.Path.FieldPath;
-		public Type FieldType => _fieldInfo.FieldType;
-		public Type PortType;
+		public string FieldPath => Port.FieldPath;
+		public Type FieldType => Port.DisplayType;
+		public Type PortType { get; private set; }
 		public BaseNodeView Owner { get; private set; }
-		public PortData PortData;
-
-		private readonly NodeFieldInformation _fieldInfo;
-
+		public NodePort Port;
+		
 		public const string UserPortStyleFile = "PortViewTypes";
 
 		private readonly List<EdgeView> _edges = new();
@@ -28,12 +25,11 @@ namespace GraphProcessor
 		private IconBadges _badges;
 		private IVisualElementScheduledItem _scheduledBadgeEvent;
 
-		private PortView(Direction direction, NodeFieldInformation fieldInfo, PortData portData)
-			: base(portData.Vertical ? Orientation.Vertical : Orientation.Horizontal, direction, Capacity.Multi, portData.DisplayType ?? fieldInfo.FieldType)
+		private PortView(NodePort port)
+			: base(port.IsVertical ? Orientation.Vertical : Orientation.Horizontal, port.IsInput ? Direction.Input : Direction.Output, Capacity.Multi, port.DisplayType)
 		{
-			_fieldInfo = fieldInfo;
-			PortType = portData.DisplayType ?? fieldInfo.FieldType;
-			PortData = portData;
+			Port = port;
+			PortType = Port.DisplayType;
 			portName = FieldPath;
 
 			styleSheets.Add(Resources.Load<StyleSheet>(PortStyle));
@@ -44,17 +40,15 @@ namespace GraphProcessor
 			if (userPortStyle != null)
 				styleSheets.Add(userPortStyle);
 
-			if (portData.Vertical)
+			if (port.IsVertical)
 				AddToClassList("Vertical");
-
-#if UNITY_EDITOR
-			tooltip = portData.EditorOnly.Tooltip;
-#endif
+			
+			tooltip = port.EditorOnly.Tooltip;
 		}
 
-		public static PortView CreatePortView(Direction direction, NodeFieldInformation fieldInfo, PortData portData, BaseEdgeConnectorListener edgeConnectorListener)
+		public static PortView CreatePortView(NodePort port, BaseEdgeConnectorListener edgeConnectorListener)
 		{
-			var pv = new PortView(direction, fieldInfo, portData)
+			var pv = new PortView(port)
 			{
 				m_EdgeConnector = new BaseEdgeConnector(edgeConnectorListener)
 			};
@@ -69,11 +63,11 @@ namespace GraphProcessor
 			}
 
 			// hide label when the port is vertical
-			if (portData.Vertical && portLabel != null)
+			if (port.IsVertical && portLabel != null)
 				portLabel.style.display = DisplayStyle.None;
 
 			// Fixup picking mode for vertical top ports
-			if (portData.Vertical)
+			if (port.IsVertical)
 				pv.Q("connector").pickingMode = PickingMode.Position;
 
 			return pv;
@@ -99,7 +93,7 @@ namespace GraphProcessor
 			AddToClassList(FieldPath);
 
 			// Correct port type if port accept multiple values (and so is a container)
-			if (direction == Direction.Input && PortData.AcceptMultipleEdges && PortType == FieldType) // If the user haven't set a custom field type
+			if (direction == Direction.Input && Port.AllowMultipleEdges && PortType == FieldType) // If the user haven't set a custom field type
 			{
 				if (FieldType.GetGenericArguments().Length > 0)
 					PortType = FieldType.GetGenericArguments()[0];
@@ -111,8 +105,8 @@ namespace GraphProcessor
 			_badges = new IconBadges(nodeView, m_ConnectorBoxCap);
 			
 #if UNITY_EDITOR
-			tooltip = PortData.EditorOnly.Tooltip;
-			if ((PortData.EditorOnly.Flags & EditorOnlyPortInfo.FieldFlags.Obsolete) != 0)
+			tooltip = Port.EditorOnly.Tooltip;
+			if ((Port.EditorOnly.Flags & EditorOnlyPortInfo.FieldFlags.Obsolete) != 0)
 			{
 				this.Q<Label>().style.color = Color.indianRed;
 				_badges.AddBadge("Obsolete", BadgeMessageType.Warning, SpriteAlignment.RightCenter);
@@ -134,7 +128,7 @@ namespace GraphProcessor
 			inputNode.OnPortConnected((PortView)edge.input);
 			outputNode.OnPortConnected((PortView)edge.output);
 
-			if (!wasPreviouslyConnected && PortData.Required)
+			if (!wasPreviouslyConnected && Port.IsRequired)
 			{
 				_scheduledBadgeEvent?.Pause();
 				_scheduledBadgeEvent = schedule.Execute(() => RemoveBadge(PortRequirementMessage));
@@ -156,7 +150,7 @@ namespace GraphProcessor
 
 			_edges.Remove((EdgeView)edge);
 
-			if (FailedPortRequirement(out _) && PortData.Required)
+			if (FailedPortRequirement(out _) && Port.IsRequired)
 			{
 				_scheduledBadgeEvent?.Pause();
 				_scheduledBadgeEvent = schedule.Execute(() => AddBadge(PortRequirementMessage, BadgeMessageType.Error));
@@ -206,7 +200,7 @@ namespace GraphProcessor
 
 		public void PortViewValueChanged()
 		{
-			if (PortData.Required)
+			if (Port.IsRequired)
 			{
 				_scheduledBadgeEvent = schedule.Execute(() =>
 				{
@@ -222,20 +216,19 @@ namespace GraphProcessor
 			}
 		}
 
-		public void UpdatePortView(PortData data)
+		public void UpdatePortView(NodePort port)
 		{
-			EditorOnlyPortInfo editorData = data.EditorOnly;
-			if (data.DisplayType != null)
+			if (port.DisplayType != null)
 			{
-				portType = data.DisplayType;
-				PortType = data.DisplayType;
+				portType = port.DisplayType;
+				PortType = port.DisplayType;
 				visualClass = UssUtility.PortVisualClass(PortType);
 			}
 
-			if (!string.IsNullOrEmpty(editorData.DisplayName))
-				portName = editorData.DisplayName;
+			if (!string.IsNullOrEmpty(port.EditorDisplayName))
+				portName = port.EditorDisplayName;
 
-			PortData = data;
+			Port = port;
 
 			// Update the edge in case the port color have changed
 			schedule.Execute(() =>
@@ -249,7 +242,7 @@ namespace GraphProcessor
 
 			UpdatePortSize();
 			
-			if (PortData.Required)
+			if (Port.IsRequired)
 			{
 				RetryPortReqsUntilExists();
 			}
@@ -281,7 +274,7 @@ namespace GraphProcessor
 		{
 			RemoveBadge(message);
 			
-			SpriteAlignment alignment = (direction, vertical: PortData.Vertical) switch
+			SpriteAlignment alignment = (direction, vertical: Port.IsVertical) switch
 			{
 				(Direction.Input, true) => SpriteAlignment.TopCenter,
 				(Direction.Input, false) => SpriteAlignment.LeftCenter,
