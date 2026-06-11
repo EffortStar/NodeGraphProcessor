@@ -57,7 +57,7 @@ namespace GraphProcessor
 		}
 
 		[CustomPortBehavior]
-		private IEnumerable<PortData> GetInputPorts()
+		private IEnumerable<PortData> GetPorts()
 		{
 			if (Subgraph == null)
 			{
@@ -70,8 +70,6 @@ namespace GraphProcessor
 			{
 				// Must get from the subgraph, not the node. Because the node hasn't been initialized via the view.
 				SubgraphParameter parameter = Subgraph.GetSubgraphParameterFromGuid(node.parameterGUID);
-				if (parameter.Direction != ParameterDirection.Input) continue;
-
 				if (!parametersToNodes.TryGetValue(parameter, out List<ParameterNode> list))
 					parametersToNodes.Add(parameter, list = new List<ParameterNode>());
 				list.Add(node);
@@ -106,29 +104,7 @@ namespace GraphProcessor
 #endif
 				};
 			}
-		}
-
-		[CustomPortBehavior]
-		private IEnumerable<PortData> GetOutputPorts()
-		{
-			if (Subgraph == null)
-			{
-				yield break;
-			}
-
-			// Collect all the parameter nodes.
-			using var _ = DictionaryPool<SubgraphParameter, List<ParameterNode>>.Get(out var parametersToNodes);
-			foreach (ParameterNode node in Subgraph.nodes.OfType<ParameterNode>())
-			{
-				// Must get from the subgraph, not the node. Because the node hasn't been initialized via the view.
-				SubgraphParameter parameter = Subgraph.GetSubgraphParameterFromGuid(node.parameterGUID);
-				if (parameter.Direction != ParameterDirection.Output) continue;
-
-				if (!parametersToNodes.TryGetValue(parameter, out List<ParameterNode> list))
-					parametersToNodes.Add(parameter, list = new List<ParameterNode>());
-				list.Add(node);
-			}
-
+			
 			// Generate the output ports.
 			foreach (SubgraphParameter parameter in Subgraph.SubgraphParameters)
 			{

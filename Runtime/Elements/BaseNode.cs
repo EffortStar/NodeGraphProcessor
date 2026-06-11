@@ -197,7 +197,7 @@ namespace GraphProcessor
 						NodePort port = portContainer[i];
 						if (!port.IsCustom || port.FieldPath != portData.Path || port.Identifier != portData.Identifier)
 							continue;
-
+						
 						port.OverrideCustomData(portData);
 						visitedCustomPorts.Add(port);
 						portIndex = i;

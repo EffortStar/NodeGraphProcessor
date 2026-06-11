@@ -48,47 +48,42 @@ namespace GraphProcessor
 		}
 
 		[CustomPortBehavior]
-		private IEnumerable<PortData> GetOutputPort()
+		private IEnumerable<PortData> GetPort()
 		{
 			if (Parameter == null)
 				yield break;  // No port info is provided during any time when the graph isn't provided.
-			
-			if (Parameter!.Direction == ParameterDirection.Input)
-			{
-				yield return new PortData
-				{
-					Path = "output",
-					Identifier = "output",
-#if UNITY_EDITOR
-					EditorOnly = new EditorOnlyPortInfo(Graph?.GetSubgraphParameterFromGuid(parameterGUID).Name ?? "Value", null, EditorOnlyPortInfo.FieldFlags.None),
-#endif
-					DisplayType = Parameter.GetValueType(),
-					AllowMultipleEdges = true,
-					IsRequired = true,
-					IsInput = false
-				};
-			}
-		}
 
-		[CustomPortBehavior]
-		private IEnumerable<PortData> GetInputPort()
-		{
-			if (Parameter == null)
-				yield break; // No port info is provided during any time when the graph isn't provided.
-			
-			if (Parameter!.Direction == ParameterDirection.Output)
+			switch (Parameter.Direction)
 			{
-				yield return new PortData
-				{
-					Path = "input",
-					Identifier = "input",
+				case ParameterDirection.Input:
+					yield return new PortData
+					{
+						Path = "output",
+						Identifier = "output",
 #if UNITY_EDITOR
-					EditorOnly = new EditorOnlyPortInfo(Graph?.GetSubgraphParameterFromGuid(parameterGUID).Name ?? "Value", null, EditorOnlyPortInfo.FieldFlags.None),
+						EditorOnly = new EditorOnlyPortInfo(Graph?.GetSubgraphParameterFromGuid(parameterGUID).Name ?? "Value", null, EditorOnlyPortInfo.FieldFlags.None),
 #endif
-					DisplayType = Parameter.GetValueType(),
-					IsRequired = true,
-					IsInput = true
-				};
+						DisplayType = Parameter.GetValueType(),
+						AllowMultipleEdges = true,
+						IsRequired = true,
+						IsInput = false
+					};
+					break;
+				case ParameterDirection.Output:
+					yield return new PortData
+					{
+						Path = "input",
+						Identifier = "input",
+#if UNITY_EDITOR
+						EditorOnly = new EditorOnlyPortInfo(Graph?.GetSubgraphParameterFromGuid(parameterGUID).Name ?? "Value", null, EditorOnlyPortInfo.FieldFlags.None),
+#endif
+						DisplayType = Parameter.GetValueType(),
+						IsRequired = true,
+						IsInput = true
+					};
+					break;
+				default:
+					yield break;
 			}
 		}
 

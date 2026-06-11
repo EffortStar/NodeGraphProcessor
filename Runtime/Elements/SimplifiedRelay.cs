@@ -93,18 +93,15 @@ namespace GraphProcessor
 		[CustomPortBehavior]
 		private IEnumerable<PortData> InputPortBehavior()
 		{
+			
+			// Default dummy port to avoid having a relay without any output:
 			yield return new SimplifiedRelayPortData(this)
 			{
 				Path = InputPortKey,
 				IsRequired = true,
 				IsInput = true
 			};
-		}
-
-		[CustomPortBehavior]
-		private IEnumerable<PortData> OutputPortBehavior()
-		{
-			// Default dummy port to avoid having a relay without any output:
+			
 			yield return new SimplifiedRelayPortData(this)
 			{
 				Path = OutputPortKey,
