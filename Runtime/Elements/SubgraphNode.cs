@@ -81,7 +81,7 @@ namespace GraphProcessor
 			foreach (SubgraphParameter parameter in Subgraph.SubgraphParameters)
 			{
 				if (parameter.Direction != ParameterDirection.Input) continue;
-				(bool _, bool acceptMultipleEdges
+				(bool _, bool allowMultipleEdges
 #if UNITY_EDITOR
 						, EditorOnlyPortInfo editorOnly
 #endif
@@ -95,7 +95,7 @@ namespace GraphProcessor
 					Path = InputPortKey,
 					Identifier = parameter.Guid,
 					DisplayType = t,
-					AllowMultipleEdges = acceptMultipleEdges,
+					AllowMultipleEdges = allowMultipleEdges,
 					// Input ports for subgraphs are always required because their edges are connected.
 					// Unless that type is nullable, then we know it doesn't need to be assigned.
 					// Note that when modifying this logic, a subgraph input port could connect to multiple ports.
@@ -133,7 +133,7 @@ namespace GraphProcessor
 			foreach (SubgraphParameter parameter in Subgraph.SubgraphParameters)
 			{
 				if (parameter.Direction != ParameterDirection.Output) continue;
-				(bool required, bool acceptMultipleEdges
+				(bool required, bool allowMultipleEdges
 #if UNITY_EDITOR
 						, EditorOnlyPortInfo editorOnly
 #endif
@@ -143,7 +143,7 @@ namespace GraphProcessor
 					Path = OutputPortKey,
 					Identifier = parameter.Guid,
 					DisplayType = parameter.GetValueType(),
-					AllowMultipleEdges = acceptMultipleEdges,
+					AllowMultipleEdges = allowMultipleEdges,
 					IsRequired = required,
 					IsInput = false,
 #if UNITY_EDITOR
@@ -158,7 +158,7 @@ namespace GraphProcessor
 
 		private (
 			bool required, bool 
-			acceptMultipleEdges
+			allowMultipleEdges
 #if UNITY_EDITOR
 			, EditorOnlyPortInfo editorOnly
 #endif
@@ -179,7 +179,7 @@ namespace GraphProcessor
 			var required = false;
 			
 #if UNITY_EDITOR
-			var acceptMultipleEdges = false;
+			bool? allowMultipleEdges = null;
 			EditorOnlyPortInfo? editorOnly = null;
 			s_stack.Clear();
 			foreach (ParameterNode parameterNode in nodes)
@@ -205,7 +205,9 @@ namespace GraphProcessor
 							{
 								if (edge.ToPort.Edges.Count <= 1) // Edges are only required if what's querying it is all that's connected.
 									required |= edge.ToPort.IsRequired;
-								acceptMultipleEdges |= edge.ToPort.AllowMultipleEdges;
+								allowMultipleEdges = allowMultipleEdges.HasValue 
+									? allowMultipleEdges.Value || edge.ToPort.AllowMultipleEdges 
+									: edge.ToPort.AllowMultipleEdges;
 								editorOnly ??= edge.ToPort.EditorOnly;
 							}
 						}
@@ -226,7 +228,9 @@ namespace GraphProcessor
 							{
 								if (edge.FromPort.Edges.Count <= 1) // Edges are only required if what's querying it is all that's connected.
 									required |= edge.FromPort.IsRequired;
-								acceptMultipleEdges |= edge.FromPort.AllowMultipleEdges;
+								allowMultipleEdges = allowMultipleEdges.HasValue 
+									? allowMultipleEdges.Value || edge.FromPort.AllowMultipleEdges 
+									: edge.FromPort.AllowMultipleEdges;
 								editorOnly ??= edge.FromPort.EditorOnly;
 							}
 						}
@@ -235,10 +239,10 @@ namespace GraphProcessor
 			}
 #else
 			// Never clean up SubgraphNode in builds.
-			var acceptMultipleEdges = true;
+			var allowMultipleEdges = true;
 #endif
 
-			return (required, acceptMultipleEdges
+			return (required, allowMultipleEdges ?? true
 #if UNITY_EDITOR
 					, editorOnly ?? default
 #endif

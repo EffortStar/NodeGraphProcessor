@@ -189,10 +189,17 @@ namespace GraphProcessor
 					continue;
 				}
 
-				if (!edge.FromPort.AllowMultipleEdges && edge.FromPort.Edges.Count >= 1
-					|| !edge.ToPort.AllowMultipleEdges && edge.ToPort.Edges.Count >= 1)
+				if (!edge.FromPort.AllowMultipleEdges && edge.FromPort.Edges.Count >= 1)
 				{
-					Debug.Log($"[NodeGraph] Destroyed edge \"{edge}\" because a port couldn't accept multiple edges. ({this})", this);
+					Debug.Log($"[NodeGraph] Destroyed edge \"{edge}\" because 'from' port couldn't accept multiple edges. ({this})", this);
+					
+					Disconnect(edge.GUID);
+					continue;
+				}
+
+				if (!edge.ToPort.AllowMultipleEdges && edge.ToPort.Edges.Count >= 1)
+				{
+					Debug.Log($"[NodeGraph] Destroyed edge \"{edge}\" because 'to' port couldn't accept multiple edges. ({this})", this);
 					
 					Disconnect(edge.GUID);
 					continue;
