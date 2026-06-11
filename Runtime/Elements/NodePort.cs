@@ -26,6 +26,7 @@ namespace GraphProcessor
 		public bool IsInput => _fieldInfo?.IsInput ?? _portData.IsInput;
 		public bool IsVertical => _fieldInfo?.IsVertical ?? _portData.IsVertical;
 		public bool AllowMultipleEdges => _fieldInfo?.AllowMultipleEdges ?? _portData.AllowMultipleEdges;
+		public bool IsCustom => _fieldInfo == null;
 		[CanBeNull] public FieldInfo FieldInfo => _fieldInfo?.Path.FieldInfo;
 #if UNITY_EDITOR
 		public EditorOnlyPortInfo EditorOnly => _fieldInfo?.EditorOnly ?? _portData.EditorOnly;

@@ -258,6 +258,7 @@ namespace GraphProcessor
 
 				if (reason == FailureReason.PropertyFieldNotInitialized)
 				{
+					_scheduledBadgeEvent?.Pause();
 					_scheduledBadgeEvent = schedule.Execute(RetryPortReqsUntilExists);
 					return;
 				}

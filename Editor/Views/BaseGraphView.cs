@@ -6,7 +6,6 @@ using UnityEditor.Experimental.GraphView;
 using System.Linq;
 using System;
 using UnityEditor.SceneManagement;
-using System.Reflection;
 using JetBrains.Annotations;
 using UnityEditor.UIElements;
 using Status = UnityEngine.UIElements.DropdownMenuAction.Status;

@@ -181,6 +181,36 @@ namespace GraphProcessor
 			}
 		}
 
+		public void ReinitializeCustomPorts()
+		{
+			// Remove all custom ports.
+			for (int i = InputPorts.Count - 1; i >= 0; i--)
+			{
+				if (InputPorts[i].IsCustom)
+				{
+					InputPorts.RemoveAt(i);
+				}
+			}
+			
+			for (int i = OutputPorts.Count - 1; i >= 0; i--)
+			{
+				if (OutputPorts[i].IsCustom)
+				{
+					OutputPorts.RemoveAt(i);
+				}
+			}
+
+			// Re-add all custom ports.
+			foreach (MethodInfo customPortMethod in _info.CustomPorts)
+			{
+				var ports = (IEnumerable<PortData>)customPortMethod.Invoke(this, null);
+				foreach (PortData portData in ports)
+				{
+					AddPort(portData);
+				}
+			}
+		}
+
 		/// <summary>
 		/// Override the field order inside the node. It allows to re-order all the ports and field in the UI.
 		/// </summary>

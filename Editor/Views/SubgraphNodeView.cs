@@ -45,7 +45,7 @@ namespace GraphProcessor
 			var subgraphField = new PropertyField(FindSerializedProperty("_subgraph"), "");
 			subgraphField.RegisterValueChangeCallback(_ =>
 			{
-				ForceUpdatePorts();
+				RefreshPorts();
 				UpdateTitle();
 				UpdateError();
 			});
