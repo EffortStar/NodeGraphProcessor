@@ -86,15 +86,15 @@ namespace GraphProcessor
             {
                 int index = Mathf.Clamp(proposedIndex, 0, stackNode.nodeGUIDs.Count - 1);
 
-                int oldIndex = stackNode.nodeGUIDs.FindIndex(g => g == nodeView.nodeTarget.GUID);
+                int oldIndex = stackNode.nodeGUIDs.FindIndex(g => g == nodeView.NodeTarget.GUID);
                 if (oldIndex != -1)
                 {
-                    stackNode.nodeGUIDs.Remove(nodeView.nodeTarget.GUID);
+                    stackNode.nodeGUIDs.Remove(nodeView.NodeTarget.GUID);
                     if (oldIndex != index)
                         onNodeReordered?.Invoke(nodeView, oldIndex, index);
                 }
 
-                stackNode.nodeGUIDs.Insert(index, nodeView.nodeTarget.GUID);
+                stackNode.nodeGUIDs.Insert(index, nodeView.NodeTarget.GUID);
             }
 
             return accept;
@@ -105,7 +105,7 @@ namespace GraphProcessor
             foreach (ISelectable elem in selection)
             {
                 if (elem is BaseNodeView nodeView)
-                    stackNode.nodeGUIDs.Remove(nodeView.nodeTarget.GUID);
+                    stackNode.nodeGUIDs.Remove(nodeView.NodeTarget.GUID);
             }
             return base.DragLeave(evt, selection, leftTarget, dragSource);
         }

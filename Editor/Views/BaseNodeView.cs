@@ -25,59 +25,59 @@ namespace GraphProcessor
 		public const string PrototypeUssClassName = UssClassName + "--prototype";
 
 		public const string TitleContainerName = "title";
-		public BaseNode nodeTarget;
-		private NodeProvider.NodeFlags nodeFlags;
+		public BaseNode NodeTarget;
+		private NodeProvider.NodeFlags _nodeFlags;
 
-		public readonly List<PortView> inputPortViews = new();
-		public readonly List<PortView> outputPortViews = new();
+		public readonly List<PortView> InputPortViews = new();
+		public readonly List<PortView> OutputPortViews = new();
 
-		public IEnumerable<PortView> AllPortViews => inputPortViews.Concat(outputPortViews);
+		public IEnumerable<PortView> AllPortViews => InputPortViews.Concat(OutputPortViews);
 
-		public BaseGraphView owner { private set; get; }
+		public BaseGraphView Owner { get; private set; }
 
-		protected readonly Dictionary<string, List<PortView>> portsPerFieldPath = new();
+		private readonly Dictionary<(string path, string identifier), PortView> _portViewLookup = new();
 
-		public VisualElement controlsContainer;
-		protected VisualElement debugContainer;
-		protected VisualElement rightTitleContainer;
-		protected VisualElement topPortContainer;
-		protected VisualElement bottomPortContainer;
-		private VisualElement inputContainerElement;
+		public VisualElement ControlsContainer;
+		protected VisualElement DebugContainer;
+		protected VisualElement RightTitleContainer;
+		protected VisualElement TopPortContainer;
+		protected VisualElement BottomPortContainer;
+		private VisualElement _inputContainerElement;
 
-		private VisualElement settings;
-		private NodeSettingsView settingsContainer;
-		private Button settingButton;
-		private TextField titleTextField;
+		private VisualElement _settings;
+		private NodeSettingsView _settingsContainer;
+		private Button _settingButton;
+		private TextField _titleTextField;
 
-		private VisualElement titleIcon;
-		private string currentTitleIconClass;
+		private VisualElement _titleIcon;
+		private string _currentTitleIconClass;
 
-		protected virtual bool hasSettings { get; set; }
+		protected virtual bool HasSettings { get; set; }
 
-		public bool initializing = false; //Used for applying SetPosition on locked node at init.
+		public bool Initializing; //Used for applying SetPosition on locked node at init.
 
-		private readonly string baseNodeStyle = "GraphProcessorStyles/BaseNodeView";
+		private const string BaseNodeStyle = "GraphProcessorStyles/BaseNodeView";
 
-		private bool settingsExpanded = false;
+		private bool _settingsExpanded;
 
-		private IconBadges badges;
+		private IconBadges _badges;
 
-		private float selectedNodesFarLeft;
-		private float selectedNodesNearLeft;
-		private float selectedNodesFarRight;
-		private float selectedNodesNearRight;
-		private float selectedNodesFarTop;
-		private float selectedNodesNearTop;
-		private float selectedNodesFarBottom;
-		private float selectedNodesNearBottom;
-		private float selectedNodesAvgHorizontal;
-		private float selectedNodesAvgVertical;
+		private float _selectedNodesFarLeft;
+		private float _selectedNodesNearLeft;
+		private float _selectedNodesFarRight;
+		private float _selectedNodesNearRight;
+		private float _selectedNodesFarTop;
+		private float _selectedNodesNearTop;
+		private float _selectedNodesFarBottom;
+		private float _selectedNodesNearBottom;
+		private float _selectedNodesAvgHorizontal;
+		private float _selectedNodesAvgVertical;
 
 		/// <summary>
 		/// Set a custom uss file for the node. We use a Resources.Load to get the stylesheet so be sure to put the correct resources path
 		/// https://docs.unity3d.com/ScriptReference/Resources.Load.html
 		/// </summary>
-		public virtual string layoutStyle => string.Empty;
+		public virtual string LayoutStyle => string.Empty;
 
 		private bool _isUnmorphedGenericNode;
 
@@ -91,7 +91,7 @@ namespace GraphProcessor
 
 			baseTypeConstraint =
 				((GenericNodeAttribute)Attribute.GetCustomAttribute(
-					nodeTarget.GetType(),
+					NodeTarget.GetType(),
 					typeof(GenericNodeAttribute)
 				))
 				.BaseConstraintType;
@@ -123,8 +123,8 @@ namespace GraphProcessor
 
 		public void Initialize(BaseGraphView owner, BaseNode node)
 		{
-			nodeTarget = node;
-			this.owner = owner;
+			NodeTarget = node;
+			Owner = owner;
 
 			if (!node.deletable)
 				capabilities &= ~Capabilities.Deletable;
@@ -134,12 +134,12 @@ namespace GraphProcessor
 			node.OnMessageAdded += AddBadge;
 			node.OnMessageRemoved += RemoveBadge;
 
-			styleSheets.Add(Resources.Load<StyleSheet>(baseNodeStyle));
+			styleSheets.Add(Resources.Load<StyleSheet>(BaseNodeStyle));
 
-			nodeFlags = NodeProvider.GetNodeFlags(node.GetType());
+			_nodeFlags = NodeProvider.GetNodeFlags(node.GetType());
 
-			if (!string.IsNullOrEmpty(layoutStyle))
-				styleSheets.Add(Resources.Load<StyleSheet>(layoutStyle));
+			if (!string.IsNullOrEmpty(LayoutStyle))
+				styleSheets.Add(Resources.Load<StyleSheet>(LayoutStyle));
 
 			InitializeView();
 			InitializePorts();
@@ -181,14 +181,14 @@ namespace GraphProcessor
 
 		private void InitializePorts()
 		{
-			BaseEdgeConnectorListener listener = owner.ConnectorListener;
+			BaseEdgeConnectorListener listener = Owner.ConnectorListener;
 
-			foreach (NodePort inputPort in nodeTarget.InputPorts)
+			foreach (NodePort inputPort in NodeTarget.InputPorts)
 			{
 				AddPort(inputPort, listener);
 			}
 
-			foreach (NodePort outputPort in nodeTarget.OutputPorts)
+			foreach (NodePort outputPort in NodeTarget.OutputPorts)
 			{
 				AddPort(outputPort, listener);
 			}
@@ -196,62 +196,62 @@ namespace GraphProcessor
 
 		protected virtual void InitializeView()
 		{
-			if ((nodeFlags & NodeProvider.NodeFlags.Striped) != 0)
+			if ((_nodeFlags & NodeProvider.NodeFlags.Striped) != 0)
 				this.Q(TitleContainerName).Insert(0, new StripedElement());
 
-			controlsContainer = new VisualElement { name = "controls" };
-			controlsContainer.AddToClassList("NodeControls");
-			mainContainer.Add(controlsContainer);
+			ControlsContainer = new VisualElement { name = "controls" };
+			ControlsContainer.AddToClassList("NodeControls");
+			mainContainer.Add(ControlsContainer);
 
-			rightTitleContainer = new VisualElement { name = "RightTitleContainer" };
-			titleContainer.Add(rightTitleContainer);
+			RightTitleContainer = new VisualElement { name = "RightTitleContainer" };
+			titleContainer.Add(RightTitleContainer);
 
-			topPortContainer = new VisualElement { name = "TopPortContainer" };
-			Insert(0, topPortContainer);
+			TopPortContainer = new VisualElement { name = "TopPortContainer" };
+			Insert(0, TopPortContainer);
 
-			bottomPortContainer = new VisualElement { name = "BottomPortContainer" };
-			Add(bottomPortContainer);
+			BottomPortContainer = new VisualElement { name = "BottomPortContainer" };
+			Add(BottomPortContainer);
 
 			Undo.undoRedoPerformed += UpdateFieldValues;
 
-			debugContainer = new VisualElement { name = "debug" };
-			if (nodeTarget.debug)
-				mainContainer.Add(debugContainer);
+			DebugContainer = new VisualElement { name = "debug" };
+			if (NodeTarget.debug)
+				mainContainer.Add(DebugContainer);
 
-			initializing = true;
+			Initializing = true;
 
 			UpdateTitle();
-			SetPosition(nodeTarget.position);
+			SetPosition(NodeTarget.position);
 
 			AddInputContainer();
 			
-			if (NodeProvider.TryGetNodeColor(nodeTarget.GetType(), out Color color))
+			if (NodeProvider.TryGetNodeColor(NodeTarget.GetType(), out Color color))
 			{
 				IStyle style = this.Q("node-border").style;
 				style.borderTopColor = color;
 				style.borderTopWidth = 4;
-				inputContainerElement.style.marginTop = 4;
+				_inputContainerElement.style.marginTop = 4;
 			}
 
-			badges = new IconBadges(this, topContainer);
+			_badges = new IconBadges(this, topContainer);
 
-			if ((nodeFlags & NodeProvider.NodeFlags.Obsolete) != 0)
+			if ((_nodeFlags & NodeProvider.NodeFlags.Obsolete) != 0)
 			{
 				AddToClassList(ObsoleteUssClassName);
-				AddBadge($"Obsolete: {nodeTarget.GetType().GetCustomAttributes<ObsoleteAttribute>().First().Message}", BadgeMessageType.Error);
+				AddBadge($"Obsolete: {NodeTarget.GetType().GetCustomAttributes<ObsoleteAttribute>().First().Message}", BadgeMessageType.Error);
 			}
-			else if ((nodeFlags & NodeProvider.NodeFlags.Prototype) != 0)
+			else if ((_nodeFlags & NodeProvider.NodeFlags.Prototype) != 0)
 			{
 				AddToClassList(PrototypeUssClassName);
 				AddBadge("Prototype node may be changed or removed", BadgeMessageType.Warning);
 			}
 			
-			if ((nodeFlags & NodeProvider.NodeFlags.HasInfo) != 0)
+			if ((_nodeFlags & NodeProvider.NodeFlags.HasInfo) != 0)
 			{
-				AddBadge(nodeTarget.GetType().GetCustomAttributes<NodeInfoAttribute>().First().Message, BadgeMessageType.Info);
+				AddBadge(NodeTarget.GetType().GetCustomAttributes<NodeInfoAttribute>().First().Message, BadgeMessageType.Info);
 			}
 
-			if ((nodeFlags & NodeProvider.NodeFlags.SubgraphIncompatible) != 0 && owner.graph.IsSubgraph)
+			if ((_nodeFlags & NodeProvider.NodeFlags.SubgraphIncompatible) != 0 && Owner.graph.IsSubgraph)
 			{
 				AddToClassList(HasErrorUssClassName);
 				AddBadge("This node is not supported in subgraphs.", BadgeMessageType.Error);
@@ -260,26 +260,26 @@ namespace GraphProcessor
 		
 		protected virtual void RefreshAfterSetNodeTarget()
 		{
-			owner.SerializedGraph.Update();
-			portsPerFieldPath.Clear();
+			Owner.SerializedGraph.Update();
+			_portViewLookup.Clear();
 			// in
-			PortView[] oldPortViewsIn = inputPortViews.ToArray();
-			inputPortViews.Clear();
+			PortView[] oldPortViewsIn = InputPortViews.ToArray();
+			InputPortViews.Clear();
 			inputContainer.Clear();
-			inputContainerElement.Clear();
+			_inputContainerElement.Clear();
 			// out
-			PortView[] oldPortViewsOut = outputPortViews.ToArray();
-			outputPortViews.Clear();
+			PortView[] oldPortViewsOut = OutputPortViews.ToArray();
+			OutputPortViews.Clear();
 			outputContainer.Clear();
 			// other
-			bottomPortContainer.Clear();
-			controlsContainer.Clear();
+			BottomPortContainer.Clear();
+			ControlsContainer.Clear();
 			_fieldControlsMap.Clear();
 			UpdateTitle();
 			InitializePorts();
 			DrawDefaultInspector();
-			ReassignPortViewEdges(oldPortViewsIn, inputPortViews);
-			ReassignPortViewEdges(oldPortViewsOut, outputPortViews);
+			ReassignPortViewEdges(oldPortViewsIn, InputPortViews);
+			ReassignPortViewEdges(oldPortViewsOut, OutputPortViews);
 			return;
 
 			void ReassignPortViewEdges(PortView[] oldPortViews, List<PortView> newPortViews)
@@ -300,42 +300,42 @@ namespace GraphProcessor
 
 		protected void SetTitleIcon(string className)
 		{
-			if (currentTitleIconClass != null)
-				titleIcon?.RemoveFromClassList(currentTitleIconClass);
+			if (_currentTitleIconClass != null)
+				_titleIcon?.RemoveFromClassList(_currentTitleIconClass);
 
 			if (className == null)
 			{
-				titleIcon?.RemoveFromHierarchy();
+				_titleIcon?.RemoveFromHierarchy();
 				return;
 			}
 
-			titleIcon ??= new VisualElement { name = "TitleIcon", pickingMode = PickingMode.Ignore };
-			titleIcon.AddToClassList(IconUssClassName);
-			titleContainer.Insert(0, titleIcon);
-			titleIcon.AddToClassList(currentTitleIconClass = className);
+			_titleIcon ??= new VisualElement { name = "TitleIcon", pickingMode = PickingMode.Ignore };
+			_titleIcon.AddToClassList(IconUssClassName);
+			titleContainer.Insert(0, _titleIcon);
+			_titleIcon.AddToClassList(_currentTitleIconClass = className);
 		}
 
 		protected void UpdateTitle()
 		{
-			string customName = nodeTarget.name;
-			title = string.IsNullOrEmpty(customName) ? nodeTarget.GetType().Name : customName;
+			string customName = NodeTarget.name;
+			title = string.IsNullOrEmpty(customName) ? NodeTarget.GetType().Name : customName;
 		}
 
 		private void InitializeSettings()
 		{
-			if (!hasSettings)
+			if (!HasSettings)
 				return;
 			// Initialize settings button:
 			CreateSettingButton();
-			settingsContainer = new NodeSettingsView { visible = false };
-			settings = new VisualElement();
+			_settingsContainer = new NodeSettingsView { visible = false };
+			_settings = new VisualElement();
 			// Add Node type specific settings
-			settings.Add(CreateSettingsView());
-			settingsContainer.Add(settings);
-			Add(settingsContainer);
+			_settings.Add(CreateSettingsView());
+			_settingsContainer.Add(_settings);
+			Add(_settingsContainer);
 
 			using var _ = ListPool<FieldInfo>.Get(out var fields);
-			Type type = nodeTarget.GetType();
+			Type type = NodeTarget.GetType();
 			do
 			{
 				fields.AddRange(
@@ -355,16 +355,16 @@ namespace GraphProcessor
 					AddSettingField(field);
 			}
 
-			settingsContainer.Bind(owner.SerializedGraph);
+			_settingsContainer.Bind(Owner.SerializedGraph);
 		}
 
 		private void OnGeometryChanged(GeometryChangedEvent evt)
 		{
-			if (settingButton != null)
+			if (_settingButton != null)
 			{
-				Rect settingsButtonLayout = settingButton.ChangeCoordinatesTo(settingsContainer.parent, settingButton.layout);
-				settingsContainer.style.top = settingsButtonLayout.yMax - 18f;
-				settingsContainer.style.left = settingsButtonLayout.xMin - layout.width + 20f;
+				Rect settingsButtonLayout = _settingButton.ChangeCoordinatesTo(_settingsContainer.parent, _settingButton.layout);
+				_settingsContainer.style.top = settingsButtonLayout.yMax - 18f;
+				_settingsContainer.style.left = settingsButtonLayout.xMin - layout.width + 20f;
 			}
 		}
 
@@ -384,16 +384,16 @@ namespace GraphProcessor
 
 		private void CreateSettingButton()
 		{
-			settingButton = new Button(ToggleSettings) { name = "settings-button" };
-			settingButton.Add(new Image { name = "icon", scaleMode = ScaleMode.ScaleToFit });
+			_settingButton = new Button(ToggleSettings) { name = "settings-button" };
+			_settingButton.Add(new Image { name = "icon", scaleMode = ScaleMode.ScaleToFit });
 
-			titleContainer.Add(settingButton);
+			titleContainer.Add(_settingButton);
 		}
 
 		private void ToggleSettings()
 		{
-			settingsExpanded = !settingsExpanded;
-			if (settingsExpanded)
+			_settingsExpanded = !_settingsExpanded;
+			if (_settingsExpanded)
 				OpenSettings();
 			else
 				CloseSettings();
@@ -401,24 +401,24 @@ namespace GraphProcessor
 
 		public void OpenSettings()
 		{
-			if (settingsContainer != null)
+			if (_settingsContainer != null)
 			{
-				owner.ClearSelection();
-				owner.AddToSelection(this);
+				Owner.ClearSelection();
+				Owner.AddToSelection(this);
 
-				settingButton.AddToClassList("clicked");
-				settingsContainer.visible = true;
-				settingsExpanded = true;
+				_settingButton.AddToClassList("clicked");
+				_settingsContainer.visible = true;
+				_settingsExpanded = true;
 			}
 		}
 
 		public void CloseSettings()
 		{
-			if (settingsContainer != null)
+			if (_settingsContainer != null)
 			{
-				settingButton.RemoveFromClassList("clicked");
-				settingsContainer.visible = false;
-				settingsExpanded = false;
+				_settingButton.RemoveFromClassList("clicked");
+				_settingsContainer.visible = false;
+				_settingsExpanded = false;
 			}
 		}
 
@@ -430,24 +430,12 @@ namespace GraphProcessor
 
 		#region API
 
-		public List<PortView> GetPortViewsFromFieldName(string fieldName)
+		public PortView GetPortView(string fieldPath, string identifier)
 		{
-			List<PortView> ret;
-
-			portsPerFieldPath.TryGetValue(fieldName, out ret);
-
-			return ret;
+			identifier ??= "";
+			_portViewLookup.TryGetValue((fieldPath, identifier), out PortView result);
+			return result;
 		}
-
-		public PortView GetPortViewFromFieldName(string fieldName, string identifier)
-			=> GetPortViewsFromFieldName(fieldName)?
-				.FirstOrDefault(
-					pv => pv.Port.Identifier == identifier
-					      || (
-						      string.IsNullOrEmpty(pv.Port.Identifier)
-						      && string.IsNullOrEmpty(identifier)
-					      )
-				);
 
 
 		public PortView AddPort(NodePort port, BaseEdgeConnectorListener listener)
@@ -456,33 +444,25 @@ namespace GraphProcessor
 
 			if (p.direction == Direction.Input)
 			{
-				inputPortViews.Add(p);
+				InputPortViews.Add(p);
 
 				if (port.IsVertical)
-					topPortContainer.Add(p);
+					TopPortContainer.Add(p);
 				else
 					inputContainer.Add(p);
 			}
 			else
 			{
-				outputPortViews.Add(p);
+				OutputPortViews.Add(p);
 
 				if (port.IsVertical)
-					bottomPortContainer.Add(p);
+					BottomPortContainer.Add(p);
 				else
 					outputContainer.Add(p);
 			}
 
 			p.Initialize(this, port.EditorDisplayName);
-
-			if (!portsPerFieldPath.TryGetValue(p.FieldPath, out List<PortView> ports))
-			{
-				ports = new List<PortView>();
-				portsPerFieldPath[p.FieldPath] = ports;
-			}
-
-			ports.Add(p);
-
+			_portViewLookup[(p.FieldPath, p.Identifier)] = p;
 			return p;
 		}
 
@@ -492,22 +472,22 @@ namespace GraphProcessor
 		private List<NodeView> GetValuesForSelectedNodes()
 		{
 			List<NodeView> selectedNodes = new();
-			owner.nodes.ForEach(node =>
+			Owner.nodes.ForEach(node =>
 			{
 				if (node.selected) selectedNodes.Add(node);
 			});
 
 			if (selectedNodes.Count < 2) return selectedNodes; //	No need for any of the calculations below
 
-			selectedNodesFarLeft = int.MinValue;
-			selectedNodesFarRight = int.MinValue;
-			selectedNodesFarTop = int.MinValue;
-			selectedNodesFarBottom = int.MinValue;
+			_selectedNodesFarLeft = int.MinValue;
+			_selectedNodesFarRight = int.MinValue;
+			_selectedNodesFarTop = int.MinValue;
+			_selectedNodesFarBottom = int.MinValue;
 
-			selectedNodesNearLeft = int.MaxValue;
-			selectedNodesNearRight = int.MaxValue;
-			selectedNodesNearTop = int.MaxValue;
-			selectedNodesNearBottom = int.MaxValue;
+			_selectedNodesNearLeft = int.MaxValue;
+			_selectedNodesNearRight = int.MaxValue;
+			_selectedNodesNearTop = int.MaxValue;
+			_selectedNodesNearBottom = int.MaxValue;
 
 			foreach (NodeView selectedNode in selectedNodes)
 			{
@@ -515,19 +495,19 @@ namespace GraphProcessor
 				float nodeWidth = selectedNode.localBound.size.x;
 				float nodeHeight = selectedNode.localBound.size.y;
 
-				if (nodeStyle.left.value.value > selectedNodesFarLeft) selectedNodesFarLeft = nodeStyle.left.value.value;
-				if (nodeStyle.left.value.value + nodeWidth > selectedNodesFarRight) selectedNodesFarRight = nodeStyle.left.value.value + nodeWidth;
-				if (nodeStyle.top.value.value > selectedNodesFarTop) selectedNodesFarTop = nodeStyle.top.value.value;
-				if (nodeStyle.top.value.value + nodeHeight > selectedNodesFarBottom) selectedNodesFarBottom = nodeStyle.top.value.value + nodeHeight;
+				if (nodeStyle.left.value.value > _selectedNodesFarLeft) _selectedNodesFarLeft = nodeStyle.left.value.value;
+				if (nodeStyle.left.value.value + nodeWidth > _selectedNodesFarRight) _selectedNodesFarRight = nodeStyle.left.value.value + nodeWidth;
+				if (nodeStyle.top.value.value > _selectedNodesFarTop) _selectedNodesFarTop = nodeStyle.top.value.value;
+				if (nodeStyle.top.value.value + nodeHeight > _selectedNodesFarBottom) _selectedNodesFarBottom = nodeStyle.top.value.value + nodeHeight;
 
-				if (nodeStyle.left.value.value < selectedNodesNearLeft) selectedNodesNearLeft = nodeStyle.left.value.value;
-				if (nodeStyle.left.value.value + nodeWidth < selectedNodesNearRight) selectedNodesNearRight = nodeStyle.left.value.value + nodeWidth;
-				if (nodeStyle.top.value.value < selectedNodesNearTop) selectedNodesNearTop = nodeStyle.top.value.value;
-				if (nodeStyle.top.value.value + nodeHeight < selectedNodesNearBottom) selectedNodesNearBottom = nodeStyle.top.value.value + nodeHeight;
+				if (nodeStyle.left.value.value < _selectedNodesNearLeft) _selectedNodesNearLeft = nodeStyle.left.value.value;
+				if (nodeStyle.left.value.value + nodeWidth < _selectedNodesNearRight) _selectedNodesNearRight = nodeStyle.left.value.value + nodeWidth;
+				if (nodeStyle.top.value.value < _selectedNodesNearTop) _selectedNodesNearTop = nodeStyle.top.value.value;
+				if (nodeStyle.top.value.value + nodeHeight < _selectedNodesNearBottom) _selectedNodesNearBottom = nodeStyle.top.value.value + nodeHeight;
 			}
 
-			selectedNodesAvgHorizontal = (selectedNodesNearLeft + selectedNodesFarRight) / 2f;
-			selectedNodesAvgVertical = (selectedNodesNearTop + selectedNodesFarBottom) / 2f;
+			_selectedNodesAvgHorizontal = (_selectedNodesNearLeft + _selectedNodesFarRight) / 2f;
+			_selectedNodesAvgVertical = (_selectedNodesNearTop + _selectedNodesFarBottom) / 2f;
 			return selectedNodes;
 		}
 
@@ -546,7 +526,7 @@ namespace GraphProcessor
 
 			foreach (NodeView selectedNode in selectedNodes)
 			{
-				selectedNode.SetPosition(GetNodeRect(selectedNode, selectedNodesNearLeft));
+				selectedNode.SetPosition(GetNodeRect(selectedNode, _selectedNodesNearLeft));
 			}
 		}
 
@@ -557,7 +537,7 @@ namespace GraphProcessor
 
 			foreach (NodeView selectedNode in selectedNodes)
 			{
-				selectedNode.SetPosition(GetNodeRect(selectedNode, selectedNodesAvgHorizontal - selectedNode.localBound.size.x / 2f));
+				selectedNode.SetPosition(GetNodeRect(selectedNode, _selectedNodesAvgHorizontal - selectedNode.localBound.size.x / 2f));
 			}
 		}
 
@@ -568,7 +548,7 @@ namespace GraphProcessor
 
 			foreach (NodeView selectedNode in selectedNodes)
 			{
-				selectedNode.SetPosition(GetNodeRect(selectedNode, selectedNodesFarRight - selectedNode.localBound.size.x));
+				selectedNode.SetPosition(GetNodeRect(selectedNode, _selectedNodesFarRight - selectedNode.localBound.size.x));
 			}
 		}
 
@@ -579,7 +559,7 @@ namespace GraphProcessor
 
 			foreach (NodeView selectedNode in selectedNodes)
 			{
-				selectedNode.SetPosition(GetNodeRect(selectedNode, top: selectedNodesNearTop));
+				selectedNode.SetPosition(GetNodeRect(selectedNode, top: _selectedNodesNearTop));
 			}
 		}
 
@@ -590,7 +570,7 @@ namespace GraphProcessor
 
 			foreach (NodeView selectedNode in selectedNodes)
 			{
-				selectedNode.SetPosition(GetNodeRect(selectedNode, top: selectedNodesAvgVertical - selectedNode.localBound.size.y / 2f));
+				selectedNode.SetPosition(GetNodeRect(selectedNode, top: _selectedNodesAvgVertical - selectedNode.localBound.size.y / 2f));
 			}
 		}
 
@@ -601,7 +581,7 @@ namespace GraphProcessor
 
 			foreach (NodeView selectedNode in selectedNodes)
 			{
-				selectedNode.SetPosition(GetNodeRect(selectedNode, top: selectedNodesFarBottom - selectedNode.localBound.size.y));
+				selectedNode.SetPosition(GetNodeRect(selectedNode, top: _selectedNodesFarBottom - selectedNode.localBound.size.y));
 			}
 		}
 
@@ -626,12 +606,12 @@ namespace GraphProcessor
 
 		public void OpenNodeScript()
 		{
-			MonoScript script = NodeProvider.GetNodeScript(nodeTarget.GetType());
+			MonoScript script = NodeProvider.GetNodeScript(NodeTarget.GetType());
 
 			if (script != null)
 				AssetDatabase.OpenAsset(script.GetEntityId(), 0, 0);
 			
-			foreach (MethodInfo method in nodeTarget.GetType().GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static))
+			foreach (MethodInfo method in NodeTarget.GetType().GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static))
 			{
 				if (SourceUtility.OpenAtMethod(method))
 					return;
@@ -640,39 +620,39 @@ namespace GraphProcessor
 
 		public void ToggleDebug()
 		{
-			nodeTarget.debug = !nodeTarget.debug;
+			NodeTarget.debug = !NodeTarget.debug;
 			UpdateDebugView();
 		}
 
 		public void UpdateDebugView()
 		{
-			if (nodeTarget.debug)
-				mainContainer.Add(debugContainer);
+			if (NodeTarget.debug)
+				mainContainer.Add(DebugContainer);
 			else
-				mainContainer.Remove(debugContainer);
+				mainContainer.Remove(DebugContainer);
 		}
 
 		/// <summary>
 		/// Adds a badge (an attached icon and message).
 		/// </summary>
-		public void AddBadge(string message, BadgeMessageType messageType) => badges.AddBadge(message, messageType);
+		public void AddBadge(string message, BadgeMessageType messageType) => _badges.AddBadge(message, messageType);
 		
 		/// <summary>
 		/// Adds a badge (an attached icon and message).
 		/// </summary>
-		public void AddBadge(string message, string messageType) => badges.AddBadge(message, messageType);
+		public void AddBadge(string message, string messageType) => _badges.AddBadge(message, messageType);
 
 		/// <summary>
 		/// Removes a badge matching the provided <paramref name="message" />.
 		/// </summary>
-		public void RemoveBadge(string message) => badges.RemoveBadge(message);
+		public void RemoveBadge(string message) => _badges.RemoveBadge(message);
 
 		/// <summary>
 		/// Removes all badges from this node and its ports.
 		/// </summary>
 		public void RemoveAllBadgesFromNodeAndPorts()
 		{
-			badges.RemoveAllBadges();
+			_badges.RemoveAllBadges();
 			foreach (PortView port in AllPortViews)
 			{
 				port.RemoveAllBadges();
@@ -718,16 +698,16 @@ namespace GraphProcessor
 
 		protected void AddInputContainer()
 		{
-			inputContainerElement = new VisualElement { name = "input-container" };
-			mainContainer.parent.Add(inputContainerElement);
-			inputContainerElement.SendToBack();
-			inputContainerElement.pickingMode = PickingMode.Ignore;
+			_inputContainerElement = new VisualElement { name = "input-container" };
+			mainContainer.parent.Add(_inputContainerElement);
+			_inputContainerElement.SendToBack();
+			_inputContainerElement.pickingMode = PickingMode.Ignore;
 		}
 
 		protected virtual void DrawDefaultInspector(bool fromInspector = false)
 		{
 			using var _ = ListPool<FieldInfo>.Get(out var fields);
-			Type type = nodeTarget.GetType();
+			Type type = NodeTarget.GetType();
 			do
 			{
 				fields.AddRange(
@@ -746,7 +726,7 @@ namespace GraphProcessor
 				//skip if the field is a node setting
 				if (Attribute.IsDefined(field, typeof(SettingAttribute)))
 				{
-					hasSettings = true;
+					HasSettings = true;
 					continue;
 				}
 
@@ -801,9 +781,11 @@ namespace GraphProcessor
 					_hideElementIfConnected[field.Name] = elem;
 
 					// Hide the field right away if there is already a connection:
-					if (portsPerFieldPath.TryGetValue(field.Name, out List<PortView> pvs))
-						if (pvs.Any(pv => pv.GetEdges().Count > 0))
+					if (_portViewLookup.TryGetValue((field.Name, ""), out PortView pv))
+					{
+						if (pv.GetEdges().Count > 0)
 							elem.style.display = DisplayStyle.None;
+					}
 				}
 			}
 		}
@@ -819,7 +801,7 @@ namespace GraphProcessor
 			var box = new VisualElement { name = field.Name };
 			box.AddToClassList("port-input-element");
 			box.AddToClassList("empty");
-			inputContainerElement.Add(box);
+			_inputContainerElement.Add(box);
 		}
 
 		private void UpdateFieldVisibility(string fieldName, object newValue)
@@ -884,13 +866,13 @@ namespace GraphProcessor
 		}
 
 		protected VisualElement AddControlField(string fieldName, string label = null, bool showInputDrawer = false, Action valueChangedCallback = null)
-			=> AddControlField(nodeTarget.GetType().GetField(fieldName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance), label, showInputDrawer, valueChangedCallback);
+			=> AddControlField(NodeTarget.GetType().GetField(fieldName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance), label, showInputDrawer, valueChangedCallback);
 
 		private readonly Regex s_ReplaceNodeIndexPropertyPath = new(@"(^nodes.Array.data\[)(\d+)(\])");
 
 		internal void SyncSerializedPropertyPaths()
 		{
-			int nodeIndex = owner.graph.nodes.FindIndex(n => n == nodeTarget);
+			int nodeIndex = Owner.graph.nodes.FindIndex(n => n == NodeTarget);
 
 			// If the node is not found, then it means that it has been deleted from serialized data.
 			if (nodeIndex == -1)
@@ -914,14 +896,14 @@ namespace GraphProcessor
 				// The property path look like this: nodes.Array.data[x].fieldName
 				// And we want to update the value of x with the new node index:
 				propertyField.bindingPath = s_ReplaceNodeIndexPropertyPath.Replace(propertyField.bindingPath, m => m.Groups[1].Value + nodeIndexString + m.Groups[3].Value);
-				propertyField.Bind(owner.SerializedGraph);
+				propertyField.Bind(Owner.SerializedGraph);
 			}
 		}
 
 		protected SerializedProperty FindSerializedProperty(string fieldName)
 		{
-			int i = owner.graph.nodes.FindIndex(n => n == nodeTarget);
-			return owner.SerializedGraph.FindProperty("nodes").GetArrayElementAtIndex(i).FindPropertyRelative(fieldName);
+			int i = Owner.graph.nodes.FindIndex(n => n == NodeTarget);
+			return Owner.SerializedGraph.FindProperty("nodes").GetArrayElementAtIndex(i).FindPropertyRelative(fieldName);
 		}
 
 		protected VisualElement AddControlField(FieldInfo field, string label = null, bool showInputDrawer = false, Action valueChangedCallback = null)
@@ -930,21 +912,21 @@ namespace GraphProcessor
 				return null;
 
 			var element = new PropertyField(FindSerializedProperty(field.Name), showInputDrawer ? "" : label);
-			element.Bind(owner.SerializedGraph);
+			element.Bind(Owner.SerializedGraph);
 
 			if (typeof(IList).IsAssignableFrom(field.FieldType))
 				EnableSyncSelectionBorderHeight();
 
 			element.RegisterValueChangeCallback(e =>
 			{
-				UpdateFieldVisibility(field.Name, field.GetValue(nodeTarget));
+				UpdateFieldVisibility(field.Name, field.GetValue(NodeTarget));
 				valueChangedCallback?.Invoke();
 				NotifyNodeChanged();
-				GetPortViewFromFieldName(field.Name, "")?.PortViewValueChanged();
+				GetPortView(field.Name, "")?.PortViewValueChanged();
 			});
 
 			// Disallow picking scene objects when the graph is not linked to a scene
-			if (!owner.graph.IsLinkedToScene())
+			if (!Owner.graph.IsLinkedToScene())
 			{
 				var objectField = element.Q<ObjectField>();
 				if (objectField != null)
@@ -960,11 +942,11 @@ namespace GraphProcessor
 				var box = new VisualElement { name = field.Name };
 				box.AddToClassList("port-input-element");
 				box.Add(element);
-				inputContainerElement.Add(box);
+				_inputContainerElement.Add(box);
 			}
 			else
 			{
-				controlsContainer.Add(element);
+				ControlsContainer.Add(element);
 			}
 
 			element.name = field.Name;
@@ -972,15 +954,15 @@ namespace GraphProcessor
 			if (field.GetCustomAttribute(typeof(VisibleIfAttribute)) is VisibleIfAttribute visibleCondition)
 			{
 				// Check if target field exists:
-				FieldInfo conditionField = nodeTarget.GetType().GetField(visibleCondition.fieldName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+				FieldInfo conditionField = NodeTarget.GetType().GetField(visibleCondition.fieldName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
 				if (conditionField == null)
-					Debug.LogError($"[VisibleIf] Field {visibleCondition.fieldName} does not exists in node {nodeTarget.GetType()}");
+					Debug.LogError($"[VisibleIf] Field {visibleCondition.fieldName} does not exists in node {NodeTarget.GetType()}");
 				else
 				{
 					_visibleConditions.TryGetValue(visibleCondition.fieldName, out List<(object value, VisualElement target)> list);
 					list ??= _visibleConditions[visibleCondition.fieldName] = new List<(object value, VisualElement target)>();
 					list.Add((visibleCondition.value, element));
-					UpdateFieldVisibility(visibleCondition.fieldName, conditionField.GetValue(nodeTarget));
+					UpdateFieldVisibility(visibleCondition.fieldName, conditionField.GetValue(NodeTarget));
 				}
 			}
 
@@ -990,7 +972,7 @@ namespace GraphProcessor
 		private void UpdateFieldValues()
 		{
 			foreach (KeyValuePair<FieldInfo, List<VisualElement>> kp in _fieldControlsMap)
-				UpdateOtherFieldValue(kp.Key, kp.Key.GetValue(nodeTarget));
+				UpdateOtherFieldValue(kp.Key, kp.Key.GetValue(NodeTarget));
 		}
 
 		protected void AddSettingField(FieldInfo field)
@@ -1004,15 +986,15 @@ namespace GraphProcessor
 
 			if (element != null)
 			{
-				settingsContainer.Add(element);
+				_settingsContainer.Add(element);
 				element.name = field.Name;
 			}
 		}
 
 		internal void OnPortConnected(PortView port)
 		{
-			if (port.direction == Direction.Input && inputContainerElement?.Q(port.FieldPath) != null)
-				inputContainerElement.Q(port.FieldPath).AddToClassList("empty");
+			if (port.direction == Direction.Input && _inputContainerElement?.Q(port.FieldPath) != null)
+				_inputContainerElement.Q(port.FieldPath).AddToClassList("empty");
 
 			if (_hideElementIfConnected.TryGetValue(port.FieldPath, out VisualElement elem))
 				elem.style.display = DisplayStyle.None;
@@ -1020,17 +1002,17 @@ namespace GraphProcessor
 
 		internal void OnPortDisconnected(PortView port)
 		{
-			if (port.direction == Direction.Input && inputContainerElement?.Q(port.FieldPath) != null)
+			if (port.direction == Direction.Input && _inputContainerElement?.Q(port.FieldPath) != null)
 			{
-				inputContainerElement.Q(port.FieldPath).RemoveFromClassList("empty");
+				_inputContainerElement.Q(port.FieldPath).RemoveFromClassList("empty");
 				
-				if (NodeInformation.TryGetInfo(nodeTarget.GetType(), port.FieldPath, out NodeFieldInformation fieldInfo))
+				if (NodeInformation.TryGetInfo(NodeTarget.GetType(), port.FieldPath, out NodeFieldInformation fieldInfo))
 				{
-					object valueBeforeConnection = fieldInfo.GetValue(nodeTarget);
+					object valueBeforeConnection = fieldInfo.GetValue(NodeTarget);
 
 					if (valueBeforeConnection != null)
 					{
-						fieldInfo.SetValue(nodeTarget, valueBeforeConnection);
+						fieldInfo.SetValue(NodeTarget, valueBeforeConnection);
 					}
 				}
 			}
@@ -1058,14 +1040,14 @@ namespace GraphProcessor
 		{
 			base.SetPosition(newPos);
 
-			if (!initializing)
-				owner.RegisterCompleteObjectUndo("Moved graph node");
+			if (!Initializing)
+				Owner.RegisterCompleteObjectUndo("Moved graph node");
 
-			nodeTarget.position = newPos.position;
-			initializing = false;
+			NodeTarget.position = newPos.position;
+			Initializing = false;
 		}
 
-		public Vector2 GetElementPosition() => nodeTarget.position;
+		public Vector2 GetElementPosition() => NodeTarget.position;
 
 		public override bool expanded
 		{
@@ -1073,7 +1055,7 @@ namespace GraphProcessor
 			set
 			{
 				base.expanded = value;
-				nodeTarget.expanded = value;
+				NodeTarget.expanded = value;
 			}
 		}
 
@@ -1087,7 +1069,7 @@ namespace GraphProcessor
 
 		protected void BuildAlignMenu(ContextualMenuPopulateEvent evt)
 		{
-			if (owner.selection.OfType<BaseNodeView>().Count() < 2) return;
+			if (Owner.selection.OfType<BaseNodeView>().Count() < 2) return;
 			evt.menu.AppendAction("Align/To Left", (e) => AlignToLeft());
 			evt.menu.AppendAction("Align/To Center", (e) => AlignToCenter());
 			evt.menu.AppendAction("Align/To Right", (e) => AlignToRight());
@@ -1104,7 +1086,7 @@ namespace GraphProcessor
 			bool refreshPorts = false
 		)
 		{
-			BaseNode prevNode = nodeTarget;
+			BaseNode prevNode = NodeTarget;
 			Type nodeType = prevNode.GetType();
 			if (
 				!Attribute.IsDefined(nodeType, typeof(GenericNodeAttribute))
@@ -1166,20 +1148,20 @@ namespace GraphProcessor
 				return false;
 			}
 			
-			foreach (PortView portView in outputPortViews)
+			foreach (PortView portView in OutputPortViews)
 			{
 				foreach (EdgeView edgeView in portView.GetEdges())
 				{
-					edgeView.output = GetPortViewFromFieldName(portView.FieldPath, portView.Port.Identifier);
+					edgeView.output = GetPortView(portView.FieldPath, portView.Port.Identifier);
 					edgeView.OnPortChanged(false);
 				}
 			}
 			
-			foreach (PortView portView in inputPortViews)
+			foreach (PortView portView in InputPortViews)
 			{
 				foreach (EdgeView edgeView in portView.GetEdges())
 				{
-					edgeView.input = GetPortViewFromFieldName(portView.FieldPath, portView.Port.Identifier);
+					edgeView.input = GetPortView(portView.FieldPath, portView.Port.Identifier);
 					edgeView.OnPortChanged(true);
 				}
 			}
@@ -1200,7 +1182,7 @@ namespace GraphProcessor
 			{
 				try
 				{
-					BaseNode prevNode = nodeTarget;
+					BaseNode prevNode = NodeTarget;
 					var instance = (BaseNode)Activator.CreateInstance(toType);
 					FieldInfo[] fields = toType.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.FlattenHierarchy);
 					foreach (FieldInfo field in fields)
@@ -1217,10 +1199,10 @@ namespace GraphProcessor
 						}
 					}
 
-					nodeTarget = instance;
-					owner.graph.nodes.Remove(prevNode);
-					owner.graph.RemoveNodeFromCache(prevNode);
-					owner.graph.AddNode(instance);
+					NodeTarget = instance;
+					Owner.graph.nodes.Remove(prevNode);
+					Owner.graph.RemoveNodeFromCache(prevNode);
+					Owner.graph.AddNode(instance);
 					RefreshAfterSetNodeTarget();
 
 					// Debug.Log($"Morph {genericArgs[0]} to {toType}");
@@ -1239,9 +1221,9 @@ namespace GraphProcessor
 			// If a port behavior was attached to one port, then
 			// the port count might have been updated by the node
 			// so we have to refresh the list of port views.
-			nodeTarget.RefreshCustomPorts();
-			UpdatePortViewWithPorts(nodeTarget.InputPorts, inputPortViews);
-			UpdatePortViewWithPorts(nodeTarget.OutputPorts, outputPortViews);
+			NodeTarget.RefreshCustomPorts();
+			UpdatePortViewWithPorts(NodeTarget.InputPorts, InputPortViews);
+			UpdatePortViewWithPorts(NodeTarget.OutputPorts, OutputPortViews);
 			
 			return base.RefreshPorts();
 
@@ -1259,7 +1241,7 @@ namespace GraphProcessor
 		/// <summary>
 		/// Send an event to the graph telling that the content of this node have changed
 		/// </summary>
-		public void NotifyNodeChanged() => owner.graph.NotifyNodeChanged(nodeTarget);
+		public void NotifyNodeChanged() => Owner.graph.NotifyNodeChanged(NodeTarget);
 
 		#endregion
 	}

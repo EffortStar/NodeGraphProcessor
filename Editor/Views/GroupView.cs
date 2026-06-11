@@ -186,7 +186,7 @@ namespace GraphProcessor
 			evt.menu.AppendAction("Delete Group and Children", _ =>
 			{
 				foreach (BaseNodeView node in GetOverlappingNodes().ToArray())
-					Owner.RemoveNode(node.nodeTarget);
+					Owner.RemoveNode(node.NodeTarget);
 				Owner.RemoveGroup(this);
 			});
 			evt.menu.AppendSeparator();

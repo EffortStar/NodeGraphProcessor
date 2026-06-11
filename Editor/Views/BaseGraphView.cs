@@ -160,8 +160,8 @@ namespace GraphProcessor
 
 			foreach (BaseNodeView nodeView in elements.OfType<BaseNodeView>())
 			{
-				data.copiedNodes.Add(JsonSerializer.SerializeNode(nodeView.nodeTarget));
-				foreach (NodePort port in nodeView.nodeTarget.AllPorts)
+				data.copiedNodes.Add(JsonSerializer.SerializeNode(nodeView.NodeTarget));
+				foreach (NodePort port in nodeView.NodeTarget.AllPorts)
 				{
 					if (port.IsVertical)
 					{
@@ -259,8 +259,8 @@ namespace GraphProcessor
 				EdgeView edgeView = new()
 				{
 					userData = edge,
-					input = NodeViewsPerNode[edge.ToNode].GetPortViewFromFieldName(edge.InputFieldPath, edge.inputPortIdentifier),
-					output = NodeViewsPerNode[edge.FromNode].GetPortViewFromFieldName(edge.OutputFieldPath, edge.outputPortIdentifier)
+					input = NodeViewsPerNode[edge.ToNode].GetPortView(edge.InputFieldPath, edge.inputPortIdentifier),
+					output = NodeViewsPerNode[edge.FromNode].GetPortView(edge.OutputFieldPath, edge.outputPortIdentifier)
 				};
 
 				Connect(edgeView);
@@ -294,7 +294,7 @@ namespace GraphProcessor
 							return true;
 						case BaseNodeView nodeView:
 							// For vertical nodes, we need to delete them ourselves as it's not handled by GraphView
-							foreach (PortView pv in nodeView.inputPortViews.Concat(nodeView.outputPortViews))
+							foreach (PortView pv in nodeView.InputPortViews.Concat(nodeView.OutputPortViews))
 								if (pv.orientation == Orientation.Vertical)
 									foreach (EdgeView edge in pv.GetEdges().ToList())
 										Disconnect(edge);
@@ -309,7 +309,7 @@ namespace GraphProcessor
 								Debug.LogException(ex);
 							}
 
-							RemoveNode(nodeView.nodeTarget);
+							RemoveNode(nodeView.NodeTarget);
 							UpdateSerializedProperties();
 							RemoveElement(nodeView);
 							if (Selection.activeObject == NodeInspector)
@@ -540,7 +540,7 @@ namespace GraphProcessor
 			{
 				foreach (BaseNodeView baseNodeView in selection.OfType<BaseNodeView>())
 				{
-					BaseNode node = baseNodeView.nodeTarget;
+					BaseNode node = baseNodeView.NodeTarget;
 					Debug.Log($"{node} {node.GUID}");
 				}
 				
@@ -722,7 +722,7 @@ namespace GraphProcessor
 			foreach (ISelectable e in selection)
 			{
 				if (e is BaseNodeView v && Contains(v))
-					selectedNodeGUIDs.Add(v.nodeTarget.GUID);
+					selectedNodeGUIDs.Add(v.NodeTarget.GUID);
 			}
 
 			// Remove everything
@@ -749,7 +749,7 @@ namespace GraphProcessor
 			// selection = nodeViews.Where(v => selectedNodeGUIDs.Contains(v.nodeTarget.GUID)).Select(v => v as ISelectable).ToList();
 			foreach (string guid in selectedNodeGUIDs)
 			{
-				AddToSelection(NodeViews.FirstOrDefault(n => n.nodeTarget.GUID == guid));
+				AddToSelection(NodeViews.FirstOrDefault(n => n.NodeTarget.GUID == guid));
 			}
 
 			UpdateNodeInspectorSelection();
@@ -890,8 +890,8 @@ namespace GraphProcessor
 				EdgeView edgeView = new()
 				{
 					userData = serializedEdge,
-					input = inputNodeView.GetPortViewFromFieldName(serializedEdge.InputFieldPath, serializedEdge.inputPortIdentifier),
-					output = outputNodeView.GetPortViewFromFieldName(serializedEdge.OutputFieldPath, serializedEdge.outputPortIdentifier)
+					input = inputNodeView.GetPortView(serializedEdge.InputFieldPath, serializedEdge.inputPortIdentifier),
+					output = outputNodeView.GetPortView(serializedEdge.OutputFieldPath, serializedEdge.outputPortIdentifier)
 				};
 
 
@@ -963,7 +963,7 @@ namespace GraphProcessor
 			NodeInspector.selectedNodes.Clear();
 			foreach (ISelectable e in selection)
 			{
-				if (e is BaseNodeView v && Contains(v) && v.nodeTarget.NeedsInspector)
+				if (e is BaseNodeView v && Contains(v) && v.NodeTarget.NeedsInspector)
 					selectedNodeViews.Add(v);
 			}
 
@@ -1020,7 +1020,7 @@ namespace GraphProcessor
 		{
 			RemoveElement(nodeView);
 			NodeViews.Remove(nodeView);
-			NodeViewsPerNode.Remove(nodeView.nodeTarget);
+			NodeViewsPerNode.Remove(nodeView.NodeTarget);
 		}
 
 		private void RemoveNodeViews()
@@ -1210,7 +1210,7 @@ namespace GraphProcessor
 			)
 			{
 				e.input = null;
-				NodeViewsPerNode[inputNodeView.nodeTarget] = inputNodeView;
+				NodeViewsPerNode[inputNodeView.NodeTarget] = inputNodeView;
 			}
 			else if (
 				outputNodeView.IsUnmorphedGenericNode(out baseTypeConstraint)
@@ -1219,13 +1219,13 @@ namespace GraphProcessor
 			)
 			{
 				e.output = null;
-				NodeViewsPerNode[outputNodeView.nodeTarget] = outputNodeView;
+				NodeViewsPerNode[outputNodeView.NodeTarget] = outputNodeView;
 			}
 
 			// If the input port have been removed by the custom port behavior
 			// we try to find if it's still here
-			e.input ??= inputNodeView.GetPortViewFromFieldName(inputPortView.FieldPath, inputPortView.Port.Identifier);
-			e.output ??= outputNodeView.GetPortViewFromFieldName(outputPortView.FieldPath, outputPortView.Port.Identifier);
+			e.input ??= inputNodeView.GetPortView(inputPortView.FieldPath, inputPortView.Port.Identifier);
+			e.output ??= outputNodeView.GetPortView(outputPortView.FieldPath, outputPortView.Port.Identifier);
 			
 			e.input.Connect(e);
 			e.output.Connect(e);
@@ -1245,8 +1245,8 @@ namespace GraphProcessor
 
 		public bool Connect(PortView fromPortView, PortView toPortView, bool autoDisconnectInputs = true)
 		{
-			NodePort toPort = toPortView.Owner.nodeTarget.GetPort(toPortView.FieldPath, toPortView.Port.Identifier);
-			NodePort fromPort = fromPortView.Owner.nodeTarget.GetPort(fromPortView.FieldPath, fromPortView.Port.Identifier);
+			NodePort toPort = toPortView.Owner.NodeTarget.GetPort(toPortView.FieldPath, toPortView.Port.Identifier);
+			NodePort fromPort = fromPortView.Owner.NodeTarget.GetPort(fromPortView.FieldPath, fromPortView.Port.Identifier);
 
 			// Checks that the node we are connecting still exists
 			if (toPortView.Owner.parent == null || fromPortView.Owner.parent == null)
@@ -1272,8 +1272,8 @@ namespace GraphProcessor
 			var outputPortView = (PortView)e.output;
 			var inputNodeView = (BaseNodeView)inputPortView.node;
 			var outputNodeView = (BaseNodeView)outputPortView.node;
-			NodePort inputPort = inputNodeView.nodeTarget.GetPort(inputPortView.FieldPath, inputPortView.Port.Identifier);
-			NodePort outputPort = outputNodeView.nodeTarget.GetPort(outputPortView.FieldPath, outputPortView.Port.Identifier);
+			NodePort inputPort = inputNodeView.NodeTarget.GetPort(inputPortView.FieldPath, inputPortView.Port.Identifier);
+			NodePort outputPort = outputNodeView.NodeTarget.GetPort(outputPortView.FieldPath, outputPortView.Port.Identifier);
 
 			e.userData = graph.Connect(outputPort, inputPort, autoDisconnectInputs);
 
@@ -1429,9 +1429,9 @@ namespace GraphProcessor
 			var view = (SimplifiedRelayNodeView)AddNode(relayNode);
 
 			if (outputPort != null)
-				Connect(outputPort, view.inputPortViews[0]);
+				Connect(outputPort, view.InputPortViews[0]);
 			if (inputPort != null)
-				Connect(view.outputPortViews[0], inputPort);
+				Connect(view.OutputPortViews[0], inputPort);
 
 			return view;
 		}
@@ -1471,7 +1471,7 @@ namespace GraphProcessor
 		{
 			HashSet<BaseNodeView> viewsInSubgraph = selection.OfType<BaseNodeView>().ToHashSet();
 			List<GroupView> groupsInSubgraph = selection.OfType<GroupView>().ToList();
-			HashSet<BaseNode> inSubgraph = viewsInSubgraph.Select(v => v.nodeTarget).ToHashSet();
+			HashSet<BaseNode> inSubgraph = viewsInSubgraph.Select(v => v.NodeTarget).ToHashSet();
 
 			string assetPath = AssetDatabase.GetAssetPath(graph);
 			string directory = System.IO.Path.GetDirectoryName(assetPath)!;
@@ -1541,7 +1541,7 @@ namespace GraphProcessor
 			Type graphType = thisType;
 			while (!graphType.BaseType?.IsAbstract ?? false)
 				graphType = graphType.BaseType; // the default graph type is the highest non-abstract superclass
-			HashSet<Type> nodeTypes = viewsInSubgraph.Select(v => v.nodeTarget.GetType()).ToHashSet();
+			HashSet<Type> nodeTypes = viewsInSubgraph.Select(v => v.NodeTarget.GetType()).ToHashSet();
 			foreach (Type nodeType in nodeTypes)
 			{
 				// Get the least specific graph requirement from a node.
@@ -1616,7 +1616,7 @@ namespace GraphProcessor
 					subgraph.AddNode(parameterNode);
 
 					// Find the nodes to connect edges to.
-					BaseNode copiedNode = subgraphNodeView._lastCopiedNodesMap[port.Owner.nodeTarget.GUID];
+					BaseNode copiedNode = subgraphNodeView._lastCopiedNodesMap[port.Owner.NodeTarget.GUID];
 					NodePort originPortInSubgraph = copiedNode.GetPort(port.FieldPath, port.Port.Identifier);
 
 					// Connect the parameter nodes to their matching ports.
@@ -1645,7 +1645,7 @@ namespace GraphProcessor
 				string parameter = parameterLookup[port];
 				if (isInputParameter)
 				{
-					PortView to = view.GetPortViewFromFieldName(
+					PortView to = view.GetPortView(
 						nameof(SubgraphNode.InputPortKey),
 						parameter
 					);
@@ -1656,7 +1656,7 @@ namespace GraphProcessor
 				}
 				else
 				{
-					PortView from = view.GetPortViewFromFieldName(
+					PortView from = view.GetPortView(
 						nameof(SubgraphNode.OutputPortKey),
 						parameter
 					);
@@ -1678,7 +1678,7 @@ namespace GraphProcessor
 		private void UnpackSubgraph()
 		{
 			Undo.RegisterCompleteObjectUndo(graph, "Unpack Subgraph");
-			var subgraphNode = (SubgraphNode)selection.OfType<SubgraphNodeView>().First().nodeTarget;
+			var subgraphNode = (SubgraphNode)selection.OfType<SubgraphNodeView>().First().NodeTarget;
 			graph.InlineSubgraphNode(subgraphNode);
 			graph.RemoveNode(subgraphNode);
 			Initialize(graph); // Reload this completely.

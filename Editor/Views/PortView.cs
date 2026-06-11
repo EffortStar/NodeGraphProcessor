@@ -10,6 +10,7 @@ namespace GraphProcessor
 	public sealed class PortView : Port
 	{
 		public string FieldPath => Port.FieldPath;
+		public string Identifier => Port.Identifier;
 		public Type FieldType => Port.DisplayType;
 		public Type PortType { get; private set; }
 		public BaseNodeView Owner { get; private set; }

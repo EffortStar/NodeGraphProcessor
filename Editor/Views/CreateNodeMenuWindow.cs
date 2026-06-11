@@ -268,7 +268,7 @@ namespace GraphProcessor
 
 			if (searchTreeEntry.userData is NodeProvider.PortDescription desc)
 			{
-				PortView targetPort = view.GetPortViewFromFieldName(desc.PortFieldPath, desc.PortIdentifier);
+				PortView targetPort = view.GetPortView(desc.PortFieldPath, desc.PortIdentifier);
 				if (_inputPortView == null)
 					_graphView.Connect(_outputPortView, targetPort);
 				else
