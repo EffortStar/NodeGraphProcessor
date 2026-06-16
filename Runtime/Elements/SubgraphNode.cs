@@ -215,7 +215,7 @@ namespace GraphProcessor
 			}
 #else
 			// Never clean up SubgraphNode in builds.
-			var allowMultipleEdges = true;
+			bool? allowMultipleEdges = true;
 #endif
 
 			return (required, allowMultipleEdges ?? true
