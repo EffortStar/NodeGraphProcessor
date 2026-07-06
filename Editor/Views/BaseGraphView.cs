@@ -1253,7 +1253,7 @@ namespace GraphProcessor
 			if (toPortView.Owner.parent == null || fromPortView.Owner.parent == null)
 				return false;
 
-			var newEdge = SerializableEdge.CreateNewEdge(graph, fromPort, toPort);
+			var newEdge = SerializableEdge.CreateNewEdge(fromPort, toPort);
 
 			EdgeView edgeView = new()
 			{

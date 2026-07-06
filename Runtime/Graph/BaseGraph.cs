@@ -387,7 +387,7 @@ namespace GraphProcessor
 		/// <returns>the connecting edge</returns>
 		public SerializableEdge Connect(NodePort fromPort, NodePort toPort, bool autoDisconnectInputs = true)
 		{
-			var edge = SerializableEdge.CreateNewEdge(this, fromPort, toPort);
+			var edge = SerializableEdge.CreateNewEdge(fromPort, toPort);
 
 			//If the input port does not support multi-connection, we remove them
 			if (autoDisconnectInputs && !toPort.AllowMultipleEdges)
