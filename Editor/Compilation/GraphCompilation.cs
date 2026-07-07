@@ -7,6 +7,7 @@ using System.Reflection.Emit;
 using JetBrains.Annotations;
 using UnityEngine;
 using static GraphProcessor.GraphExpressionCompilation;
+using Object = UnityEngine.Object;
 
 namespace GraphProcessor
 {
@@ -23,20 +24,37 @@ namespace GraphProcessor
 		{
 			_debug = debug;
 			_graphCount = 0;
-			foreach (BaseGraph graph in graphs)
+			foreach (BaseGraph graphPrefab in graphs)
 			{
 				// Don't compile subgraphs.
-				if (graph.IsSubgraph)
+				// Their edges are realized into the final graphs.
+				if (graphPrefab.IsSubgraph)
 				{
 					continue;
 				}
 
-				foreach (SerializableEdge edge in graph.edges)
+				BaseGraph graph = Object.Instantiate(graphPrefab);
+				try
 				{
-					if (edge.Key is { } key)
+					graph.name = graphPrefab.name;
+					// NOTE: We have to realize graphs to make sure edge connections
+					//  between subgraphs and relays are resolved to their final form.
+					//  Otherwise those graphs would contain edges that would resolve
+					//  to Linq Expressions.
+					graph.Realize();
+
+					foreach (SerializableEdge edge in graph.edges)
 					{
-						_edges.TryAdd(key, edge);
+						if (edge.Key is { } key)
+						{
+							_edges.TryAdd(key, edge);
+						}
 					}
+
+				}
+				finally
+				{
+					Object.DestroyImmediate(graph);
 				}
 
 				_graphCount++;

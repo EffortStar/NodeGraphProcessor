@@ -38,7 +38,7 @@ namespace GraphProcessor
 			Debug.Log($"[Graph] An edge {nameof(PushDataDelegate)} didn't use a static function.\n{edge.Key}");
 			if (!s_logOnce)
 			{
-				Debug.Log($"\\n[Graph] Start edge keys:\n\n");
+				Debug.Log($"\n[Graph] Start edge keys:\n\n");
 				StaticEdgePushFunctions.Log();
 				Debug.Log($"\n[Graph] End edge keys.\n");
 				s_logOnce = true;
