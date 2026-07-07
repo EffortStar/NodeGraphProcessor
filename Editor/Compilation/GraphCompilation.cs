@@ -36,7 +36,7 @@ namespace GraphProcessor
 
 	public sealed class GraphCompilation
 	{
-		private readonly Dictionary<EdgeKey, SerializableEdge> _edges = new();
+		private readonly Dictionary<string, SerializableEdge> _edges = new();
 		private readonly int _graphCount;
 
 		public GraphCompilation(IEnumerable<BaseGraph> graphs)
@@ -83,13 +83,13 @@ namespace GraphProcessor
 			// Create fields
 			FieldBuilder pushDelegatesField = typeBuilder.DefineField(
 				"s_pushDelegates",
-				typeof(Dictionary<int, PushDataDelegate>),
+				typeof(Dictionary<string, PushDataDelegate>),
 				FieldAttributes.Static | FieldAttributes.Private
 			);
 
 			// Create Push methods.
-			Dictionary<int, MethodBuilder> keyToMethod = new();
-			foreach ((EdgeKey key, SerializableEdge edge) in _edges)
+			Dictionary<string, MethodBuilder> keyToMethod = new();
+			foreach ((string key, SerializableEdge edge) in _edges)
 			{
 				Expression<PushDataDelegate> expression
 					= CreatePushDataExpression(edge);
@@ -110,20 +110,8 @@ namespace GraphProcessor
 				);
 
 				expression.CompileToMethod(method);
-				keyToMethod.Add(key.GetHashCode(), method);
+				keyToMethod.Add(key, method);
 			}
-
-			// Create Init
-			/*MethodBuilder initMethod = typeBuilder.DefineMethod(
-				"Init",
-				MethodAttributes.Private | MethodAttributes.Static,
-				typeof(void),
-				new[] { typeof(EdgeKey) }
-			);
-			BlockExpression delegateLookupBlock = CreatePushDataDelegateLookup();
-			Expression.Lambda(delegateLookupBlock).CompileToMethod(
-				initMethod
-			);*/
 			
 			// Create Constructor
 			ConstructorBuilder constructor = typeBuilder.DefineConstructor(
@@ -138,7 +126,7 @@ namespace GraphProcessor
 				"Get",
 				MethodAttributes.Public | MethodAttributes.Static,
 				typeof(void),
-				new[] { typeof(EdgeKey) }
+				new[] { typeof(string) }
 			);
 			CreateGetMethod(getMethod);
 
@@ -182,25 +170,26 @@ namespace GraphProcessor
 
 			void CreateConstructor(ConstructorBuilder constructorBuilder)
 			{
-				MethodInfo addMethod = typeof(Dictionary<int, PushDataDelegate>).GetMethod(
-					nameof(Dictionary<int, PushDataDelegate>.Add),
+				// https://sharplab.io/#v2:EYLgHgbALANALiAlgGwD4AEBMBGAsAKHQAYACdbKAbgPQGYzsIzMSBhEgbwJJ7PoBMApskEBzAIZxBZKCQAKAVwDOACwAik8WuFjJggBQB7YACtBAYzgkAZgCdDAWxgljZyyTiGAlNXy8+DExqiJaIhgB24rYAngA85ETOiqoacFo6ElIAfCRKAPoADsrqGXpKvv7cvORMrPpenFX+PPlFKaVSSiQAvCThggDu+thERD5Nza3F2iKZgkoAdACC/Pz6AETYmLQj20Rb684AomDiDgUiYxXNLYXTHfPLqxtbO0R7FIckJ2cXgtjjPy8AC+Exu4IhvAmdECMm+p3OlyMpgsVjsjmcrlRHm8nFBQJ4MJqcJ+iP+yLcaPsThcKPcngaHHxwKAA===
+				MethodInfo addMethod = typeof(Dictionary<string, PushDataDelegate>).GetMethod(
+					nameof(Dictionary<string, PushDataDelegate>.Add),
 					BindingFlags.Public | BindingFlags.Instance
 				)!;
 
 				ILGenerator il = constructorBuilder.GetILGenerator();
-				il.Emit(OpCodes.Newobj, typeof(Dictionary<int, PushDataDelegate>).GetConstructor(Array.Empty<Type>())!);
+				// s_pushDelegates = new(capacity)
+				il.Emit(OpCodes.Ldc_I4, keyToMethod.Count); // NOTE _S is for short ints.
+				il.Emit(OpCodes.Newobj, typeof(Dictionary<string, PushDataDelegate>).GetConstructor(new []{ typeof(int) })!);
 				il.Emit(OpCodes.Stsfld, pushDelegatesField);
-				/*
-				  s_pushDelegates.Add(key, (GraphExpressionCompilation.PushDataDelegate) method);
-				  ...
-				 */
+				// s_pushDelegates.Add(key, (GraphExpressionCompilation.PushDataDelegate) method);
+				// [repeat]
 				ConstructorInfo delegateConstructor = typeof(PushDataDelegate).GetConstructors(
 					BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public
 				)[0];
-				foreach ((int key, MethodBuilder method) in keyToMethod)
+				foreach ((string key, MethodBuilder method) in keyToMethod)
 				{
 					il.Emit(OpCodes.Ldsfld, pushDelegatesField);
-					il.Emit(OpCodes.Ldc_I4, key);
+					il.Emit(OpCodes.Ldstr, key);
 					il.Emit(OpCodes.Ldnull);
 					il.Emit(OpCodes.Ldftn, method);
 					il.Emit(OpCodes.Newobj, delegateConstructor);
@@ -212,7 +201,7 @@ namespace GraphProcessor
 			void CreateGetMethod(MethodBuilder method)
 			{
 				/*
-				  public static GraphExpressionCompilation.PushDataDelegate Get(int key)
+				  public static GraphExpressionCompilation.PushDataDelegate Get(string key)
 				  {
 				    GraphExpressionCompilation.PushDataDelegate pushDataDelegate;
 				    return StaticEdgePushFunctions.s_pushDelegates.TryGetValue(key, out pushDataDelegate) ? pushDataDelegate : (GraphExpressionCompilation.PushDataDelegate) null;
@@ -221,15 +210,15 @@ namespace GraphProcessor
 
 				MemberExpression pushDelegateExpression = Expression.MakeMemberAccess(null, pushDelegatesField);
 
-				ParameterExpression keyParameter = Expression.Parameter(typeof(int), "key");
+				ParameterExpression keyParameter = Expression.Parameter(typeof(string), "key");
 				ParameterExpression outValue = Expression.Variable(typeof(PushDataDelegate), "value");
 
 				ConditionalExpression body = Expression.Condition(
 					test:
 					Expression.Call(
 						pushDelegateExpression,
-						typeof(Dictionary<int, PushDataDelegate>).GetMethod(
-							nameof(Dictionary<int, PushDataDelegate>.TryGetValue),
+						typeof(Dictionary<string, PushDataDelegate>).GetMethod(
+							nameof(Dictionary<string, PushDataDelegate>.TryGetValue),
 							BindingFlags.Public | BindingFlags.Instance
 						)!,
 						keyParameter,

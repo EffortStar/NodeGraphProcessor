@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
+using JetBrains.Annotations;
 using UnityEngine;
 using UnityEngine.Serialization;
 using static GraphProcessor.GraphExpressionCompilation;
@@ -47,27 +48,24 @@ namespace GraphProcessor
 		public string inputPortIdentifier;
 		public string outputPortIdentifier;
 
-		// Cached to prevent re-hashing all this info every time we push edge data.
-		[NonSerialized]
-		private EdgeKey? _key;
-
-		public EdgeKey? Key
+		public string Key
 		{
 			get
 			{
-				if (_key != null || FromPort._fieldInfo == null || ToPort._fieldInfo == null)
+				string fromKey = FromPort.Key;
+				string toKey = ToPort.Key;
+				if (fromKey == null || toKey == null)
 				{
-					return _key;
+					return null;
 				}
-
-				_key = new EdgeKey(
-					FromPort._fieldInfo,
-					ToPort._fieldInfo
-				);
-
-				return _key;
+				
+				return $"{fromKey} To {toKey}";
 			}
 		}
+
+		// Cached to prevent re-hashing all this info every time we push edge data.
+		[NonSerialized]
+		[CanBeNull] private PushDataDelegate _pushDataDelegate;
 
 		public static SerializableEdge CreateNewEdge(
 			NodePort fromPort,
@@ -188,10 +186,8 @@ namespace GraphProcessor
 		
 		public void PushData()
 		{
-			if (GetPushDataDelegate(this, FromNode.Graph) is {} edgeDelegate)
-			{
-				edgeDelegate(FromNode, ToNode);
-			}
+			_pushDataDelegate ??= GetPushDataDelegate(this, FromNode.Graph);
+			_pushDataDelegate?.Invoke(FromNode, ToNode);
 		}
 
 		public override string ToString()

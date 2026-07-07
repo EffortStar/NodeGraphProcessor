@@ -6,41 +6,6 @@ using UnityEngine;
 
 namespace GraphProcessor
 {
-	public readonly struct EdgeKey : IEquatable<EdgeKey>
-	{
-		public readonly FieldInfo FromRoot;
-		public readonly FieldInfo FromLeaf;
-		public readonly FieldInfo ToRoot;
-		public readonly FieldInfo ToLeaf;
-		private readonly int _hashCode;
-
-		public EdgeKey(
-			NodeFieldInformation from,
-			NodeFieldInformation to
-		)
-		{
-			FromRoot = from.Path.Root.FieldInfo;
-			ToRoot = to.Path.Root.FieldInfo;
-			FromLeaf = from.Path.FieldInfo;
-			ToLeaf = to.Path.FieldInfo;
-			_hashCode = HashCode.Combine(FromRoot, ToRoot, FromLeaf, ToLeaf);
-		}
-
-		public bool Equals(EdgeKey other) =>
-			FromRoot.Equals(other.FromRoot)
-			&& ToRoot.Equals(other.ToRoot)
-			&& FromLeaf.Equals(other.FromLeaf)
-			&& ToLeaf.Equals(other.ToLeaf);
-
-		public override bool Equals(object obj) => obj is EdgeKey other && Equals(other);
-
-		public override int GetHashCode() => _hashCode;
-
-		public static bool operator ==(EdgeKey left, EdgeKey right) => left.Equals(right);
-
-		public static bool operator !=(EdgeKey left, EdgeKey right) => !left.Equals(right);
-	}
-
 	public static class GraphExpressionCompilation
 	{
 		/// <summary>
@@ -48,14 +13,28 @@ namespace GraphProcessor
 		/// </summary>
 		public delegate void PushDataDelegate(BaseNode from, BaseNode to);
 
-		private static readonly Dictionary<EdgeKey, PushDataDelegate> s_pushDataDelegates = new();
+		private static readonly Dictionary<string, PushDataDelegate> s_pushDataDelegates = new();
 		
 		public static PushDataDelegate GetPushDataDelegate(SerializableEdge edge, UnityEngine.Object context)
 		{
-			if (edge.Key is not { } edgeKey)
+			string edgeKey = edge.Key;
+			if (edgeKey == null)
 			{
 				Debug.LogError($"[NodeGraph] Edges generated with {nameof(CustomPortBehaviorAttribute)} cannot be executed and must be removed from the graph during Realization. ({context})");
 				return null;
+			}
+			
+			// NOTE: In the editor this is just a stub.
+			//  Packages/com.alelievr.node-graph-processor/Runtime/Plugins/Game.Graphs.Compiled.dll
+			//  is Editor-only, and 'GraphCompilation' is used at build-time to generate the actual assembly used
+			//  in builds. The behaviour seen in the editor is used as a fallback.
+			PushDataDelegate @delegate = StaticEdgePushFunctions.Get(edgeKey);
+			if (@delegate != null)
+			{
+#if !UNITY_EDITOR && DEBUG
+				Debug.Log($"[Graph] An edge {nameof(PushDataDelegate)} didn't use a static function.\n{edge.Key}");
+#endif
+				return @delegate;
 			}
 
 			if (s_pushDataDelegates.TryGetValue(edgeKey, out var edgeDelegate))
