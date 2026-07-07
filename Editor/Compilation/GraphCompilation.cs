@@ -1,8 +1,10 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Reflection.Emit;
+using JetBrains.Annotations;
 using UnityEngine;
 using static GraphProcessor.GraphExpressionCompilation;
 
@@ -15,9 +17,11 @@ namespace GraphProcessor
 	{
 		private readonly Dictionary<string, SerializableEdge> _edges = new();
 		private readonly int _graphCount;
+		private readonly bool _debug;
 
-		public GraphCompilation(IEnumerable<BaseGraph> graphs)
+		public GraphCompilation(IEnumerable<BaseGraph> graphs, bool debug = false)
 		{
+			_debug = debug;
 			_graphCount = 0;
 			foreach (BaseGraph graph in graphs)
 			{
@@ -39,6 +43,7 @@ namespace GraphProcessor
 			}
 		}
 
+		[MustUseReturnValue]
 		public AssemblyBuilder Compile()
 		{
 			Debug.Log($"Compiling {_edges.Count} FieldInfo->FieldInfo edges across {_graphCount} graphs.");
@@ -56,7 +61,7 @@ namespace GraphProcessor
 				"StaticEdgePushFunctions",
 				TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.Class | TypeAttributes.Abstract
 			);
-			
+
 			// Create fields
 			FieldBuilder pushDelegatesField = typeBuilder.DefineField(
 				"s_pushDelegates",
@@ -89,7 +94,7 @@ namespace GraphProcessor
 				expression.CompileToMethod(method);
 				keyToMethod.Add(key, method);
 			}
-			
+
 			// Create Constructor
 			ConstructorBuilder constructor = typeBuilder.DefineConstructor(
 				MethodAttributes.Static | MethodAttributes.Private,
@@ -107,8 +112,19 @@ namespace GraphProcessor
 			);
 			CreateGetMethod(getMethod);
 
+			if (_debug)
+			{
+				MethodBuilder logMethod = typeBuilder.DefineMethod(
+					"Log",
+					MethodAttributes.Public | MethodAttributes.Static,
+					typeof(void),
+					Array.Empty<Type>()
+				);
+				CreateLogMethod(logMethod);
+			}
+
 			typeBuilder.CreateType();
-			
+
 			return builder;
 
 			static string GetTypeName(Type type)
@@ -149,7 +165,7 @@ namespace GraphProcessor
 				ILGenerator il = constructorBuilder.GetILGenerator();
 				// s_pushDelegates = new(capacity)
 				il.Emit(OpCodes.Ldc_I4, keyToMethod.Count); // NOTE _S is for short ints.
-				il.Emit(OpCodes.Newobj, typeof(Dictionary<string, PushDataDelegate>).GetConstructor(new []{ typeof(int) })!);
+				il.Emit(OpCodes.Newobj, typeof(Dictionary<string, PushDataDelegate>).GetConstructor(new[] { typeof(int) })!);
 				il.Emit(OpCodes.Stsfld, pushDelegatesField);
 				// s_pushDelegates.Add(key, (GraphExpressionCompilation.PushDataDelegate) method);
 				// [repeat]
@@ -165,6 +181,7 @@ namespace GraphProcessor
 					il.Emit(OpCodes.Newobj, delegateConstructor);
 					il.Emit(OpCodes.Callvirt, addMethod);
 				}
+
 				il.Emit(OpCodes.Ret);
 			}
 
@@ -206,6 +223,64 @@ namespace GraphProcessor
 						keyParameter
 					)
 					.CompileToMethod(method);
+			}
+
+			void CreateLogMethod(MethodBuilder method)
+			{
+				MemberExpression pushDelegateExpression = Expression.MakeMemberAccess(null, pushDelegatesField);
+				var keysGetMethod = typeof(Dictionary<string, PushDataDelegate>)
+					.GetProperty(nameof(Dictionary<string, PushDataDelegate>.Keys), BindingFlags.Instance | BindingFlags.Public)!
+					.GetGetMethod();
+
+				var collection = Expression.Parameter(typeof(Dictionary<string, PushDataDelegate>.KeyCollection), "collection");
+				var loopVar = Expression.Parameter(typeof(string), "loopVar");
+				var loopBody = Expression.Call(typeof(Console).GetMethod(nameof(Console.WriteLine), new[] { typeof(string) })!, loopVar);
+				var loop = ForEach(collection, loopVar, loopBody);
+
+				var loopLambda = Expression.Lambda(loop, collection);
+
+				var body = Expression.Block(
+					variables: new[] { collection },
+					Expression.Assign(collection, Expression.Call(pushDelegateExpression, keysGetMethod)),
+					Expression.Invoke(loopLambda, collection)
+				);
+
+				Expression.Lambda(body).CompileToMethod(method);
+				return;
+
+				// https://stackoverflow.com/questions/27175558/foreach-loop-using-expression-trees
+				static Expression ForEach(Expression collection, ParameterExpression loopVar, Expression loopContent)
+				{
+					var elementType = loopVar.Type;
+					var enumerableType = typeof(IEnumerable<>).MakeGenericType(elementType);
+					var enumeratorType = typeof(IEnumerator<>).MakeGenericType(elementType);
+
+					var enumeratorVar = Expression.Variable(enumeratorType, "enumerator");
+					var getEnumeratorCall = Expression.Call(collection, enumerableType.GetMethod("GetEnumerator")!);
+					var enumeratorAssign = Expression.Assign(enumeratorVar, getEnumeratorCall);
+
+					// The MoveNext method's actually on IEnumerator, not IEnumerator<T>
+					var moveNextCall = Expression.Call(enumeratorVar, typeof(IEnumerator).GetMethod(nameof(IEnumerator.MoveNext))!);
+
+					var breakLabel = Expression.Label("LoopBreak");
+
+					var loop = Expression.Block(new[] { enumeratorVar },
+						enumeratorAssign,
+						Expression.Loop(
+							Expression.IfThenElse(
+								Expression.Equal(moveNextCall, Expression.Constant(true)),
+								Expression.Block(new[] { loopVar },
+									Expression.Assign(loopVar, Expression.Property(enumeratorVar, nameof(IEnumerator.Current))),
+									loopContent
+								),
+								Expression.Break(breakLabel)
+							),
+							breakLabel
+						)
+					);
+
+					return loop;
+				}
 			}
 		}
 	}

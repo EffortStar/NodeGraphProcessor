@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
-using System.Reflection;
 using UnityEngine;
 
 namespace GraphProcessor
@@ -14,6 +13,7 @@ namespace GraphProcessor
 		public delegate void PushDataDelegate(BaseNode from, BaseNode to);
 
 		private static readonly Dictionary<string, PushDataDelegate> s_pushDataDelegates = new();
+		private static bool s_logOnce;
 		
 		public static PushDataDelegate GetPushDataDelegate(SerializableEdge edge, UnityEngine.Object context)
 		{
@@ -31,11 +31,19 @@ namespace GraphProcessor
 			PushDataDelegate @delegate = StaticEdgePushFunctions.Get(edgeKey);
 			if (@delegate != null)
 			{
-#if !UNITY_EDITOR && DEBUG
-				Debug.Log($"[Graph] An edge {nameof(PushDataDelegate)} didn't use a static function.\n{edge.Key}");
-#endif
 				return @delegate;
 			}
+			
+#if !UNITY_EDITOR && DEBUG
+			Debug.Log($"[Graph] An edge {nameof(PushDataDelegate)} didn't use a static function.\n{edge.Key}");
+			if (!s_logOnce)
+			{
+				Debug.Log($"\\n[Graph] Start edge keys:\n\n");
+				StaticEdgePushFunctions.Log();
+				Debug.Log($"\n[Graph] End edge keys.\n");
+				s_logOnce = true;
+			}
+#endif
 
 			if (s_pushDataDelegates.TryGetValue(edgeKey, out var edgeDelegate))
 			{
