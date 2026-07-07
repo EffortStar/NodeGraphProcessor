@@ -66,6 +66,7 @@ namespace GraphProcessor
 		{
 			Debug.Log($"Compiling {_edges.Count} FieldInfo->FieldInfo edges across {_graphCount} graphs.");
 
+			// Create assembly
 			const string assemblyName = "Game.Graphs.Compiled";
 			AssemblyBuilder builder = AssemblyBuilder.DefineDynamicAssembly(
 				new AssemblyName(assemblyName),
@@ -73,19 +74,21 @@ namespace GraphProcessor
 			);
 			ModuleBuilder module = builder.DefineDynamicModule($"{assemblyName}.dll");
 
+			// Create type
 			TypeBuilder typeBuilder = module.DefineType(
 				"StaticEdgePushFunctions",
 				TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.Class | TypeAttributes.Abstract
 			);
-
-			Dictionary<int, MethodBuilder> keyToMethod = new();
-
+			
+			// Create fields
 			FieldBuilder pushDelegatesField = typeBuilder.DefineField(
 				"s_pushDelegates",
 				typeof(Dictionary<int, PushDataDelegate>),
 				FieldAttributes.Static | FieldAttributes.Private
 			);
 
+			// Create Push methods.
+			Dictionary<int, MethodBuilder> keyToMethod = new();
 			foreach ((EdgeKey key, SerializableEdge edge) in _edges)
 			{
 				Expression<PushDataDelegate> expression
@@ -94,9 +97,9 @@ namespace GraphProcessor
 				NodeFieldPath from = edge.FromPort._fieldInfo.Path;
 				NodeFieldPath to = edge.ToPort._fieldInfo.Path;
 				string methodName = "Push_" +
-					$"<{GetTypeName(from.FieldInfo.DeclaringType)}_{from.FieldPath.Replace('.', '_')}>" +
+					$"{GetTypeName(from.FieldInfo.DeclaringType)}_{from.FieldPath.Replace('.', '_')}" +
 					"_To_" +
-					$"<{GetTypeName(to.FieldInfo.DeclaringType)}_{to.FieldPath.Replace('.', '_')}>";
+					$"{GetTypeName(to.FieldInfo.DeclaringType)}_{to.FieldPath.Replace('.', '_')}";
 
 
 				MethodBuilder method = typeBuilder.DefineMethod(
@@ -110,16 +113,27 @@ namespace GraphProcessor
 				keyToMethod.Add(key.GetHashCode(), method);
 			}
 
-			/*BlockExpression delegateLookupBlock = CreatePushDataDelegateLookup();
+			// Create Init
+			/*MethodBuilder initMethod = typeBuilder.DefineMethod(
+				"Init",
+				MethodAttributes.Private | MethodAttributes.Static,
+				typeof(void),
+				new[] { typeof(EdgeKey) }
+			);
+			BlockExpression delegateLookupBlock = CreatePushDataDelegateLookup();
+			Expression.Lambda(delegateLookupBlock).CompileToMethod(
+				initMethod
+			);*/
+			
+			// Create Constructor
 			ConstructorBuilder constructor = typeBuilder.DefineConstructor(
 				MethodAttributes.Static | MethodAttributes.Private,
 				CallingConventions.Standard,
 				Array.Empty<Type>()
 			);
-			Expression.Lambda(delegateLookupBlock).CompileToMethod(
-				constructor
-			);*/
+			CreateConstructor(constructor);
 
+			// Create Get
 			MethodBuilder getMethod = typeBuilder.DefineMethod(
 				"Get",
 				MethodAttributes.Public | MethodAttributes.Static,
@@ -130,7 +144,8 @@ namespace GraphProcessor
 
 			typeBuilder.CreateType();
 
-			string assemblyFileName = $"{builder.GetName().Name}.dll";
+			// Write file
+			var assemblyFileName = $"{builder.GetName().Name}.dll";
 			builder.Save(assemblyFileName);
 			string destinationPath = Path.GetFullPath(Path.Combine("Library", "ScriptAssemblies", assemblyFileName));
 			File.Delete(destinationPath);
@@ -165,30 +180,36 @@ namespace GraphProcessor
 				return name;
 			}
 
-			BlockExpression CreatePushDataDelegateLookup()
+			void CreateConstructor(ConstructorBuilder constructorBuilder)
 			{
-				// TODO figure out how to assign this
-				MemberExpression pushDelegateExpression = Expression.MakeMemberAccess(null, pushDelegatesField);
-				return Expression.Block(
-					keyToMethod.Select(args =>
-						{
-							(int key, var method) = args;
-							ConstantExpression keyConst = Expression.Constant(key, typeof(int));
-							UnaryExpression @delegate = Expression.Convert(Expression.MakeMemberAccess(null, method), typeof(PushDataDelegate));
-							return Expression.Call(pushDelegateExpression,
-								typeof(Dictionary<int, PushDataDelegate>).GetMethod(
-									nameof(Dictionary<int, PushDataDelegate>.Add),
-									BindingFlags.Public | BindingFlags.Instance
-								)!,
-								keyConst,
-								@delegate
-							);
-						}
-					)
-				);
+				MethodInfo addMethod = typeof(Dictionary<int, PushDataDelegate>).GetMethod(
+					nameof(Dictionary<int, PushDataDelegate>.Add),
+					BindingFlags.Public | BindingFlags.Instance
+				)!;
+
+				ILGenerator il = constructorBuilder.GetILGenerator();
+				il.Emit(OpCodes.Newobj, typeof(Dictionary<int, PushDataDelegate>).GetConstructor(Array.Empty<Type>())!);
+				il.Emit(OpCodes.Stsfld, pushDelegatesField);
+				/*
+				  s_pushDelegates.Add(key, (GraphExpressionCompilation.PushDataDelegate) method);
+				  ...
+				 */
+				ConstructorInfo delegateConstructor = typeof(PushDataDelegate).GetConstructors(
+					BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public
+				)[0];
+				foreach ((int key, MethodBuilder method) in keyToMethod)
+				{
+					il.Emit(OpCodes.Ldsfld, pushDelegatesField);
+					il.Emit(OpCodes.Ldc_I4, key);
+					il.Emit(OpCodes.Ldnull);
+					il.Emit(OpCodes.Ldftn, method);
+					il.Emit(OpCodes.Newobj, delegateConstructor);
+					il.Emit(OpCodes.Callvirt, addMethod);
+				}
+				il.Emit(OpCodes.Ret);
 			}
 
-			void CreateGetMethod(MethodBuilder getMethod)
+			void CreateGetMethod(MethodBuilder method)
 			{
 				/*
 				  public static GraphExpressionCompilation.PushDataDelegate Get(int key)
@@ -225,7 +246,7 @@ namespace GraphProcessor
 						),
 						keyParameter
 					)
-					.CompileToMethod(getMethod);
+					.CompileToMethod(method);
 			}
 		}
 	}
