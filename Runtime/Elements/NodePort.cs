@@ -98,6 +98,8 @@ namespace GraphProcessor
 		/// <value></value>
 		public List<SerializableEdge> Edges => _edges;
 
+		public string Key => _fieldInfo == null ? null : $"{_fieldInfo.Path.FieldInfo.DeclaringType}.{_fieldInfo.Path.FieldPath}";
+
 		/// <summary>
 		/// Push the value of the port through the edges
 		/// This method can only be called on output ports
