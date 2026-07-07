@@ -1,39 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Reflection.Emit;
-using UnityEditor;
-using UnityEditor.Build;
 using UnityEngine;
 using static GraphProcessor.GraphExpressionCompilation;
 
 namespace GraphProcessor
 {
-	public class ProcessGraphsForBuild : IPreprocessBuildWithContext
-	{
-		public int callbackOrder => 0;
-
-		public void OnPreprocessBuild(BuildCallbackContext ctx)
-		{
-			Debug.Log(nameof(ProcessGraphsForBuild));
-			CompileAllGraphs();
-		}
-
-		[MenuItem("Effort Star/Graphs/Compile Edge Push Functions")]
-		public static void CompileAllGraphs()
-		{
-			GraphCompilation compilation = new(
-				AssetDatabase.FindAssets("t:" + nameof(BaseGraph), new[] { "Assets" })
-					.Select(guid => AssetDatabase.LoadAssetAtPath<BaseGraph>(AssetDatabase.GUIDToAssetPath(guid)))
-					.Where(graph => graph != null)
-			);
-			compilation.Compile();
-		}
-	}
-
+	/// <summary>
+	/// Compiles edge push functions for our graphs so we're not executing interpreted Linq expressions.
+	/// </summary>
 	public sealed class GraphCompilation
 	{
 		private readonly Dictionary<string, SerializableEdge> _edges = new();
@@ -62,7 +39,7 @@ namespace GraphProcessor
 			}
 		}
 
-		public void Compile()
+		public AssemblyBuilder Compile()
 		{
 			Debug.Log($"Compiling {_edges.Count} FieldInfo->FieldInfo edges across {_graphCount} graphs.");
 
@@ -131,15 +108,8 @@ namespace GraphProcessor
 			CreateGetMethod(getMethod);
 
 			typeBuilder.CreateType();
-
-			// Write file
-			var assemblyFileName = $"{builder.GetName().Name}.dll";
-			builder.Save(assemblyFileName);
-			string destinationPath = Path.GetFullPath(Path.Combine("Library", "ScriptAssemblies", assemblyFileName));
-			File.Delete(destinationPath);
-			File.Move(assemblyFileName, destinationPath);
-			Debug.Log($"Finished compiling to \"{destinationPath}\".");
-			return;
+			
+			return builder;
 
 			static string GetTypeName(Type type)
 			{
