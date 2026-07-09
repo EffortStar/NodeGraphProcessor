@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using JetBrains.Annotations;
 
 namespace GraphProcessor
 {
@@ -36,46 +37,51 @@ namespace GraphProcessor
 
 		private Type GetRelayType()
 		{
-			if (IsInput)
+			return IsInput
+				? GetInputType() ?? GetOutputType() ?? typeof(object)
+				: GetOutputType() ?? GetInputType() ?? typeof(object);
+
+			[CanBeNull]
+			Type GetInputType()
 			{
 				SimplifiedRelayNode node = _node;
 				do
 				{
 					if (node.InputPorts.FirstOrDefault() is not { } port)
-						break;
+						return null;
 
 					if (port.Edges.FirstOrDefault() is not { } edge)
-						break;
+						return null;
 
 					if (edge.FromNode is not SimplifiedRelayNode next)
-					{
 						return edge.FromPort.DisplayType;
-					}
 
 					node = next;
 				} while (node != _node);
+
+				return null;
 			}
-			else
+
+			[CanBeNull]
+			Type GetOutputType()
 			{
 				SimplifiedRelayNode node = _node;
 				do
 				{
 					if (node.OutputPorts.FirstOrDefault() is not { } port)
-						break;
+						return null;
 
 					if (port.Edges.FirstOrDefault() is not { } edge)
-						break;
+						return null;
 
 					if (edge.ToNode is not SimplifiedRelayNode next)
-					{
 						return edge.ToPort.DisplayType;
-					}
 
 					node = next;
 				} while (node != _node);
+
+				return null;
 			}
-			
-			return typeof(object);
 		}
 
 		public SimplifiedRelayPortData(SimplifiedRelayNode node) => _node = node;
