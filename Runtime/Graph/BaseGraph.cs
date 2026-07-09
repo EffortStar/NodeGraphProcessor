@@ -796,15 +796,15 @@ namespace GraphProcessor
 		/// <summary>
 		/// Tell if two types can be connected in the context of a graph
 		/// </summary>
-		/// <param name="t1"></param>
-		/// <param name="t2"></param>
+		/// <param name="from"></param>
+		/// <param name="to"></param>
 		/// <returns></returns>
-		public static bool TypesAreConnectable(Type t1, Type t2)
+		public static bool TypesAreConnectable(Type from, Type to)
 		{
-			if (t1 == null || t2 == null)
+			if (from == null || to == null)
 				return false;
 
-			(Type, Type) types = (t1, t2);
+			(Type, Type) types = (from, to);
 			if (s_typesAreConnectable.TryGetValue(types, out bool connectable))
 			{
 				return connectable;
@@ -816,19 +816,50 @@ namespace GraphProcessor
 
 			bool AreTypesAreConnectableLocal()
 			{
-				if (TypeAdapter.AreIncompatible(t1, t2))
+				if (TypeAdapter.AreIncompatible(from, to))
 					return false;
 
 				// Check for type assignability.
-				if (t2.IsReallyAssignableFrom(t1))
+				if (to.IsReallyAssignableFrom(from))
 					return true;
 
 				// User defined type conversions.
-				if (TypeAdapter.AreAssignable(t1, t2))
+				if (TypeAdapter.AreAssignable(from, to))
 					return true;
+
+				// Nullable generic nodes.
+				if (from == typeof(GenericNodeAttribute.Empty))
+				{
+					// From Empty to (Struct or Struct?)
+					if (!to.IsClass && to != typeof(GenericNodeAttribute.Empty))
+					{
+						return true;
+					}
+				}
+				else if (!from.IsClass)
+				{
+					if (IsNullable(from))
+					{
+						// From Struct? to Empty?
+						if (to == typeof(GenericNodeAttribute.Empty?))
+						{
+							return true;
+						}
+					}
+					else
+					{
+						// From Struct to Empty
+						if (to == typeof(GenericNodeAttribute.Empty))
+						{
+							return true;
+						}
+					}
+				}
 
 				return false;
 			}
+
+			bool IsNullable(Type t) => t.IsGenericType && t.GetGenericTypeDefinition() == typeof(Nullable<>);
 		}
 
 		public void Realize() => Realize(0);

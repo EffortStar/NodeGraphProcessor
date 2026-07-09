@@ -14,16 +14,15 @@ namespace GraphProcessor
 	/// <summary>
 	/// Compiles edge push functions for our graphs so we're not executing interpreted Linq expressions.
 	/// </summary>
-	public sealed class GraphCompilation
+	public sealed class GraphCompilation : IDisposable
 	{
+		private readonly List<BaseGraph> _graphs = new();
 		private readonly Dictionary<string, SerializableEdge> _edges = new();
-		private readonly int _graphCount;
 		private readonly bool _debug;
 
 		public GraphCompilation(IEnumerable<BaseGraph> graphs, bool debug = false)
 		{
 			_debug = debug;
-			_graphCount = 0;
 			foreach (BaseGraph graphPrefab in graphs)
 			{
 				// Don't compile subgraphs.
@@ -34,37 +33,28 @@ namespace GraphProcessor
 				}
 
 				BaseGraph graph = Object.Instantiate(graphPrefab);
-				try
-				{
-					graph.name = graphPrefab.name;
-					// NOTE: We have to realize graphs to make sure edge connections
-					//  between subgraphs and relays are resolved to their final form.
-					//  Otherwise those graphs would contain edges that would resolve
-					//  to Linq Expressions.
-					graph.Realize();
+				_graphs.Add(graph);
+				graph.name = graphPrefab.name;
+				// NOTE: We have to realize graphs to make sure edge connections
+				//  between subgraphs and relays are resolved to their final form.
+				//  Otherwise those graphs would contain edges that would resolve
+				//  to Linq Expressions.
+				graph.Realize();
 
-					foreach (SerializableEdge edge in graph.edges)
+				foreach (SerializableEdge edge in graph.edges)
+				{
+					if (edge.Key is { } key)
 					{
-						if (edge.Key is { } key)
-						{
-							_edges.TryAdd(key, edge);
-						}
+						_edges.TryAdd(key, edge);
 					}
-
 				}
-				finally
-				{
-					Object.DestroyImmediate(graph);
-				}
-
-				_graphCount++;
 			}
 		}
 
 		[MustUseReturnValue]
 		public AssemblyBuilder Compile()
 		{
-			Debug.Log($"Compiling {_edges.Count} FieldInfo->FieldInfo edges across {_graphCount} graphs.");
+			Debug.Log($"Compiling {_edges.Count} FieldInfo->FieldInfo edges across {_graphs.Count} graphs.");
 
 			// Create assembly
 			const string assemblyName = "Game.Graphs.Compiled";
@@ -93,6 +83,11 @@ namespace GraphProcessor
 			{
 				Expression<PushDataDelegate> expression
 					= CreatePushDataExpression(edge);
+
+				if (expression == null)
+				{
+					throw new Exception($"[{nameof(GraphCompilation)}] Failed. \"{edge}\" didn't generate a {nameof(PushDataDelegate)}.");
+				}
 
 				NodeFieldPath from = edge.FromPort._fieldInfo.Path;
 				NodeFieldPath to = edge.ToPort._fieldInfo.Path;
@@ -300,6 +295,16 @@ namespace GraphProcessor
 					return loop;
 				}
 			}
+		}
+
+		public void Dispose()
+		{
+			foreach (BaseGraph graph in _graphs)
+			{
+				Object.DestroyImmediate(graph);
+			}
+
+			_graphs.Clear();
 		}
 	}
 }

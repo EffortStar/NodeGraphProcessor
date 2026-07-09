@@ -102,6 +102,11 @@ namespace GraphProcessor
 	[AttributeUsage(AttributeTargets.Class)]
 	public sealed class GenericNodeAttribute : Attribute
 	{
+		/// <summary>
+		/// A type that can be used when a generic node is constrained to a struct.
+		/// </summary>
+		public readonly struct Empty { }
+
 		public Type BaseConstraintType { get; }
 		public Type[] ExcludedTypes { get; }
 		public string[] Reasons { get; }

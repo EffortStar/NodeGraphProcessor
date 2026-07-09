@@ -160,10 +160,18 @@ namespace GraphProcessor
 				{
 					if (parameter.Direction != (isInput ? ParameterDirection.Output : ParameterDirection.Input))
 						continue;
-					
-					if (!BaseGraph.TypesAreConnectable(parameter.GetValueType(), originPortView.PortType))
-						continue;
-					
+
+					if (parameter.Direction == ParameterDirection.Output)
+					{
+						if (!BaseGraph.TypesAreConnectable(parameter.GetValueType(), originPortView.PortType))
+							continue;
+					}
+					else
+					{
+						if (!BaseGraph.TypesAreConnectable(originPortView.PortType, parameter.GetValueType()))
+							continue;
+					}
+
 					yield return (new NodeProvider.PortDescription
 					{
 						IsInput = isInput,

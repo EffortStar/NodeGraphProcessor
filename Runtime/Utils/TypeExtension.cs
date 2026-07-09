@@ -1,4 +1,3 @@
-using UnityEngine;
 using System;
 using System.Linq.Expressions;
 
@@ -9,9 +8,9 @@ namespace GraphProcessor
 		public static bool IsReallyAssignableFrom(this Type type, Type otherType)
 		{
 			if (type.IsAssignableFrom(otherType))
+			{
 				return true;
-			if (otherType.IsAssignableFrom(type))
-				return true;
+			}
 
 			try
 			{

@@ -16,7 +16,7 @@ namespace GraphProcessor
 		[MenuItem("Effort Star/Graphs/Compile Edge Push Functions")]
 		public static void CompileAllGraphsForBuild()
 		{
-			GraphCompilation compilation = new(
+			using GraphCompilation compilation = new(
 				AssetDatabase.FindAssets("t:" + nameof(BaseGraph), new[] { "Assets" })
 					.Select(guid => AssetDatabase.LoadAssetAtPath<BaseGraph>(AssetDatabase.GUIDToAssetPath(guid)))
 					.Where(graph => graph != null)

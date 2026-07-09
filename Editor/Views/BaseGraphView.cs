@@ -9,6 +9,7 @@ using System.IO;
 using UnityEditor.SceneManagement;
 using JetBrains.Annotations;
 using UnityEditor.UIElements;
+using static GraphProcessor.GenericNodeAttribute;
 using Status = UnityEngine.UIElements.DropdownMenuAction.Status;
 using Object = UnityEngine.Object;
 
@@ -425,9 +426,17 @@ namespace GraphProcessor
 				if (p.direction == startPort.direction)
 					return false;
 
-				//Check for type assignability
-				if (!BaseGraph.TypesAreConnectable(startPort.portType, p.portType))
-					return false;
+				// Check for type assignability
+				if (startPort.direction == Direction.Output)
+				{
+					if (!BaseGraph.TypesAreConnectable(startPort.portType, p.portType))
+						return false;
+				}
+				else
+				{
+					if (!BaseGraph.TypesAreConnectable(p.portType, startPort.portType))
+						return false;
+				}
 
 				//Check if the edge already exists
 				if (portView.GetEdges().Any(e => e.input == startPort || e.output == startPort))
@@ -1204,24 +1213,7 @@ namespace GraphProcessor
 
 			AddElement(e);
 
-			if (
-				inputNodeView.IsUnmorphedGenericNode(out Type baseTypeConstraint)
-				&& inputPortView.PortType == baseTypeConstraint
-				&& inputNodeView.MorphNodeToGenericNodeType(outputPortView.PortType, solidifyType: true)
-			)
-			{
-				e.input = null;
-				NodeViewsPerNode[inputNodeView.NodeTarget] = inputNodeView;
-			}
-			else if (
-				outputNodeView.IsUnmorphedGenericNode(out baseTypeConstraint)
-				&& outputPortView.PortType == baseTypeConstraint
-				&& outputNodeView.MorphNodeToGenericNodeType(inputPortView.PortType, solidifyType: true)
-			)
-			{
-				e.output = null;
-				NodeViewsPerNode[outputNodeView.NodeTarget] = outputNodeView;
-			}
+			TryMorphNode();
 
 			// If the input port have been removed by the custom port behavior
 			// we try to find if it's still here
@@ -1242,6 +1234,66 @@ namespace GraphProcessor
 			e.IsConnected = true;
 
 			return true;
+
+			void TryMorphNode()
+			{
+				if (inputNodeView.IsUnmorphedGenericNode(out Type baseTypeConstraint))
+				{
+					if (
+						inputPortView.PortType == baseTypeConstraint
+						&& inputNodeView.MorphNodeToGenericNodeType(outputPortView.PortType, solidifyType: true)
+					)
+					{
+						e.input = null;
+						NodeViewsPerNode[inputNodeView.NodeTarget] = inputNodeView;
+						return;
+					}
+
+					if (baseTypeConstraint == typeof(Empty) && inputPortView.PortType == typeof(Empty?))
+					{
+						Type targetType = IsNullable(outputPortView.PortType)
+							? outputPortView.PortType.GetGenericArguments()[0]
+							: outputPortView.PortType;
+						if (inputNodeView.MorphNodeToGenericNodeType(targetType, solidifyType: true))
+						{
+							e.input = null;
+							NodeViewsPerNode[inputNodeView.NodeTarget] = inputNodeView;
+							return;
+						}
+					}
+				}
+
+				if (outputNodeView.IsUnmorphedGenericNode(out baseTypeConstraint))
+				{
+					if (
+						outputPortView.PortType == baseTypeConstraint
+						&& outputNodeView.MorphNodeToGenericNodeType(inputPortView.PortType, solidifyType: true)
+					)
+					{
+						e.output = null;
+						NodeViewsPerNode[outputNodeView.NodeTarget] = outputNodeView;
+						return;
+					}
+					
+					if (baseTypeConstraint == typeof(Empty) && outputPortView.PortType == typeof(Empty?))
+					{
+						Type targetType = IsNullable(inputPortView.PortType)
+							? inputPortView.PortType.GetGenericArguments()[0]
+							: inputPortView.PortType;
+						if (outputNodeView.MorphNodeToGenericNodeType(targetType, solidifyType: true))
+						{
+							// ReSharper disable once RedundantJumpStatement
+							e.output = null;
+							NodeViewsPerNode[outputNodeView.NodeTarget] = outputNodeView;
+							return;
+						}
+					}
+				}
+
+				return;
+				
+				bool IsNullable(Type t) => t.IsGenericType && t.GetGenericTypeDefinition() == typeof(Nullable<>);
+			}
 		}
 
 		public bool Connect(PortView fromPortView, PortView toPortView, bool autoDisconnectInputs = true)
