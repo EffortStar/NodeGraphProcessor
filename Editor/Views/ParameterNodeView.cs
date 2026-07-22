@@ -10,7 +10,7 @@ namespace GraphProcessor
 
 		public override void Enable(bool fromInspector = false)
 		{
-			_parameterNode = (ParameterNode)nodeTarget;
+			_parameterNode = (ParameterNode)NodeTarget;
 
 			UpdatePort();
 

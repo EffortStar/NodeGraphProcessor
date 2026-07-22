@@ -91,6 +91,7 @@ namespace GraphProcessor
 			private MonoScript _script;
 			private MonoScript _viewScript;
 			private List<PortDescription> _portDescriptions;
+			private Dictionary<string, ConfigureNode> _configurationMethods;
 
 			public CachedNodeDetails(Type nodeType)
 			{
@@ -149,6 +150,15 @@ namespace GraphProcessor
 				color = _color.GetValueOrDefault();
 				return _color.HasValue;
 			}
+
+			public void AddConfiguration(string menuTitle, ConfigureNode configuration)
+			{
+				_configurationMethods ??= new Dictionary<string, ConfigureNode>();
+				_configurationMethods.Add(menuTitle, configuration);
+			}
+
+			public ConfigureNode GetConfigurationOrNull(string menuPath)
+				=> _configurationMethods?.TryGetValue(menuPath, out ConfigureNode configuration) ?? false ? configuration : null;
 		}
 
 		private sealed class NodeCreationDetails
@@ -223,7 +233,7 @@ namespace GraphProcessor
 		}
 
 		private static readonly AllCachedNodeDetails s_nodeCache = new();
-		[CanBeNull] private static NodeCreationDetails _nodeCreationDetails = null;
+		[CanBeNull] private static NodeCreationDetails _nodeCreationDetails;
 
 		private static void BuildNodeCache()
 		{
@@ -238,7 +248,7 @@ namespace GraphProcessor
 			{
 				if (!s_nodeCache.NodesByType.TryGetValue(type, out CachedNodeDetails cache))
 				{
-					Debug.LogError($"{type} was decorated with {nameof(NodeMenuItemAttribute)} but it doesn't inherit from {nameof(BaseNode)}.");
+					Debug.LogError($"{type} was decorated with {nameof(NodeMenuItemAttribute)} but it doesn't inherit from {nameof(BaseNode)} or is abstract.");
 					continue;
 				}
 
@@ -258,6 +268,94 @@ namespace GraphProcessor
 					{
 						cache.Flags |= NodeFlags.SubgraphIncompatible;
 					}
+				}
+			}
+			
+			// Collect node menu details
+			foreach (Type type in TypeCache.GetTypesWithAttribute<GenericNodeMenuItemAttribute>())
+			{
+				if (!s_nodeCache.NodesByType.ContainsKey(type))
+				{
+					Debug.LogError($"{type} was decorated with {nameof(GenericNodeMenuItemAttribute)} but it doesn't inherit from {nameof(BaseNode)} or is abstract.");
+					continue;
+				}
+				
+				foreach (GenericNodeMenuItemAttribute attribute in type.GetCustomAttributes<GenericNodeMenuItemAttribute>())
+				{
+					Type genericType;
+					try
+					{
+						genericType = type.MakeGenericType(attribute.TypeParameters);
+					}
+					catch (Exception)
+					{
+						Debug.LogError(
+							$"{nameof(GenericNodeMenuItemAttribute)} on {type.Name} could not be solidified " +
+							$"using types {string.Join(',', attribute.TypeParameters.Select(t => t.Name))}"
+						);
+						continue;
+					}
+
+					CachedNodeDetails cache;
+					if (!s_nodeCache.NodesByType.TryAdd(genericType, cache = new CachedNodeDetails(genericType)))
+					{
+						Debug.LogError($"{nameof(GenericNodeMenuItemAttribute)}: Multiple nodes of type {genericType} were attempted to be registered from {type}.");
+						continue;
+					}
+					
+					if (!string.IsNullOrEmpty(attribute.MenuTitle))
+					{
+						cache.AddMenuPath(attribute.MenuTitle);
+					}
+
+					foreach (NodeMenuItemAttribute menuAttribute in type.GetCustomAttributes<NodeMenuItemAttribute>())
+					{
+						if (menuAttribute.OnlyCompatibleWithGraph != null)
+						{
+							cache.AddCompatibleGraphType(menuAttribute.OnlyCompatibleWithGraph);
+						}
+
+						if (!menuAttribute.SubgraphSupport)
+						{
+							cache.Flags |= NodeFlags.SubgraphIncompatible;
+						}
+					}
+				}
+			}
+			
+			foreach (MethodInfo methodInfo in TypeCache.GetMethodsWithAttribute<NodeMenuItemProducerAttribute>())
+			{
+				if (!methodInfo.IsStatic)
+				{
+					Debug.LogError($"{methodInfo} was decorated with {nameof(NodeMenuItemProducerAttribute)} but it was not static.");
+					continue;
+				}
+
+				if (methodInfo.Invoke(null, null) is not ProducedNode[] producedNodes)
+				{
+					Debug.LogError($"{methodInfo} was decorated with {nameof(NodeMenuItemProducerAttribute)} but does not return {nameof(ProducedNode)}[].");
+					continue;
+				}
+
+				foreach (ProducedNode producedNode in producedNodes)
+				{
+					Type type = producedNode.NodeType;
+					if (!s_nodeCache.NodesByType.TryGetValue(type, out CachedNodeDetails cache))
+					{
+						// Late detail creation for generic types.
+						if (type.IsGenericType && !type.IsAbstract && typeof(BaseNode).IsAssignableFrom(type))
+						{
+							s_nodeCache.NodesByType.Add(type, cache = new CachedNodeDetails(type));
+						}
+						else
+						{
+							Debug.LogError($"{type} was decorated with {nameof(NodeMenuItemAttribute)} but it doesn't inherit from {nameof(BaseNode)} or is abstract.");
+							continue;
+						}
+					}
+					
+					cache.AddMenuPath(producedNode.MenuTitle);
+					cache.AddConfiguration(producedNode.MenuTitle, producedNode.Configure);
 				}
 			}
 
@@ -318,6 +416,8 @@ namespace GraphProcessor
 				cache.SetColor(type.GetCustomAttribute<NodeColorAttribute>(true).Color);
 			}
 		}
+		
+		
 
 		public struct PortDescription
 		{
@@ -325,7 +425,7 @@ namespace GraphProcessor
 			public Type PortType;
 			public BaseGraph SubgraphContext;
 			public bool IsInput;
-			public string PortFieldName;
+			public string PortFieldPath;
 			public string PortIdentifier;
 			public string PortDisplayName;
 		}
@@ -339,11 +439,10 @@ namespace GraphProcessor
 
 			var node = (BaseNode)Activator.CreateInstance(nodeType);
 			node.InitializePorts();
-			node.UpdateAllPorts();
 
-			foreach (NodePort p in node.inputPorts)
+			foreach (NodePort p in node.InputPorts)
 				AddPort(p, true);
-			foreach (NodePort p in node.outputPorts)
+			foreach (NodePort p in node.OutputPorts)
 				AddPort(p, false);
 			return;
 
@@ -352,11 +451,11 @@ namespace GraphProcessor
 				descriptions.Add(new PortDescription
 				{
 					NodeType = nodeType,
-					PortType = p.portData.displayType ?? p.fieldInfo.FieldType,
+					PortType = p.DisplayType,
 					IsInput = input,
-					PortFieldName = p.fieldName,
-					PortDisplayName = p.portData.displayName ?? p.fieldName,
-					PortIdentifier = p.portData.identifier,
+					PortFieldPath = p.FieldPath,
+					PortDisplayName = p.EditorDisplayName ?? p.FieldPath,
+					PortIdentifier = p.Identifier,
 				});
 			}
 		}
@@ -398,7 +497,7 @@ namespace GraphProcessor
 			}
 		}
 
-		public static IEnumerable<(string path, Type type)> GetNodeMenuEntries(BaseGraph graph = null)
+		public static IEnumerable<(string path, Type type, ConfigureNode configuration)> GetNodeMenuEntries(BaseGraph graph = null)
 		{
 			Type graphType = graph == null ? null : graph.GetType();
 
@@ -411,7 +510,7 @@ namespace GraphProcessor
 					continue;
 
 				foreach (string menuPath in details.MenuPaths)
-					yield return (menuPath, nodeType);
+					yield return (menuPath, nodeType, details.GetConfigurationOrNull(menuPath));
 			}
 		}
 
@@ -466,8 +565,16 @@ namespace GraphProcessor
 				if ((portView.direction == Direction.Input && description.IsInput) || (portView.direction == Direction.Output && !description.IsInput))
 					return false;
 
-				if (!BaseGraph.TypesAreConnectable(description.PortType, portView.portType))
-					return false;
+				if (portView.direction == Direction.Output)
+				{
+					if (!BaseGraph.TypesAreConnectable(portView.PortType, description.PortType))
+						return false;
+				}
+				else
+				{
+					if (!BaseGraph.TypesAreConnectable(description.PortType, portView.PortType))
+						return false;
+				}
 
 				return true;
 			}

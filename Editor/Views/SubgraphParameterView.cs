@@ -121,7 +121,7 @@ namespace GraphProcessor
 
 
 			graphView.onSubgraphParameterListChanged += UpdateParameterList;
-			graphView.initialized += UpdateParameterList;
+			graphView.Initialized += UpdateParameterList;
 			Undo.undoRedoPerformed += UpdateParameterList;
 			RegisterCallback<DetachFromPanelEvent>(OnViewClosed);
 

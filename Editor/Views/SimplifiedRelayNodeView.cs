@@ -9,7 +9,7 @@ namespace GraphProcessor
 	[NodeCustomEditor(typeof(SimplifiedRelayNode)), UsedImplicitly]
 	public sealed class SimplifiedRelayNodeView : BaseNodeView
 	{
-		public override string layoutStyle => "GraphProcessorStyles/RelayNode";
+		public override string LayoutStyle => "GraphProcessorStyles/RelayNode";
 		
 		public override void Enable()
 		{
@@ -32,8 +32,8 @@ namespace GraphProcessor
 			// i.e. multiple relay node deletion
 			schedule.Execute(() =>
 			{
-				List<EdgeView> inputEdges = inputPortViews[0].GetEdges();
-				List<EdgeView> outputEdges = outputPortViews[0].GetEdges();
+				List<EdgeView> inputEdges = InputPortViews[0].GetEdges();
+				List<EdgeView> outputEdges = OutputPortViews[0].GetEdges();
 
 				if (inputEdges.Count == 0 || outputEdges.Count == 0)
 					return;
@@ -45,7 +45,7 @@ namespace GraphProcessor
 					var input = outputEdge.input as PortView;
 					var output = inputEdge.output as PortView;
 
-					owner.Connect(output, input);
+					Owner.Connect(output, input);
 				}
 			}).ExecuteLater(1);
 		}

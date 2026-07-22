@@ -10,9 +10,9 @@ namespace GraphProcessor
 		public new const string UssClassName = "subgraph-node";
 		public const string TitleUssClassName = UssClassName + "__icon";
 
-		private SubgraphNode SubgraphNode => (SubgraphNode)nodeTarget;
+		private SubgraphNode SubgraphNode => (SubgraphNode)NodeTarget;
 
-		protected override bool hasSettings => true;
+		protected override bool HasSettings => true;
 
 		public SubgraphNodeView()
 		{
@@ -21,7 +21,7 @@ namespace GraphProcessor
 			{
 				if (evt.button != 0 || evt.clickCount != 2)
 					return;
-				BaseGraph subgraph = ((SubgraphNode)nodeTarget).Subgraph;
+				BaseGraph subgraph = ((SubgraphNode)NodeTarget).Subgraph;
 				if (subgraph == null)
 					return;
 
@@ -45,7 +45,7 @@ namespace GraphProcessor
 			var subgraphField = new PropertyField(FindSerializedProperty("_subgraph"), "");
 			subgraphField.RegisterValueChangeCallback(_ =>
 			{
-				ForceUpdatePorts();
+				RefreshPorts();
 				UpdateTitle();
 				UpdateError();
 			});

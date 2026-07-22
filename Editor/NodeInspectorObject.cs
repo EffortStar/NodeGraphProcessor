@@ -53,14 +53,14 @@ namespace GraphProcessor
         {
             var view = new VisualElement();
 
-            view.Add(new Label(nodeView.nodeTarget.name));
+            view.Add(new Label(nodeView.NodeTarget.name));
 
-            var tmp = nodeView.controlsContainer;
-            nodeView.controlsContainer = view;
+            var tmp = nodeView.ControlsContainer;
+            nodeView.ControlsContainer = view;
             nodeView.Enable(true);
-            nodeView.controlsContainer.AddToClassList("NodeControls");
-            var block = nodeView.controlsContainer;
-            nodeView.controlsContainer = tmp;
+            nodeView.ControlsContainer.AddToClassList("NodeControls");
+            var block = nodeView.ControlsContainer;
+            nodeView.ControlsContainer = tmp;
             
             return block;
         }

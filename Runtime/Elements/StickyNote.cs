@@ -1,3 +1,4 @@
+
 using System;
 using UnityEngine;
 
@@ -10,8 +11,10 @@ namespace GraphProcessor
     public class StickyNote
     {
         public Rect position;
-        public string title = "Hello World!";
+        public string title;
         public string content = "Description";
+        public int fontSize;
+        public int theme = 1;
 
         public StickyNote(string title, Vector2 position)
         {

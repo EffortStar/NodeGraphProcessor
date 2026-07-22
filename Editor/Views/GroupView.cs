@@ -186,7 +186,7 @@ namespace GraphProcessor
 			evt.menu.AppendAction("Delete Group and Children", _ =>
 			{
 				foreach (BaseNodeView node in GetOverlappingNodes().ToArray())
-					Owner.RemoveNode(node.nodeTarget);
+					Owner.RemoveNode(node.NodeTarget);
 				Owner.RemoveGroup(this);
 			});
 			evt.menu.AppendSeparator();
@@ -217,7 +217,7 @@ namespace GraphProcessor
 		private IEnumerable<BaseNodeView> GetOverlappingNodes()
 		{
 			Rect thisRect = RectUtils.Inflate(layout, -Padding, -(Padding + TitleHeight), -Padding, -Padding);
-			foreach (BaseNodeView node in Owner.nodeViews)
+			foreach (BaseNodeView node in Owner.NodeViews)
 			{
 				if (thisRect.Overlaps(node.layout))
 					yield return node;

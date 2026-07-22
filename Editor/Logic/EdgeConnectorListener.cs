@@ -46,7 +46,7 @@ namespace GraphProcessor
 				return ;
 
 			//If the edge was moved to another port
-			if (edgeView.isConnected)
+			if (edgeView.IsConnected)
 			{
 				if (edgeInputPorts.ContainsKey(edge) && edgeOutputPorts.ContainsKey(edge))
 					if (edgeInputPorts[edge] == edge.input && edgeOutputPorts[edge] == edge.output)
@@ -68,7 +68,17 @@ namespace GraphProcessor
 					this.graphView.Disconnect((EdgeView)edge);
 			} catch (System.Exception)
 			{
-				this.graphView.Disconnect((EdgeView)edge);
+				try
+				{
+					this.graphView.Disconnect((EdgeView)edge);
+				}
+				catch (System.Exception e)
+				{
+					// NOTE: the original exception is likely more important
+					Debug.LogException(e);
+				}
+
+				throw;
 			}
 		}
 

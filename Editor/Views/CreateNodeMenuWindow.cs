@@ -60,14 +60,14 @@ namespace GraphProcessor
 		private void CreateStandardNodeMenu(List<SearchTreeEntry> tree)
 		{
 			// Sort menu by alphabetical order and submenus
-			IOrderedEnumerable<(string path, Type type)> nodeEntries = _graphView.FilterCreateNodeMenuEntries().OrderBy(k => k.path);
+			IOrderedEnumerable<(string path, Type type, ConfigureNode configuration)> nodeEntries = _graphView.FilterCreateNodeMenuEntries().OrderBy(k => k.path);
 			var titlePaths = new HashSet<string>();
 			AddNodeEntries(tree, nodeEntries, titlePaths);
-			IEnumerable<(string, BaseGraph)> subgraphEntries = GetSubgraphEntries();
+			IEnumerable<(string, BaseGraph, ConfigureNode configuration)> subgraphEntries = GetSubgraphEntries();
 			AddNodeEntries(tree, subgraphEntries, titlePaths);
 		}
 
-		private IEnumerable<(string path, BaseGraph subgraph)> GetSubgraphEntries()
+		private IEnumerable<(string path, BaseGraph subgraph, ConfigureNode config)> GetSubgraphEntries()
 		{
 			Type type = _graphView.graph.GetType();
 			foreach (BaseGraph subgraph in AssetDatabase.FindAssets($"t:{nameof(BaseGraph)}")
@@ -77,13 +77,13 @@ namespace GraphProcessor
 				if (!subgraph.GetType().IsAssignableFrom(type))
 					continue;
 
-				yield return ($"Subgraph/{SubgraphNode.GetNameFromSubgraph(subgraph)}", subgraph);
+				yield return ($"Subgraph/{SubgraphNode.GetNameFromSubgraph(subgraph)}", subgraph, null);
 			}
 		}
 
-		private void AddNodeEntries<T>(List<SearchTreeEntry> tree, IEnumerable<(string path, T type)> nodeEntries, HashSet<string> titlePaths)
+		private void AddNodeEntries<T>(List<SearchTreeEntry> tree, IEnumerable<(string path, T type, ConfigureNode configuration)> nodeEntries, HashSet<string> titlePaths)
 		{
-			foreach ((string nodePath, T type) in nodeEntries)
+			foreach ((string nodePath, T type, ConfigureNode configuration) in nodeEntries)
 			{
 				string nodeName = nodePath;
 				var level = 0;
@@ -116,7 +116,7 @@ namespace GraphProcessor
 				tree.Add(new SearchTreeEntry(new GUIContent(nodeName, _icon))
 				{
 					level = level + 1,
-					userData = type
+					userData = (type, configuration)
 				});
 			}
 		}
@@ -128,7 +128,7 @@ namespace GraphProcessor
 
 			var titlePaths = new HashSet<string>();
 
-			(string path, Type type)[] nodePaths = NodeProvider.GetNodeMenuEntries(_graphView.graph).ToArray();
+			(string path, Type type, ConfigureNode _)[] nodePaths = NodeProvider.GetNodeMenuEntries(_graphView.graph).ToArray();
 
 			tree.Add(new SearchTreeEntry(new GUIContent("Relay", _icon))
 			{
@@ -137,7 +137,7 @@ namespace GraphProcessor
 				{
 					PortType = typeof(object),
 					IsInput = _inputPortView != null,
-					PortFieldName = _inputPortView != null ? nameof(SimplifiedRelayNode.Out) : nameof(SimplifiedRelayNode.In),
+					PortFieldPath = _inputPortView != null ? SimplifiedRelayNode.OutputPortKey : SimplifiedRelayNode.InputPortKey,
 					PortDisplayName = _inputPortView != null ? "Out" : "In",
 					NodeType = typeof(SimplifiedRelayNode)
 				}
@@ -160,15 +160,23 @@ namespace GraphProcessor
 				{
 					if (parameter.Direction != (isInput ? ParameterDirection.Output : ParameterDirection.Input))
 						continue;
-					
-					if (!BaseGraph.TypesAreConnectable(parameter.GetValueType(), originPortView.portType))
-						continue;
-					
+
+					if (parameter.Direction == ParameterDirection.Output)
+					{
+						if (!BaseGraph.TypesAreConnectable(parameter.GetValueType(), originPortView.PortType))
+							continue;
+					}
+					else
+					{
+						if (!BaseGraph.TypesAreConnectable(originPortView.PortType, parameter.GetValueType()))
+							continue;
+					}
+
 					yield return (new NodeProvider.PortDescription
 					{
 						IsInput = isInput,
 						PortType = parameter.GetValueType(),
-						PortFieldName = isInput ? nameof(SubgraphNode.Outputs) : nameof(SubgraphNode.Inputs),
+						PortFieldPath = isInput ? SubgraphNode.OutputPortKey : SubgraphNode.InputPortKey,
 						PortIdentifier = parameter.Guid,
 						PortDisplayName = parameter.Name,
 						SubgraphContext = graph,
@@ -238,8 +246,9 @@ namespace GraphProcessor
 			BaseNode node;
 			switch (searchTreeEntry.userData)
 			{
-				case Type t:
-					node = BaseNode.CreateFromType(t, graphMousePosition);
+				case ValueTuple<Type, ConfigureNode> args:
+					node = BaseNode.CreateFromType(args.Item1, graphMousePosition);
+					args.Item2?.Invoke(node);
 					break;
 				case NodeProvider.PortDescription description when description.SubgraphContext != null:
 				{
@@ -251,10 +260,10 @@ namespace GraphProcessor
 				case NodeProvider.PortDescription description:
 					node = BaseNode.CreateFromType(description.NodeType, graphMousePosition);
 					break;
-				case BaseGraph graph:
+				case ValueTuple<BaseGraph, ConfigureNode> args:
 				{
 					var subgraphNode = BaseNode.CreateFromType<SubgraphNode>(graphMousePosition);
-					subgraphNode.Subgraph = graph;
+					subgraphNode.Subgraph = args.Item1;
 					node = subgraphNode;
 					break;
 				}
@@ -267,7 +276,7 @@ namespace GraphProcessor
 
 			if (searchTreeEntry.userData is NodeProvider.PortDescription desc)
 			{
-				PortView targetPort = view.GetPortViewFromFieldName(desc.PortFieldName, desc.PortIdentifier);
+				PortView targetPort = view.GetPortView(desc.PortFieldPath, desc.PortIdentifier);
 				if (_inputPortView == null)
 					_graphView.Connect(_outputPortView, targetPort);
 				else
