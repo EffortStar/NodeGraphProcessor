@@ -1245,7 +1245,6 @@ namespace GraphProcessor
 					)
 					{
 						e.input = null;
-						NodeViewsPerNode[inputNodeView.NodeTarget] = inputNodeView;
 						return;
 					}
 
@@ -1257,7 +1256,6 @@ namespace GraphProcessor
 						if (inputNodeView.MorphNodeToGenericNodeType(targetType, solidifyType: true))
 						{
 							e.input = null;
-							NodeViewsPerNode[inputNodeView.NodeTarget] = inputNodeView;
 							return;
 						}
 					}
@@ -1271,7 +1269,6 @@ namespace GraphProcessor
 					)
 					{
 						e.output = null;
-						NodeViewsPerNode[outputNodeView.NodeTarget] = outputNodeView;
 						return;
 					}
 					
@@ -1284,7 +1281,6 @@ namespace GraphProcessor
 						{
 							// ReSharper disable once RedundantJumpStatement
 							e.output = null;
-							NodeViewsPerNode[outputNodeView.NodeTarget] = outputNodeView;
 							return;
 						}
 					}

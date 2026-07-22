@@ -12,6 +12,7 @@ using System.Text.RegularExpressions;
 using JetBrains.Annotations;
 using UnityEngine.Pool;
 using NodeView = UnityEditor.Experimental.GraphView.Node;
+using Object = UnityEngine.Object;
 
 namespace GraphProcessor
 {
@@ -920,6 +921,23 @@ namespace GraphProcessor
 
 			element.RegisterValueChangeCallback(e =>
 			{
+				if (e.changedProperty.propertyType == SerializedPropertyType.ObjectReference
+					&& e.changedProperty.objectReferenceValue != null
+					&& IsUnmorphedGenericNode(out Type baseTypeConstraint))
+				{
+					Object value = e.changedProperty.objectReferenceValue;
+					Type type = value.GetType();
+					if (baseTypeConstraint.IsAssignableFrom(type))
+					{
+						e.changedProperty.serializedObject.ApplyModifiedProperties();
+						if (MorphNodeToGenericNodeType(type, solidifyType: true))
+						{
+							// 'field' is not valid from this point.
+							return;
+						}
+					}
+				}
+				
 				UpdateFieldVisibility(field.Name, field.GetValue(NodeTarget));
 				valueChangedCallback?.Invoke();
 				NotifyNodeChanged();
@@ -1149,6 +1167,8 @@ namespace GraphProcessor
 				return false;
 			}
 			
+			Owner.NodeViewsPerNode[NodeTarget] = this;
+			
 			foreach (PortView portView in OutputPortViews)
 			{
 				foreach (EdgeView edgeView in portView.GetEdges())
@@ -1185,7 +1205,9 @@ namespace GraphProcessor
 				{
 					BaseNode prevNode = NodeTarget;
 					var instance = (BaseNode)Activator.CreateInstance(toType);
-					FieldInfo[] fields = toType.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.FlattenHierarchy);
+					FieldInfo[] fields = toType.GetFields(
+						BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.FlattenHierarchy
+					);
 					foreach (FieldInfo field in fields)
 					{
 						if (field.IsInitOnly) continue;
@@ -1196,7 +1218,21 @@ namespace GraphProcessor
 						}
 						catch (Exception)
 						{
-							// Generic fields won't copy, but this is fine.
+							try
+							{
+								FieldInfo fromField = prevNode.GetType()
+									.GetField(field.Name,
+										BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.FlattenHierarchy
+									);
+								if (fromField != null)
+								{
+									field.SetValue(instance, fromField.GetValue(prevNode));
+								}
+							}
+							catch (Exception e)
+							{
+								Debug.LogException(e);
+							}
 						}
 					}
 
