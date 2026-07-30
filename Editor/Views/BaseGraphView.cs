@@ -70,12 +70,6 @@ namespace GraphProcessor
 		private readonly List<StickyNoteView> _stickyNoteViews = new();
 #endif
 
-		/// <summary>
-		/// List of all stack node views in the graph
-		/// </summary>
-		/// <typeparam name="BaseStackNodeView"></typeparam>
-		/// <returns></returns>
-		private readonly List<BaseStackNodeView> _stackNodeViews = new();
 		private readonly Dictionary<Type, PinnedElementView> _pinnedElements = new();
 		private readonly CreateNodeMenuWindow _createNodeMenu;
 
@@ -327,11 +321,6 @@ namespace GraphProcessor
 						case SubgraphParameterFieldView blackboardField:
 							graph.RemoveSubgraphParameter(blackboardField.Parameter);
 							UpdateSerializedProperties();
-							return true;
-						case BaseStackNodeView stackNodeView:
-							graph.RemoveStackNode(stackNodeView.stackNode);
-							UpdateSerializedProperties();
-							RemoveElement(stackNodeView);
 							return true;
 #if UNITY_2020_1_OR_NEWER
 						case StickyNoteView stickyNoteView:
@@ -742,8 +731,6 @@ namespace GraphProcessor
 #if UNITY_2020_1_OR_NEWER
 			RemoveStickyNotes();
 #endif
-			RemoveStackNodeViews();
-
 			UpdateSerializedProperties();
 
 			// And re-add with new up to date datas
@@ -751,7 +738,6 @@ namespace GraphProcessor
 			InitializeEdgeViews();
 			InitializeGroups();
 			InitializeStickyNotes();
-			InitializeStackNodes();
 
 			Reload();
 
@@ -796,7 +782,6 @@ namespace GraphProcessor
 			InitializeViews();
 			InitializeGroups();
 			InitializeStickyNotes();
-			InitializeStackNodes();
 
 			Initialized?.Invoke();
 
@@ -808,7 +793,6 @@ namespace GraphProcessor
 			RemoveGroups();
 			RemoveNodeViews();
 			RemoveEdges();
-			RemoveStackNodeViews();
 			RemovePinnedElementViews();
 #if UNITY_2020_1_OR_NEWER
 			RemoveStickyNotes();
@@ -944,12 +928,6 @@ namespace GraphProcessor
 #endif
 		}
 
-		private void InitializeStackNodes()
-		{
-			foreach (BaseStackNode stackNode in graph.stackNodes)
-				AddStackNodeView(stackNode);
-		}
-
 		protected virtual void InitializeManipulators()
 		{
 			this.AddManipulator(new ContentDragger());
@@ -1041,13 +1019,6 @@ namespace GraphProcessor
 			NodeViewsPerNode.Clear();
 		}
 
-		private void RemoveStackNodeViews()
-		{
-			foreach (BaseStackNodeView stackView in _stackNodeViews)
-				RemoveElement(stackView);
-			_stackNodeViews.Clear();
-		}
-
 		private void RemovePinnedElementViews()
 		{
 			foreach (PinnedElementView pinnedView in _pinnedElements.Values)
@@ -1078,31 +1049,6 @@ namespace GraphProcessor
 		{
 			RemoveElement(group);
 			graph.RemoveGroup(group.Group);
-		}
-
-		public BaseStackNodeView AddStackNode(BaseStackNode stackNode)
-		{
-			graph.AddStackNode(stackNode);
-			return AddStackNodeView(stackNode);
-		}
-
-		public BaseStackNodeView AddStackNodeView(BaseStackNode stackNode)
-		{
-			Type viewType = StackNodeViewProvider.GetStackNodeCustomViewType(stackNode.GetType()) ?? typeof(BaseStackNodeView);
-			var stackView = Activator.CreateInstance(viewType, stackNode) as BaseStackNodeView;
-
-			AddElement(stackView);
-			_stackNodeViews.Add(stackView);
-
-			stackView.Initialize(this);
-
-			return stackView;
-		}
-
-		public void RemoveStackNodeView(BaseStackNodeView stackNodeView)
-		{
-			_stackNodeViews.Remove(stackNodeView);
-			RemoveElement(stackNodeView);
 		}
 
 #if UNITY_2020_1_OR_NEWER
