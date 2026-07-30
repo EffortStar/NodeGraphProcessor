@@ -105,11 +105,6 @@ namespace GraphProcessor
 		public event Action<SubgraphParameter> onSubgraphParameterModified;
 
 		/// <summary>
-		/// Triggered when the graph is linked to an active scene.
-		/// </summary>
-		public event Action<Scene> onSceneLinked;
-
-		/// <summary>
 		/// Triggered when the graph is enabled
 		/// </summary>
 		public event Action onEnabled;
