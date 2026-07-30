@@ -128,7 +128,6 @@ namespace GraphProcessor
 				OnDisable();
 
 			InitializeGraphElements();
-			DestroyBrokenGraphElements();
 			RebuildNodeCache();
 			isEnabled = true;
 			onEnabled?.Invoke();
@@ -136,14 +135,15 @@ namespace GraphProcessor
 
 		private void InitializeGraphElements()
 		{
-			// Sanitize the element lists (it's possible that nodes are null if their full class name have changed)
-			// If you rename / change the assembly of a node or parameter, please use the MovedFrom() attribute to avoid breaking the graph.
-			nodes.RemoveAll(n => n == null);
-			subgraphParameters.RemoveAll(e => e == null);
-
 			for (int i = nodes.Count - 1; i >= 0; i--)
 			{
 				BaseNode node = nodes[i];
+				if (node == null)
+				{
+					nodes.RemoveAt(i);
+					continue;
+				}
+				
 				nodesPerGUID[node.GUID] = node;
 				node.Initialize(this);
 			}
@@ -718,16 +718,6 @@ namespace GraphProcessor
 			}
 
 			return null;
-		}
-
-		private void DestroyBrokenGraphElements()
-		{
-			edges.RemoveAll(e => e.ToNode == null
-			                     || e.FromNode == null
-			                     || string.IsNullOrEmpty(e.OutputFieldPath)
-			                     || string.IsNullOrEmpty(e.InputFieldPath)
-			);
-			nodes.RemoveAll(n => n == null);
 		}
 
 		/// <summary>
