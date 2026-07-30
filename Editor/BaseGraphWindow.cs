@@ -128,11 +128,6 @@ namespace GraphProcessor
 
 			_reloadWorkaround = false;
 			graphView.Initialize(graph);
-			if (graph.IsLinkedToScene())
-				LinkGraphWindowToScene(graph.GetLinkedScene());
-			else
-				graph.onSceneLinked += LinkGraphWindowToScene;
-
 			GraphInitialized(graph);
 		}
 

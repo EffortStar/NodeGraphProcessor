@@ -944,14 +944,6 @@ namespace GraphProcessor
 				GetPortView(field.Name, "")?.PortViewValueChanged();
 			});
 
-			// Disallow picking scene objects when the graph is not linked to a scene
-			if (!Owner.graph.IsLinkedToScene())
-			{
-				var objectField = element.Q<ObjectField>();
-				if (objectField != null)
-					objectField.allowSceneObjects = false;
-			}
-
 			if (!_fieldControlsMap.TryGetValue(field, out List<VisualElement> inputFieldList))
 				inputFieldList = _fieldControlsMap[field] = new List<VisualElement>();
 			inputFieldList.Add(element);

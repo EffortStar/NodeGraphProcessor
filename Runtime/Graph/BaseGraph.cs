@@ -19,8 +19,6 @@ namespace GraphProcessor
 		public BaseNode nodeChanged;
 		public Group addedGroups;
 		public Group removedGroups;
-		public BaseStackNode addedStackNode;
-		public BaseStackNode removedStackNode;
 		public StickyNote addedStickyNotes;
 		public StickyNote removedStickyNotes;
 	}
@@ -71,14 +69,6 @@ namespace GraphProcessor
 		public List<Group> groups = new();
 
 		/// <summary>
-		/// All Stack Nodes in the graph
-		/// </summary>
-		/// <typeparam name="stackNodes"></typeparam>
-		/// <returns></returns>
-		[SerializeField, SerializeReference, HideInInspector] // Polymorphic serialization
-		public List<BaseStackNode> stackNodes = new();
-
-		/// <summary>
 		/// All pinned elements in the graph
 		/// </summary>
 		/// <typeparam name="PinnedElement"></typeparam>
@@ -102,9 +92,7 @@ namespace GraphProcessor
 
 		[SerializeField, HideInInspector]
 		public List<StickyNote> stickyNotes = new();
-
-		[NonSerialized] private Scene linkedScene;
-
+		
 		// Trick to keep the node inspector alive during the editor session
 		[SerializeField, HideInInspector]
 		internal UnityEngine.Object nodeInspectorReference;
@@ -115,11 +103,6 @@ namespace GraphProcessor
 		public event Action onSubgraphParameterListChanged;
 
 		public event Action<SubgraphParameter> onSubgraphParameterModified;
-
-		/// <summary>
-		/// Triggered when the graph is linked to an active scene.
-		/// </summary>
-		public event Action<Scene> onSceneLinked;
 
 		/// <summary>
 		/// Triggered when the graph is enabled
@@ -145,7 +128,6 @@ namespace GraphProcessor
 				OnDisable();
 
 			InitializeGraphElements();
-			DestroyBrokenGraphElements();
 			RebuildNodeCache();
 			isEnabled = true;
 			onEnabled?.Invoke();
@@ -153,14 +135,15 @@ namespace GraphProcessor
 
 		private void InitializeGraphElements()
 		{
-			// Sanitize the element lists (it's possible that nodes are null if their full class name have changed)
-			// If you rename / change the assembly of a node or parameter, please use the MovedFrom() attribute to avoid breaking the graph.
-			nodes.RemoveAll(n => n == null);
-			subgraphParameters.RemoveAll(e => e == null);
-
 			for (int i = nodes.Count - 1; i >= 0; i--)
 			{
 				BaseNode node = nodes[i];
+				if (node == null)
+				{
+					nodes.RemoveAt(i);
+					continue;
+				}
+				
 				nodesPerGUID[node.GUID] = node;
 				node.Initialize(this);
 			}
@@ -497,26 +480,6 @@ namespace GraphProcessor
 		}
 
 		/// <summary>
-		/// Add a StackNode
-		/// </summary>
-		/// <param name="stackNode"></param>
-		public void AddStackNode(BaseStackNode stackNode)
-		{
-			stackNodes.Add(stackNode);
-			onGraphChanges?.Invoke(new GraphChanges { addedStackNode = stackNode });
-		}
-
-		/// <summary>
-		/// Remove a StackNode
-		/// </summary>
-		/// <param name="stackNode"></param>
-		public void RemoveStackNode(BaseStackNode stackNode)
-		{
-			stackNodes.Remove(stackNode);
-			onGraphChanges?.Invoke(new GraphChanges { removedStackNode = stackNode });
-		}
-
-		/// <summary>
 		/// Add a sticky note
 		/// </summary>
 		/// <param name="note"></param>
@@ -628,7 +591,6 @@ namespace GraphProcessor
 		public void OnBeforeSerialize()
 		{
 			// Cleanup broken elements
-			stackNodes.RemoveAll(s => s == null);
 			nodes.RemoveAll(n => n == null);
 			RemoveDuplicateEdges();
 			return;
@@ -756,36 +718,6 @@ namespace GraphProcessor
 			}
 
 			return null;
-		}
-
-		/// <summary>
-		/// Link the current graph to the scene in parameter, allowing the graph to pick and serialize objects from the scene.
-		/// </summary>
-		/// <param name="scene">Target scene to link</param>
-		public void LinkToScene(Scene scene)
-		{
-			linkedScene = scene;
-			onSceneLinked?.Invoke(scene);
-		}
-
-		/// <summary>
-		/// Return true when the graph is linked to a scene, false otherwise.
-		/// </summary>
-		public bool IsLinkedToScene() => linkedScene.IsValid();
-
-		/// <summary>
-		/// Get the linked scene. If there is no linked scene, it returns an invalid scene
-		/// </summary>
-		public Scene GetLinkedScene() => linkedScene;
-
-		private void DestroyBrokenGraphElements()
-		{
-			edges.RemoveAll(e => e.ToNode == null
-			                     || e.FromNode == null
-			                     || string.IsNullOrEmpty(e.OutputFieldPath)
-			                     || string.IsNullOrEmpty(e.InputFieldPath)
-			);
-			nodes.RemoveAll(n => n == null);
 		}
 
 		/// <summary>
