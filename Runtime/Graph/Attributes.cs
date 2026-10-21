@@ -30,7 +30,7 @@ namespace GraphProcessor
 	/// Tell that this field is will generate an output port
 	/// </summary>
 	[AttributeUsage(AttributeTargets.Field)]
-	[MeansImplicitUse]
+	[MeansImplicitUse(ImplicitUseKindFlags.Access)]
 	public sealed class OutputAttribute : Attribute
 	{
 		public string name;
@@ -52,7 +52,7 @@ namespace GraphProcessor
 	/// Mark the field as a parent to <see cref="OutputAttribute"/> fields.
 	/// </summary>
 	[AttributeUsage(AttributeTargets.Field)]
-	[MeansImplicitUse]
+	[MeansImplicitUse(ImplicitUseKindFlags.Access)]
 	public sealed class OutputObjectAttribute : Attribute
 	{
 		public OutputObjectAttribute() { }
